@@ -179,7 +179,11 @@ export function StartPage() {
                     scale: [1, 1.1, 1],
                     opacity: [0.28, 0.58, 0.28],
                   }}
-                  transition={{ duration: 7, repeat: Infinity, ease: "easeInOut" }}
+                  transition={{
+                    duration: 7,
+                    repeat: Infinity,
+                    ease: "easeInOut",
+                  }}
                 />
 
                 {/* 3. 右侧幽青星尘：错峰呼吸 */}
@@ -199,18 +203,6 @@ export function StartPage() {
 
                 {/* 4. 底部暗蓝沉淀：增加体积 */}
                 <div className="absolute left-1/2 top-[76%] h-[6rem] w-[23rem] -translate-x-1/2 -translate-y-1/2 rounded-[100%] bg-blue-900/28 blur-[62px] sm:h-[8rem] sm:w-[45rem] sm:blur-[80px]" />
-
-                {/* 5. 低亮恒星核：补充“星体”语义，避免纯几何光斑 */}
-                <motion.div
-                  className="absolute left-[43%] top-[49%] h-1.5 w-1.5 rounded-full bg-cyan-100/80 blur-[1px]"
-                  animate={{ opacity: [0.45, 0.9, 0.45], scale: [0.9, 1.18, 0.9] }}
-                  transition={{ duration: 3.8, repeat: Infinity, ease: "easeInOut" }}
-                />
-                <motion.div
-                  className="absolute left-[58%] top-[55%] h-1 w-1 rounded-full bg-indigo-100/70 blur-[1px]"
-                  animate={{ opacity: [0.32, 0.72, 0.32], scale: [0.92, 1.12, 0.92] }}
-                  transition={{ duration: 4.6, repeat: Infinity, ease: "easeInOut", delay: 0.9 }}
-                />
               </div>
 
               <div className="relative z-10">
