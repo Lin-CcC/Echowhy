@@ -167,14 +167,12 @@ export function StartPage() {
             </h2>
 
             <div className="relative flex flex-col items-center">
+              {/* 极致柔和的星云环 (Nebula Halo) - 彻底消灭方形边缘 */}
               <motion.div
-                className="pointer-events-none absolute inset-0 rounded-full bg-cyan-600/5"
+                className="pointer-events-none absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[44rem] h-[8rem] bg-cyan-500/20 blur-[70px] rounded-[100%]"
                 animate={{
-                  boxShadow: [
-                    '0px 0px 0px rgba(6,182,212,0)',
-                    '0px 0px 30px rgba(6,182,212,0.15)',
-                    '0px 0px 0px rgba(6,182,212,0)',
-                  ],
+                  opacity: [0.4, 0.8, 0.4],
+                  scale: [0.95, 1.05, 0.95],
                 }}
                 transition={{ duration: 4, repeat: Infinity, ease: 'easeInOut' }}
               />
