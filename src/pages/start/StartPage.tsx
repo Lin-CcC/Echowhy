@@ -13,48 +13,12 @@ const bubblePlacements = [
   "left-[8%] top-[46%]",
 ] as const;
 
-type MacroArc = {
-  id: number;
-  size: number;
-  top: number;
-  left: number;
-  rotateTo: number;
-  duration: number;
-  delay: number;
-  opacityPeak: number;
-};
-
-type AxisLine = {
-  id: number;
-  left: number;
-  angle: 45 | -45;
-  driftX: number;
-  duration: number;
-  delay: number;
-  opacityPeak: number;
-};
-
-type MicroShape = {
-  id: number;
-  isCross: boolean;
-  size: number;
-  top: number;
-  left: number;
-  driftX: number;
-  driftY: number;
-  duration: number;
-  delay: number;
-  opacityPeak: number;
-};
-
 export function StartPage() {
   const { theme, mode } = useThemeMode();
   const navigate = useNavigate();
   const [sourceId, setSourceId] = useState<string | null>(null);
   const [isAwake, setIsAwake] = useState(false);
   const [textVisible, setTextVisible] = useState(true);
-  const [shapeCount, setShapeCount] = useState(20);
-  const [viewport, setViewport] = useState({ width: 0, height: 0 });
 
   useEffect(() => {
     const textTimer = window.setTimeout(() => {
@@ -68,31 +32,6 @@ export function StartPage() {
     return () => {
       window.clearTimeout(textTimer);
       window.clearTimeout(awakeTimer);
-    };
-  }, []);
-
-  useEffect(() => {
-    const visitedKey = "echowhy-start-visited";
-    const visited = window.sessionStorage.getItem(visitedKey);
-    if (!visited) {
-      setShapeCount(32);
-      window.sessionStorage.setItem(visitedKey, "true");
-      return;
-    }
-
-    setShapeCount(20);
-  }, []);
-
-  useEffect(() => {
-    const syncViewport = () => {
-      setViewport({ width: window.innerWidth, height: window.innerHeight });
-    };
-
-    syncViewport();
-    window.addEventListener("resize", syncViewport);
-
-    return () => {
-      window.removeEventListener("resize", syncViewport);
     };
   }, []);
 
@@ -118,62 +57,6 @@ export function StartPage() {
     }),
     [],
   );
-
-  const generativeField = useMemo(() => {
-    const viewportWidth = Math.max(1280, viewport.width);
-    const viewportHeight = Math.max(720, viewport.height);
-    const areaFactor = Math.min(
-      1.25,
-      Math.max(0.85, (viewportWidth * viewportHeight) / (1280 * 720)),
-    );
-
-    const macroCount = 3 + Math.floor(Math.random() * 3);
-    const axisCount = 4 + Math.floor(Math.random() * 3);
-    const baseMicro = shapeCount > 20 ? 20 : 16;
-    const microCount = Math.max(
-      15,
-      Math.min(20, Math.round(baseMicro * areaFactor * 0.92)),
-    );
-
-    const macroArcs: MacroArc[] = [...Array(macroCount)].map((_, i) => ({
-      id: i,
-      size: Math.random() * 700 + 800,
-      top: Math.random() * 100 - 40,
-      left: Math.random() * 100 - 40,
-      rotateTo: Math.random() > 0.5 ? 110 : -110,
-      duration: Math.random() * 100 + 100,
-      delay: Math.random() * -120,
-      opacityPeak: Math.random() * 0.18 + 0.42,
-    }));
-
-    const axisLines: AxisLine[] = [...Array(axisCount)].map((_, i) => ({
-      id: i,
-      left: Math.random() * 100,
-      angle: Math.random() > 0.5 ? 45 : -45,
-      driftX: Math.random() * 240 - 120,
-      duration: Math.random() * 50 + 45,
-      delay: Math.random() * -50,
-      opacityPeak: Math.random() * 0.17 + 0.45,
-    }));
-
-    const microShapes: MicroShape[] = [...Array(microCount)].map((_, i) => {
-      const size = Math.random() * 30 + 10;
-      return {
-        id: i,
-        isCross: Math.random() > 0.45,
-        size,
-        top: Math.random() * 100,
-        left: Math.random() * 100,
-        driftX: Math.random() * 24 - 12,
-        driftY: Math.random() * -36 - 12,
-        duration: Math.random() * 15 + 15,
-        delay: Math.random() * -30,
-        opacityPeak: Math.random() * 0.22 + 0.4,
-      };
-    });
-
-    return { macroArcs, axisLines, microShapes };
-  }, [shapeCount, viewport.height, viewport.width]);
 
   const isDarkDynamic = theme === "dark" && mode === "dynamic";
   const isLightDynamic = theme === "light" && mode === "dynamic";
@@ -257,88 +140,41 @@ export function StartPage() {
       ) : null}
 
       {isLightDynamic ? (
-        <div className="absolute inset-0 z-0 overflow-hidden pointer-events-none">
-          {generativeField.macroArcs.map((arc) => (
-            <motion.div
-              key={`macro-${arc.id}`}
-              className="absolute rounded-full border-[0.8px] border-slate-500/60"
-              style={{
-                width: arc.size,
-                height: arc.size,
-                top: `${arc.top}%`,
-                left: `${arc.left}%`,
-              }}
-              initial={{ opacity: 0, rotate: 0 }}
-              animate={{
-                opacity: [0, arc.opacityPeak, arc.opacityPeak, 0],
-                rotate: [0, arc.rotateTo],
-              }}
-              transition={{
-                duration: arc.duration,
-                repeat: Infinity,
-                ease: "linear",
-                delay: arc.delay,
-              }}
-            />
-          ))}
+        <div className="absolute inset-0 z-0 overflow-hidden pointer-events-none flex items-center justify-center">
+          <motion.div
+            className="absolute rounded-[50%] border border-slate-500/45"
+            style={{ width: "220vw", height: "80vw" }}
+            animate={{ rotate: 360 }}
+            transition={{ duration: 180, repeat: Infinity, ease: "linear" }}
+          />
 
-          {generativeField.axisLines.map((line) => (
-            <motion.div
-              key={`axis-${line.id}`}
-              className="absolute w-px bg-linear-to-b from-transparent via-slate-500/70 to-transparent"
-              style={{
-                height: "200vh",
-                top: "-50%",
-                left: `${line.left}%`,
-                transform: `rotate(${line.angle}deg)`,
-              }}
-              initial={{ opacity: 0, x: 0 }}
-              animate={{
-                opacity: [0, line.opacityPeak, line.opacityPeak, 0],
-                x: [0, line.driftX],
-              }}
-              transition={{
-                duration: line.duration,
-                repeat: Infinity,
-                ease: "easeInOut",
-                delay: line.delay,
-              }}
-            />
-          ))}
+          <motion.div
+            className="absolute rounded-[50%] border border-slate-500/35"
+            style={{ width: "180vw", height: "140vw" }}
+            animate={{ rotate: -360 }}
+            transition={{ duration: 250, repeat: Infinity, ease: "linear" }}
+          />
 
-          {generativeField.microShapes.map((micro) => (
-            <motion.div
-              key={`micro-${micro.id}`}
-              className="absolute flex items-center justify-center font-extralight text-slate-500/70"
-              style={{
-                top: `${micro.top}%`,
-                left: `${micro.left}%`,
-                width: micro.isCross ? "auto" : micro.size,
-                height: micro.isCross ? "auto" : micro.size,
-                border: micro.isCross
-                  ? "none"
-                  : "0.8px solid rgba(100,116,139,0.62)",
-                borderRadius: micro.isCross ? "0" : "9999px",
-              }}
-              initial={{ opacity: 0, scale: 0.8 }}
-              animate={{
-                opacity: [0, micro.opacityPeak, micro.opacityPeak, 0],
-                scale: [0.8, 1, 1],
-                x: [0, micro.driftX],
-                y: [0, micro.driftY],
-              }}
-              transition={{
-                duration: micro.duration,
-                repeat: Infinity,
-                ease: "easeInOut",
-                delay: micro.delay,
-              }}
-            >
-              {micro.isCross ? (
-                <span style={{ fontSize: micro.size, lineHeight: 1 }}>+</span>
-              ) : null}
-            </motion.div>
-          ))}
+          <motion.div
+            className="absolute rounded-[50%] border border-slate-500/30"
+            style={{
+              width: "160vw",
+              height: "160vw",
+              top: "-20%",
+              left: "-10%",
+            }}
+            animate={{ rotate: 360, scale: [1, 1.05, 1] }}
+            transition={{
+              rotate: { duration: 300, repeat: Infinity, ease: "linear" },
+              scale: { duration: 60, repeat: Infinity, ease: "easeInOut" },
+            }}
+          />
+
+          <motion.div
+            className="absolute h-px w-[200vw] bg-linear-to-r from-transparent via-slate-500/35 to-transparent"
+            animate={{ rotate: [0, 5, 0, -5, 0] }}
+            transition={{ duration: 120, repeat: Infinity, ease: "easeInOut" }}
+          />
         </div>
       ) : null}
 
@@ -349,7 +185,7 @@ export function StartPage() {
             background:
               theme === "dark"
                 ? "radial-gradient(circle, rgba(200,240,255,0.08) 0%, rgba(6,182,212,0) 70%)"
-                : "radial-gradient(circle, rgba(14,165,233,0.12) 0%, rgba(14,165,233,0) 70%)",
+                : "radial-gradient(circle, rgba(14,165,233,0.06) 0%, rgba(14,165,233,0) 70%)",
             transform: "translate(-50%, -50%)",
           }}
           initial={{ width: 0, height: 0, opacity: 0 }}
