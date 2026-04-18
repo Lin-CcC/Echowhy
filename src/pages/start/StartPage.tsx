@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { useNavigate } from "@tanstack/react-router";
 import { QuestionEntry } from "@/features/start-entry/components/question-entry";
@@ -19,6 +19,8 @@ export function StartPage() {
   const [sourceId, setSourceId] = useState<string | null>(null);
   const [isAwake, setIsAwake] = useState(false);
   const [textVisible, setTextVisible] = useState(true);
+  const constellationCanvasRef = useRef<HTMLCanvasElement | null>(null);
+  const constellationFrameRef = useRef<number | null>(null);
 
   useEffect(() => {
     const textTimer = window.setTimeout(() => {
@@ -60,6 +62,132 @@ export function StartPage() {
 
   const isDarkDynamic = theme === "dark" && mode === "dynamic";
   const isLightDynamic = theme === "light" && mode === "dynamic";
+
+  useEffect(() => {
+    if (!isLightDynamic) {
+      if (constellationFrameRef.current != null) {
+        window.cancelAnimationFrame(constellationFrameRef.current);
+        constellationFrameRef.current = null;
+      }
+      return;
+    }
+
+    const canvas = constellationCanvasRef.current;
+    if (!canvas) {
+      return;
+    }
+
+    const ctx = canvas.getContext("2d");
+    if (!ctx) {
+      return;
+    }
+
+    const nodeCount = Math.floor(Math.random() * 7) + 18; // 18-24
+    const maxDistance = 300;
+
+    const nodes: Array<{
+      x: number;
+      y: number;
+      vx: number;
+      vy: number;
+      r: number;
+    }> = [];
+
+    const resize = () => {
+      const dpr = window.devicePixelRatio || 1;
+      const rect = canvas.getBoundingClientRect();
+      canvas.width = Math.max(1, Math.floor(rect.width * dpr));
+      canvas.height = Math.max(1, Math.floor(rect.height * dpr));
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    };
+
+    resize();
+
+    const width = () => canvas.clientWidth;
+    const height = () => canvas.clientHeight;
+
+    for (let i = 0; i < nodeCount; i += 1) {
+      const angle = Math.random() * Math.PI * 2;
+      const speed = 0.15 + Math.random() * 0.3; // px/s, < 0.5
+      nodes.push({
+        x: Math.random() * width(),
+        y: Math.random() * height(),
+        vx: Math.cos(angle) * speed,
+        vy: Math.sin(angle) * speed,
+        r: 1.6 + Math.random() * 1.2,
+      });
+    }
+
+    let lastTs = performance.now();
+
+    const render = (ts: number) => {
+      const dt = Math.min(0.05, (ts - lastTs) / 1000);
+      lastTs = ts;
+
+      const w = width();
+      const h = height();
+
+      ctx.clearRect(0, 0, w, h);
+
+      for (let i = 0; i < nodes.length; i += 1) {
+        const n = nodes[i];
+
+        n.x += n.vx * dt;
+        n.y += n.vy * dt;
+
+        if (n.x <= 0 || n.x >= w) {
+          n.vx *= -1;
+          n.x = Math.min(w, Math.max(0, n.x));
+        }
+        if (n.y <= 0 || n.y >= h) {
+          n.vy *= -1;
+          n.y = Math.min(h, Math.max(0, n.y));
+        }
+      }
+
+      for (let i = 0; i < nodes.length; i += 1) {
+        for (let j = i + 1; j < nodes.length; j += 1) {
+          const a = nodes[i];
+          const b = nodes[j];
+          const dx = a.x - b.x;
+          const dy = a.y - b.y;
+          const dist = Math.hypot(dx, dy);
+
+          if (dist < maxDistance) {
+            const t = 1 - dist / maxDistance;
+            const alpha = Math.pow(t, 1.05) * 0.42;
+            ctx.strokeStyle = `rgba(100,116,139,${alpha.toFixed(4)})`;
+            ctx.lineWidth = 0.8;
+            ctx.beginPath();
+            ctx.moveTo(a.x, a.y);
+            ctx.lineTo(b.x, b.y);
+            ctx.stroke();
+          }
+        }
+      }
+
+      for (let i = 0; i < nodes.length; i += 1) {
+        const n = nodes[i];
+        ctx.fillStyle = "rgba(100,116,139,0.95)";
+        ctx.beginPath();
+        ctx.arc(n.x, n.y, n.r, 0, Math.PI * 2);
+        ctx.fill();
+      }
+
+      constellationFrameRef.current = window.requestAnimationFrame(render);
+    };
+
+    constellationFrameRef.current = window.requestAnimationFrame(render);
+    window.addEventListener("resize", resize);
+
+    return () => {
+      window.removeEventListener("resize", resize);
+      if (constellationFrameRef.current != null) {
+        window.cancelAnimationFrame(constellationFrameRef.current);
+        constellationFrameRef.current = null;
+      }
+    };
+  }, [isLightDynamic]);
 
   return (
     <section className="relative isolate flex min-h-screen w-full items-center justify-center overflow-hidden bg-slate-50 dark:bg-transparent">
@@ -140,40 +268,19 @@ export function StartPage() {
       ) : null}
 
       {isLightDynamic ? (
-        <div className="absolute inset-0 z-0 overflow-hidden pointer-events-none flex items-center justify-center">
-          <motion.div
-            className="absolute rounded-[50%] border border-slate-500/45"
-            style={{ width: "220vw", height: "80vw" }}
-            animate={{ rotate: 360 }}
-            transition={{ duration: 180, repeat: Infinity, ease: "linear" }}
+        <div className="absolute inset-0 z-0 overflow-hidden pointer-events-none">
+          <canvas
+            ref={constellationCanvasRef}
+            className="absolute inset-0 h-full w-full"
           />
 
-          <motion.div
-            className="absolute rounded-[50%] border border-slate-500/35"
-            style={{ width: "180vw", height: "140vw" }}
-            animate={{ rotate: -360 }}
-            transition={{ duration: 250, repeat: Infinity, ease: "linear" }}
-          />
-
-          <motion.div
-            className="absolute rounded-[50%] border border-slate-500/30"
+          <div
+            className="absolute inset-0 z-[-1]"
             style={{
-              width: "160vw",
-              height: "160vw",
-              top: "-20%",
-              left: "-10%",
+              backgroundImage:
+                "linear-gradient(rgba(148,163,184,0.02) 1px, transparent 1px), linear-gradient(90deg, rgba(148,163,184,0.02) 1px, transparent 1px)",
+              backgroundSize: "40px 40px",
             }}
-            animate={{ rotate: 360, scale: [1, 1.05, 1] }}
-            transition={{
-              rotate: { duration: 300, repeat: Infinity, ease: "linear" },
-              scale: { duration: 60, repeat: Infinity, ease: "easeInOut" },
-            }}
-          />
-
-          <motion.div
-            className="absolute h-px w-[200vw] bg-linear-to-r from-transparent via-slate-500/35 to-transparent"
-            animate={{ rotate: [0, 5, 0, -5, 0] }}
-            transition={{ duration: 120, repeat: Infinity, ease: "easeInOut" }}
           />
         </div>
       ) : null}
@@ -185,7 +292,7 @@ export function StartPage() {
             background:
               theme === "dark"
                 ? "radial-gradient(circle, rgba(200,240,255,0.08) 0%, rgba(6,182,212,0) 70%)"
-                : "radial-gradient(circle, rgba(14,165,233,0.06) 0%, rgba(14,165,233,0) 70%)",
+                : "radial-gradient(circle, rgba(14,165,233,0) 0%, rgba(14,165,233,0) 70%)",
             transform: "translate(-50%, -50%)",
           }}
           initial={{ width: 0, height: 0, opacity: 0 }}
