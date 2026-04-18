@@ -13,12 +13,43 @@ const bubblePlacements = [
   "left-[8%] top-[46%]",
 ] as const;
 
+type EuclidShape = {
+  id: number;
+  kind:
+    | "circle"
+    | "square"
+    | "triangle"
+    | "pentagon"
+    | "rectangle"
+    | "crosshair";
+  width: number;
+  height: number;
+  lifecycleDuration: number;
+  moveDurationX: number;
+  moveDurationY: number;
+  rotateDuration: number;
+  rotateDirection: 1 | -1;
+  delay: number;
+  top: number;
+  left: number;
+  rotateStart: number;
+  driftX1: number;
+  driftX2: number;
+  driftY1: number;
+  driftY2: number;
+  appearAt: number;
+  holdUntil: number;
+  peakOpacity: number;
+  borderAlpha: number;
+};
+
 export function StartPage() {
   const { theme, mode } = useThemeMode();
   const navigate = useNavigate();
   const [sourceId, setSourceId] = useState<string | null>(null);
   const [isAwake, setIsAwake] = useState(false);
   const [textVisible, setTextVisible] = useState(true);
+  const [shapeCount, setShapeCount] = useState(20);
 
   useEffect(() => {
     const textTimer = window.setTimeout(() => {
@@ -33,6 +64,18 @@ export function StartPage() {
       window.clearTimeout(textTimer);
       window.clearTimeout(awakeTimer);
     };
+  }, []);
+
+  useEffect(() => {
+    const visitedKey = "echowhy-start-visited";
+    const visited = window.sessionStorage.getItem(visitedKey);
+    if (!visited) {
+      setShapeCount(32);
+      window.sessionStorage.setItem(visitedKey, "true");
+      return;
+    }
+
+    setShapeCount(20);
   }, []);
 
   const goToTopic = (topicId: string) => {
@@ -56,6 +99,68 @@ export function StartPage() {
       }),
     }),
     [],
+  );
+
+  const euclidShapes = useMemo<EuclidShape[]>(
+    () =>
+      [...Array(shapeCount)].map((_, i) => {
+        const lifecycleDuration = Math.random() * 24 + 18;
+        const appearAt = Math.random() * 0.18 + 0.1;
+        const holdUntil = appearAt + Math.random() * 0.34 + 0.36;
+        const kinds: EuclidShape["kind"][] = [
+          "circle",
+          "square",
+          "triangle",
+          "pentagon",
+          "rectangle",
+          "crosshair",
+        ];
+        const kind = kinds[i % kinds.length];
+        const minSize = 38;
+        const hugeBonus = Math.random() < 0.26 ? Math.random() * 180 + 120 : 0;
+        const baseSize = minSize + Math.random() * 90 + hugeBonus;
+
+        const width =
+          kind === "rectangle"
+            ? Math.max(56, baseSize * (1.2 + Math.random() * 1.1))
+            : baseSize;
+        const height =
+          kind === "rectangle"
+            ? Math.max(34, baseSize * (0.45 + Math.random() * 0.5))
+            : baseSize;
+
+        const maxDimension = Math.max(width, height);
+        const sizeFactor = Math.min(1, Math.max(0, (maxDimension - 38) / 320));
+        const moveDurationX = 22 + sizeFactor * 28 + Math.random() * 10;
+        const moveDurationY = 24 + sizeFactor * 26 + Math.random() * 10;
+        const rotateDuration = 78 + sizeFactor * 110 + Math.random() * 24;
+        const rotateDirection = Math.random() > 0.5 ? 1 : -1;
+
+        return {
+          id: i,
+          kind,
+          width,
+          height,
+          lifecycleDuration,
+          moveDurationX,
+          moveDurationY,
+          rotateDuration,
+          rotateDirection,
+          delay: Math.random() * 3.8,
+          top: Math.random() * 100,
+          left: Math.random() * 100,
+          rotateStart: Math.random() * 360,
+          driftX1: Math.random() * 120 - 60,
+          driftX2: Math.random() * 180 - 90,
+          driftY1: Math.random() * 120 - 60,
+          driftY2: Math.random() * 180 - 90,
+          appearAt,
+          holdUntil,
+          peakOpacity: Math.random() * 0.18 + 0.34,
+          borderAlpha: Math.random() * 0.2 + 0.3,
+        };
+      }),
+    [shapeCount],
   );
 
   const isDarkDynamic = theme === "dark" && mode === "dynamic";
@@ -140,92 +245,90 @@ export function StartPage() {
       ) : null}
 
       {isLightDynamic ? (
-        <div className="pointer-events-none absolute inset-0 z-0 overflow-hidden">
-          <div
-            className="absolute inset-0 opacity-30"
-            style={{
-              backgroundImage:
-                "linear-gradient(rgba(148,163,184,0.08) 1px, transparent 1px), linear-gradient(90deg, rgba(148,163,184,0.08) 1px, transparent 1px)",
-              backgroundSize: "60px 60px",
-            }}
-          />
+        <div className="absolute inset-0 z-0 overflow-hidden pointer-events-none">
+          {euclidShapes.map((shape) => {
+            const borderColor = `rgba(148,163,184,${shape.borderAlpha})`;
+            const fillColor = `rgba(148,163,184,${Math.max(0.06, shape.borderAlpha * 0.12)})`;
 
-          <motion.div
-            className="absolute top-1/2 left-1/2 h-[120vw] w-[120vw] -translate-x-1/2 -translate-y-1/2 rounded-full border-[0.5px] border-slate-300/30"
-            style={{ top: "56%" }}
-            animate={{ rotate: 360 }}
-            transition={{ duration: 200, repeat: Infinity, ease: "linear" }}
-          />
+            const clipPath =
+              shape.kind === "triangle"
+                ? "polygon(50% 0%, 0% 100%, 100% 100%)"
+                : shape.kind === "pentagon"
+                  ? "polygon(50% 0%, 95% 35%, 78% 100%, 22% 100%, 5% 35%)"
+                  : "none";
 
-          <motion.div
-            className="absolute top-1/2 left-1/2 h-[84vw] w-[84vw] -translate-x-1/2 -translate-y-1/2 rounded-full border-[0.5px] border-slate-300/20"
-            style={{ top: "56%" }}
-            animate={{ rotate: -360 }}
-            transition={{ duration: 260, repeat: Infinity, ease: "linear" }}
-          />
-
-          <motion.div
-            className="absolute -top-1/4 left-1/4 h-[150vh] w-px bg-linear-to-b from-transparent via-slate-300/40 to-transparent rotate-45"
-            animate={{ x: [0, 22, 0], y: [0, -18, 0] }}
-            transition={{ duration: 120, repeat: Infinity, ease: "linear" }}
-          />
-
-          <motion.div
-            className="absolute -top-1/3 left-[60%] h-[170vh] w-px bg-linear-to-b from-transparent via-slate-300/35 to-transparent -rotate-45"
-            animate={{ x: [0, -18, 0], y: [0, 16, 0] }}
-            transition={{ duration: 140, repeat: Infinity, ease: "linear" }}
-          />
-
-          <motion.div
-            className="absolute -top-1/4 left-[46%] h-[155vh] w-px bg-linear-to-b from-transparent via-slate-300/28 to-transparent rotate-12"
-            animate={{ x: [0, 12, 0], y: [0, 10, 0] }}
-            transition={{ duration: 170, repeat: Infinity, ease: "linear" }}
-          />
-
-          <div className="absolute inset-0">
-            <motion.div
-              className="absolute left-[18%] top-[28%]"
-              animate={{ y: ["-2%", "2%", "-2%"], rotate: [0, 90, 0] }}
-              transition={{ duration: 40, repeat: Infinity, ease: "easeInOut" }}
-            >
-              <div className="relative h-24 w-24 border border-slate-300/50">
-                <div className="absolute inset-3 rounded-full border border-slate-300/40" />
-              </div>
-            </motion.div>
-
-            <motion.div
-              className="absolute right-[14%] top-[30%]"
-              animate={{ y: ["2%", "-2%", "2%"], rotate: [0, -90, 0] }}
-              transition={{ duration: 46, repeat: Infinity, ease: "easeInOut" }}
-            >
-              <div className="relative h-20 w-20 border border-slate-300/50 rotate-12">
-                <div
-                  className="absolute inset-2 border border-slate-300/40"
-                  style={{ clipPath: "polygon(50% 0%, 0% 100%, 100% 100%)" }}
-                />
-              </div>
-            </motion.div>
-
-            <motion.div
-              className="absolute left-[26%] bottom-[18%]"
-              animate={{ y: ["-2%", "2%", "-2%"], rotate: [0, 90, 0] }}
-              transition={{ duration: 52, repeat: Infinity, ease: "easeInOut" }}
-            >
-              <div className="relative h-28 w-28 border border-slate-300/45">
-                <div className="absolute inset-4 border border-slate-300/35 rotate-45" />
-              </div>
-            </motion.div>
-
-            <motion.div
-              className="absolute right-[24%] bottom-[20%]"
-              animate={{ y: ["2%", "-2%", "2%"], rotate: [0, -90, 0] }}
-              transition={{ duration: 44, repeat: Infinity, ease: "easeInOut" }}
-            >
-              <div className="relative h-20 w-20 border border-slate-300/50 rounded-full">
-                <div className="absolute inset-2 border border-slate-300/35" />
-              </div>
-            </motion.div>
-          </div>
+            return (
+              <motion.div
+                key={shape.id}
+                className="absolute flex items-center justify-center font-extralight mix-blend-multiply text-slate-500/55"
+                style={{
+                  top: `${shape.top}%`,
+                  left: `${shape.left}%`,
+                  width: shape.kind === "crosshair" ? "auto" : shape.width,
+                  height: shape.kind === "crosshair" ? "auto" : shape.height,
+                  border:
+                    shape.kind === "crosshair"
+                      ? "none"
+                      : `1px solid ${borderColor}`,
+                  borderRadius: shape.kind === "circle" ? "50%" : "0",
+                  backgroundColor:
+                    shape.kind === "crosshair" ? "transparent" : fillColor,
+                  clipPath,
+                  transform: `rotate(${shape.rotateStart}deg)`,
+                }}
+                initial={{ opacity: 0 }}
+                animate={{
+                  opacity: [0, shape.peakOpacity, shape.peakOpacity, 0],
+                  x: [0, shape.driftX1, shape.driftX2],
+                  y: [0, shape.driftY1, shape.driftY2],
+                  rotate:
+                    shape.kind !== "crosshair"
+                      ? [
+                          0,
+                          72 * shape.rotateDirection,
+                          138 * shape.rotateDirection,
+                        ]
+                      : 0,
+                }}
+                transition={{
+                  opacity: {
+                    duration: shape.lifecycleDuration,
+                    repeat: Infinity,
+                    ease: "easeInOut",
+                    delay: shape.delay,
+                    times: [0, shape.appearAt, shape.holdUntil, 1],
+                  },
+                  x: {
+                    duration: shape.moveDurationX,
+                    repeat: Infinity,
+                    ease: "easeInOut",
+                    delay: shape.delay,
+                    repeatType: "mirror",
+                  },
+                  y: {
+                    duration: shape.moveDurationY,
+                    repeat: Infinity,
+                    ease: "easeInOut",
+                    delay: shape.delay,
+                    repeatType: "mirror",
+                  },
+                  rotate: {
+                    duration: shape.rotateDuration,
+                    repeat: Infinity,
+                    ease: "linear",
+                    delay: shape.delay,
+                    repeatType: "mirror",
+                  },
+                }}
+              >
+                {shape.kind === "crosshair" ? (
+                  <span style={{ fontSize: Math.max(18, shape.width * 0.3) }}>
+                    +
+                  </span>
+                ) : null}
+              </motion.div>
+            );
+          })}
         </div>
       ) : null}
 
@@ -319,12 +422,7 @@ export function StartPage() {
                   )}
                   style={{ animationDelay: `${index * 0.9}s` }}
                 >
-                  <span
-                    className={cn(
-                      "block text-[10px] uppercase tracking-[0.24em]",
-                      theme === "dark" ? "text-slate-400" : "text-slate-400",
-                    )}
-                  >
+                  <span className="block text-[10px] uppercase tracking-[0.24em] text-slate-400">
                     guided path
                   </span>
                   <span className="mt-2 block">{question.label}</span>
