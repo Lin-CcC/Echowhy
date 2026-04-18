@@ -59,24 +59,65 @@ export function StartPage() {
   return (
     <section className="relative isolate flex min-h-screen w-full items-center justify-center overflow-hidden">
       <div className="pointer-events-none absolute inset-0 z-0 overflow-hidden">
-        <div className="absolute inset-0 bg-[#02040a]" />
-        <div className="absolute -left-[12%] -top-[18%] h-[70vw] w-[70vw] rounded-full bg-indigo-900/20 blur-[120px] mix-blend-screen" />
-        <div className="absolute -bottom-[18%] -right-[12%] h-[62vw] w-[62vw] rounded-full bg-cyan-950/20 blur-[120px] mix-blend-screen" />
-        <div className="absolute left-1/2 top-1/2 h-[42vw] w-[42vw] -translate-x-1/2 -translate-y-1/2 rounded-full bg-cyan-400/5 blur-[110px]" />
+        <div className="absolute inset-0 bg-[#020308]" />
         <motion.div
-          className="absolute inset-0 opacity-40"
+          className="absolute -left-[10%] -top-[30%] h-[80vw] w-[80vw] rounded-full bg-indigo-900/10 blur-[160px] mix-blend-screen"
+          animate={{ scale: [1, 1.05, 1], opacity: [0.3, 0.5, 0.3] }}
+          transition={{ duration: 15, repeat: Infinity, ease: "easeInOut" }}
+        />
+        <motion.div
+          className="absolute -bottom-[30%] -right-[10%] h-[70vw] w-[70vw] rounded-full bg-cyan-900/10 blur-[160px] mix-blend-screen"
+          animate={{ scale: [1, 1.1, 1], opacity: [0.2, 0.4, 0.2] }}
+          transition={{ duration: 18, repeat: Infinity, ease: "easeInOut", delay: 2 }}
+        />
+        <motion.div
+          className="absolute inset-[-100%] opacity-30"
           style={{
-            backgroundImage: `
-              radial-gradient(1px 1px at 12% 18%, rgba(255,255,255,0.95), transparent),
-              radial-gradient(1px 1px at 28% 64%, rgba(226,232,240,0.75), transparent),
-              radial-gradient(2px 2px at 77% 24%, rgba(255,255,255,0.75), transparent),
-              radial-gradient(1px 1px at 84% 82%, rgba(226,232,240,0.85), transparent),
-              radial-gradient(1px 1px at 58% 32%, rgba(255,255,255,0.55), transparent)
-            `,
-            backgroundSize: "220px 220px",
+            backgroundImage:
+              "radial-gradient(1px 1px at 10% 10%, #fff, transparent), radial-gradient(1px 1px at 40% 60%, #fff, transparent), radial-gradient(1px 1px at 80% 30%, #fff, transparent)",
+            backgroundSize: "150px 150px",
           }}
-          animate={{ opacity: [0.28, 0.56, 0.3] }}
-          transition={{ duration: 9, repeat: Infinity, ease: "easeInOut" }}
+          animate={{ y: ["0%", "-30%"], opacity: [0.2, 0.5, 0.2] }}
+          transition={{
+            y: { duration: 150, repeat: Infinity, ease: "linear" },
+            opacity: { duration: 5, repeat: Infinity, ease: "easeInOut" },
+          }}
+        />
+        <motion.div
+          className="absolute inset-[-100%] opacity-40"
+          style={{
+            backgroundImage:
+              "radial-gradient(1.5px 1.5px at 20% 80%, #cbd5e1, transparent), radial-gradient(1.5px 1.5px at 70% 20%, #fff, transparent)",
+            backgroundSize: "250px 250px",
+          }}
+          animate={{ y: ["0%", "-40%"], opacity: [0.1, 0.8, 0.1] }}
+          transition={{
+            y: { duration: 100, repeat: Infinity, ease: "linear" },
+            opacity: {
+              duration: 3.5,
+              repeat: Infinity,
+              ease: "easeInOut",
+              delay: 1,
+            },
+          }}
+        />
+        <motion.div
+          className="absolute inset-[-100%] opacity-45"
+          style={{
+            backgroundImage:
+              "radial-gradient(2px 2px at 15% 35%, #ffffff, transparent), radial-gradient(2px 2px at 55% 75%, #dbeafe, transparent)",
+            backgroundSize: "360px 360px",
+          }}
+          animate={{ y: ["0%", "-52%"], opacity: [0.12, 0.7, 0.12] }}
+          transition={{
+            y: { duration: 72, repeat: Infinity, ease: "linear" },
+            opacity: {
+              duration: 2.8,
+              repeat: Infinity,
+              ease: "easeInOut",
+              delay: 0.6,
+            },
+          }}
         />
       </div>
 
@@ -162,7 +203,7 @@ export function StartPage() {
           ))}
 
           <div className="relative flex w-full flex-col items-center justify-center gap-12 text-center">
-            <h2 className="text-2xl font-extralight tracking-[0.08em] text-slate-100 drop-shadow-sm sm:text-3xl">
+            <h2 className="text-2xl font-extralight tracking-[0.08em] text-white/90 drop-shadow-[0_0_15px_rgba(255,255,255,0.3)] sm:text-3xl">
               What are you trying to understand?
             </h2>
 
