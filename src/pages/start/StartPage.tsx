@@ -15,13 +15,17 @@ const bubblePlacements = [
 
 type EuclidShape = {
   id: number;
+  sizeTier: "small" | "medium" | "large" | "hero";
   kind:
     | "circle"
     | "square"
     | "triangle"
     | "pentagon"
     | "rectangle"
-    | "crosshair";
+    | "hexagon"
+    | "diamond"
+    | "ellipse"
+    | "trapezoid";
   width: number;
   height: number;
   lifecycleDuration: number;
@@ -50,6 +54,7 @@ export function StartPage() {
   const [isAwake, setIsAwake] = useState(false);
   const [textVisible, setTextVisible] = useState(true);
   const [shapeCount, setShapeCount] = useState(20);
+  const [viewport, setViewport] = useState({ width: 0, height: 0 });
 
   useEffect(() => {
     const textTimer = window.setTimeout(() => {
@@ -78,6 +83,19 @@ export function StartPage() {
     setShapeCount(20);
   }, []);
 
+  useEffect(() => {
+    const syncViewport = () => {
+      setViewport({ width: window.innerWidth, height: window.innerHeight });
+    };
+
+    syncViewport();
+    window.addEventListener("resize", syncViewport);
+
+    return () => {
+      window.removeEventListener("resize", syncViewport);
+    };
+  }, []);
+
   const goToTopic = (topicId: string) => {
     void navigate({ to: "/topic/$id", params: { id: topicId } });
   };
@@ -101,67 +119,201 @@ export function StartPage() {
     [],
   );
 
-  const euclidShapes = useMemo<EuclidShape[]>(
-    () =>
-      [...Array(shapeCount)].map((_, i) => {
-        const lifecycleDuration = Math.random() * 24 + 18;
-        const appearAt = Math.random() * 0.18 + 0.1;
-        const holdUntil = appearAt + Math.random() * 0.34 + 0.36;
-        const kinds: EuclidShape["kind"][] = [
-          "circle",
-          "square",
-          "triangle",
-          "pentagon",
-          "rectangle",
-          "crosshair",
-        ];
-        const kind = kinds[i % kinds.length];
-        const minSize = 38;
-        const hugeBonus = Math.random() < 0.26 ? Math.random() * 180 + 120 : 0;
-        const baseSize = minSize + Math.random() * 90 + hugeBonus;
+  const euclidShapes = useMemo<EuclidShape[]>(() => {
+    const viewportWidth = Math.max(1280, viewport.width);
+    const viewportHeight = Math.max(720, viewport.height);
+    const viewportArea = Math.max(1280 * 720, viewport.width * viewport.height);
+    const heroMinArea = viewportArea * 0.25;
 
-        const width =
-          kind === "rectangle"
-            ? Math.max(56, baseSize * (1.2 + Math.random() * 1.1))
-            : baseSize;
-        const height =
-          kind === "rectangle"
-            ? Math.max(34, baseSize * (0.45 + Math.random() * 0.5))
-            : baseSize;
+    const tierPool: EuclidShape["sizeTier"][] = ["hero"];
+    for (let i = 1; i < shapeCount; i += 1) {
+      const r = Math.random();
+      tierPool.push(r < 0.58 ? "large" : r < 0.9 ? "medium" : "small");
+    }
 
-        const maxDimension = Math.max(width, height);
-        const sizeFactor = Math.min(1, Math.max(0, (maxDimension - 38) / 320));
-        const moveDurationX = 22 + sizeFactor * 28 + Math.random() * 10;
-        const moveDurationY = 24 + sizeFactor * 26 + Math.random() * 10;
-        const rotateDuration = 78 + sizeFactor * 110 + Math.random() * 24;
-        const rotateDirection = Math.random() > 0.5 ? 1 : -1;
+    for (let i = tierPool.length - 1; i > 0; i -= 1) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [tierPool[i], tierPool[j]] = [tierPool[j], tierPool[i]];
+    }
 
+    const largeAnchors = [
+      { x: 28, y: 33 },
+      { x: 72, y: 64 },
+    ];
+    const heroAnchors = [
+      { x: 22, y: 30 },
+      { x: 78, y: 68 },
+    ];
+
+    const placedRegions: Array<{
+      cx: number;
+      cy: number;
+      rx: number;
+      ry: number;
+    }> = [];
+
+    const sampleAnchoredPosition = (sizeTier: EuclidShape["sizeTier"]) => {
+      if (sizeTier === "hero") {
+        const anchor =
+          heroAnchors[Math.floor(Math.random() * heroAnchors.length)];
         return {
-          id: i,
-          kind,
-          width,
-          height,
-          lifecycleDuration,
-          moveDurationX,
-          moveDurationY,
-          rotateDuration,
-          rotateDirection,
-          delay: Math.random() * 3.8,
-          top: Math.random() * 100,
-          left: Math.random() * 100,
-          rotateStart: Math.random() * 360,
-          driftX1: Math.random() * 120 - 60,
-          driftX2: Math.random() * 180 - 90,
-          driftY1: Math.random() * 120 - 60,
-          driftY2: Math.random() * 180 - 90,
-          appearAt,
-          holdUntil,
-          peakOpacity: Math.random() * 0.18 + 0.34,
-          borderAlpha: Math.random() * 0.2 + 0.3,
+          top: Math.min(94, Math.max(6, anchor.y + (Math.random() * 20 - 10))),
+          left: Math.min(94, Math.max(6, anchor.x + (Math.random() * 22 - 11))),
         };
-      }),
-    [shapeCount],
-  );
+      }
+
+      if (sizeTier === "large") {
+        const anchor =
+          largeAnchors[Math.floor(Math.random() * largeAnchors.length)];
+        return {
+          top: Math.min(95, Math.max(5, anchor.y + (Math.random() * 18 - 9))),
+          left: Math.min(95, Math.max(5, anchor.x + (Math.random() * 20 - 10))),
+        };
+      }
+
+      return { top: Math.random() * 100, left: Math.random() * 100 };
+    };
+
+    const pickPositionWithSpacing = (
+      sizeTier: EuclidShape["sizeTier"],
+      width: number,
+      height: number,
+    ) => {
+      const gapScale =
+        sizeTier === "hero" ? 0.78 : sizeTier === "large" ? 0.72 : 0.62;
+      let fallback = sampleAnchoredPosition(sizeTier);
+
+      for (let tries = 0; tries < 22; tries += 1) {
+        const candidate = sampleAnchoredPosition(sizeTier);
+        fallback = candidate;
+
+        const cx = (candidate.left / 100) * viewportWidth + width / 2;
+        const cy = (candidate.top / 100) * viewportHeight + height / 2;
+        const rx = width / 2;
+        const ry = height / 2;
+
+        const hasHeavyOverlap = placedRegions.some((region) => {
+          const nx =
+            Math.abs(cx - region.cx) / Math.max(1, (rx + region.rx) * gapScale);
+          const ny =
+            Math.abs(cy - region.cy) / Math.max(1, (ry + region.ry) * gapScale);
+          return nx * nx + ny * ny < 1;
+        });
+
+        if (!hasHeavyOverlap) {
+          placedRegions.push({ cx, cy, rx, ry });
+          return candidate;
+        }
+      }
+
+      placedRegions.push({
+        cx: (fallback.left / 100) * viewportWidth + width / 2,
+        cy: (fallback.top / 100) * viewportHeight + height / 2,
+        rx: width / 2,
+        ry: height / 2,
+      });
+
+      return fallback;
+    };
+
+    return [...Array(shapeCount)].map((_, i) => {
+      const sizeTier = tierPool[i] ?? "medium";
+      const lifecycleDuration = Math.random() * 24 + 18;
+      const appearAt = Math.random() * 0.18 + 0.1;
+      const holdUntil = appearAt + Math.random() * 0.34 + 0.36;
+      const kinds: EuclidShape["kind"][] = [
+        "circle",
+        "square",
+        "triangle",
+        "pentagon",
+        "rectangle",
+        "hexagon",
+        "diamond",
+        "ellipse",
+        "trapezoid",
+      ];
+      const kind = kinds[i % kinds.length];
+      const baseSize =
+        sizeTier === "small"
+          ? 34 + Math.random() * 30
+          : sizeTier === "medium"
+            ? 74 + Math.random() * 70
+            : sizeTier === "large"
+              ? 160 + Math.random() * 240
+              : 320 + Math.random() * 300;
+
+      let width =
+        kind === "rectangle"
+          ? Math.max(56, baseSize * (1.2 + Math.random() * 1.1))
+          : baseSize;
+      let height =
+        kind === "rectangle"
+          ? Math.max(34, baseSize * (0.45 + Math.random() * 0.5))
+          : baseSize;
+
+      if (sizeTier === "hero") {
+        const currentArea = Math.max(1, width * height);
+        if (currentArea < heroMinArea) {
+          const scale = Math.sqrt(heroMinArea / currentArea);
+          width *= scale;
+          height *= scale;
+        }
+      }
+
+      const placement = pickPositionWithSpacing(sizeTier, width, height);
+
+      const maxDimension = Math.max(width, height);
+      const sizeFactor = Math.min(1, Math.max(0, (maxDimension - 38) / 320));
+      const moveDurationX =
+        (sizeTier === "hero" ? 34 : 22) + sizeFactor * 28 + Math.random() * 10;
+      const moveDurationY =
+        (sizeTier === "hero" ? 36 : 24) + sizeFactor * 26 + Math.random() * 10;
+      const rotateDuration =
+        (sizeTier === "hero" ? 130 : 78) +
+        sizeFactor * 110 +
+        Math.random() * 24;
+      const rotateDirection = Math.random() > 0.5 ? 1 : -1;
+
+      return {
+        id: i,
+        sizeTier,
+        kind,
+        width,
+        height,
+        lifecycleDuration,
+        moveDurationX,
+        moveDurationY,
+        rotateDuration,
+        rotateDirection,
+        delay: Math.random() * 3.8,
+        top: placement.top,
+        left: placement.left,
+        rotateStart: Math.random() * 360,
+        driftX1: Math.random() * 120 - 60,
+        driftX2: Math.random() * 180 - 90,
+        driftY1: Math.random() * 120 - 60,
+        driftY2: Math.random() * 180 - 90,
+        appearAt,
+        holdUntil,
+        peakOpacity:
+          sizeTier === "small"
+            ? Math.random() * 0.08 + 0.18
+            : sizeTier === "medium"
+              ? Math.random() * 0.12 + 0.3
+              : sizeTier === "large"
+                ? Math.random() * 0.16 + 0.4
+                : Math.random() * 0.1 + 0.3,
+        borderAlpha:
+          sizeTier === "small"
+            ? Math.random() * 0.08 + 0.18
+            : sizeTier === "medium"
+              ? Math.random() * 0.14 + 0.28
+              : sizeTier === "large"
+                ? Math.random() * 0.18 + 0.34
+                : Math.random() * 0.12 + 0.24,
+      };
+    });
+  }, [shapeCount, viewport.height, viewport.width]);
 
   const isDarkDynamic = theme === "dark" && mode === "dynamic";
   const isLightDynamic = theme === "light" && mode === "dynamic";
@@ -255,7 +407,13 @@ export function StartPage() {
                 ? "polygon(50% 0%, 0% 100%, 100% 100%)"
                 : shape.kind === "pentagon"
                   ? "polygon(50% 0%, 95% 35%, 78% 100%, 22% 100%, 5% 35%)"
-                  : "none";
+                  : shape.kind === "hexagon"
+                    ? "polygon(25% 0%, 75% 0%, 100% 50%, 75% 100%, 25% 100%, 0% 50%)"
+                    : shape.kind === "diamond"
+                      ? "polygon(50% 0%, 100% 50%, 50% 100%, 0% 50%)"
+                      : shape.kind === "trapezoid"
+                        ? "polygon(20% 0%, 80% 0%, 100% 100%, 0% 100%)"
+                        : "none";
 
             return (
               <motion.div
@@ -264,15 +422,16 @@ export function StartPage() {
                 style={{
                   top: `${shape.top}%`,
                   left: `${shape.left}%`,
-                  width: shape.kind === "crosshair" ? "auto" : shape.width,
-                  height: shape.kind === "crosshair" ? "auto" : shape.height,
-                  border:
-                    shape.kind === "crosshair"
-                      ? "none"
-                      : `1px solid ${borderColor}`,
-                  borderRadius: shape.kind === "circle" ? "50%" : "0",
-                  backgroundColor:
-                    shape.kind === "crosshair" ? "transparent" : fillColor,
+                  width: shape.width,
+                  height: shape.height,
+                  border: `1px solid ${borderColor}`,
+                  borderRadius:
+                    shape.kind === "circle"
+                      ? "50%"
+                      : shape.kind === "ellipse"
+                        ? "50% / 38%"
+                        : "0",
+                  backgroundColor: fillColor,
                   clipPath,
                   transform: `rotate(${shape.rotateStart}deg)`,
                 }}
@@ -281,14 +440,11 @@ export function StartPage() {
                   opacity: [0, shape.peakOpacity, shape.peakOpacity, 0],
                   x: [0, shape.driftX1, shape.driftX2],
                   y: [0, shape.driftY1, shape.driftY2],
-                  rotate:
-                    shape.kind !== "crosshair"
-                      ? [
-                          0,
-                          72 * shape.rotateDirection,
-                          138 * shape.rotateDirection,
-                        ]
-                      : 0,
+                  rotate: [
+                    0,
+                    72 * shape.rotateDirection,
+                    138 * shape.rotateDirection,
+                  ],
                 }}
                 transition={{
                   opacity: {
@@ -320,13 +476,7 @@ export function StartPage() {
                     repeatType: "mirror",
                   },
                 }}
-              >
-                {shape.kind === "crosshair" ? (
-                  <span style={{ fontSize: Math.max(18, shape.width * 0.3) }}>
-                    +
-                  </span>
-                ) : null}
-              </motion.div>
+              />
             );
           })}
         </div>
