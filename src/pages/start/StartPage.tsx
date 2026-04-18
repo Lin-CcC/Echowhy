@@ -13,38 +13,38 @@ const bubblePlacements = [
   "left-[8%] top-[46%]",
 ] as const;
 
-type EuclidShape = {
+type MacroArc = {
   id: number;
-  sizeTier: "small" | "medium" | "large" | "hero";
-  kind:
-    | "circle"
-    | "square"
-    | "triangle"
-    | "pentagon"
-    | "rectangle"
-    | "hexagon"
-    | "diamond"
-    | "ellipse"
-    | "trapezoid";
-  width: number;
-  height: number;
-  lifecycleDuration: number;
-  moveDurationX: number;
-  moveDurationY: number;
-  rotateDuration: number;
-  rotateDirection: 1 | -1;
-  delay: number;
+  size: number;
   top: number;
   left: number;
-  rotateStart: number;
-  driftX1: number;
-  driftX2: number;
-  driftY1: number;
-  driftY2: number;
-  appearAt: number;
-  holdUntil: number;
-  peakOpacity: number;
-  borderAlpha: number;
+  rotateTo: number;
+  duration: number;
+  delay: number;
+  opacityPeak: number;
+};
+
+type AxisLine = {
+  id: number;
+  left: number;
+  angle: 45 | -45;
+  driftX: number;
+  duration: number;
+  delay: number;
+  opacityPeak: number;
+};
+
+type MicroShape = {
+  id: number;
+  isCross: boolean;
+  size: number;
+  top: number;
+  left: number;
+  driftX: number;
+  driftY: number;
+  duration: number;
+  delay: number;
+  opacityPeak: number;
 };
 
 export function StartPage() {
@@ -119,200 +119,60 @@ export function StartPage() {
     [],
   );
 
-  const euclidShapes = useMemo<EuclidShape[]>(() => {
+  const generativeField = useMemo(() => {
     const viewportWidth = Math.max(1280, viewport.width);
     const viewportHeight = Math.max(720, viewport.height);
-    const viewportArea = Math.max(1280 * 720, viewport.width * viewport.height);
-    const heroMinArea = viewportArea * 0.25;
+    const areaFactor = Math.min(
+      1.25,
+      Math.max(0.85, (viewportWidth * viewportHeight) / (1280 * 720)),
+    );
 
-    const tierPool: EuclidShape["sizeTier"][] = ["hero"];
-    for (let i = 1; i < shapeCount; i += 1) {
-      const r = Math.random();
-      tierPool.push(r < 0.58 ? "large" : r < 0.9 ? "medium" : "small");
-    }
+    const macroCount = 3 + Math.floor(Math.random() * 3);
+    const axisCount = 4 + Math.floor(Math.random() * 3);
+    const baseMicro = shapeCount > 20 ? 20 : 16;
+    const microCount = Math.max(
+      15,
+      Math.min(20, Math.round(baseMicro * areaFactor * 0.92)),
+    );
 
-    for (let i = tierPool.length - 1; i > 0; i -= 1) {
-      const j = Math.floor(Math.random() * (i + 1));
-      [tierPool[i], tierPool[j]] = [tierPool[j], tierPool[i]];
-    }
+    const macroArcs: MacroArc[] = [...Array(macroCount)].map((_, i) => ({
+      id: i,
+      size: Math.random() * 700 + 800,
+      top: Math.random() * 100 - 40,
+      left: Math.random() * 100 - 40,
+      rotateTo: Math.random() > 0.5 ? 110 : -110,
+      duration: Math.random() * 100 + 100,
+      delay: Math.random() * -120,
+      opacityPeak: Math.random() * 0.18 + 0.42,
+    }));
 
-    const largeAnchors = [
-      { x: 28, y: 33 },
-      { x: 72, y: 64 },
-    ];
-    const heroAnchors = [
-      { x: 22, y: 30 },
-      { x: 78, y: 68 },
-    ];
+    const axisLines: AxisLine[] = [...Array(axisCount)].map((_, i) => ({
+      id: i,
+      left: Math.random() * 100,
+      angle: Math.random() > 0.5 ? 45 : -45,
+      driftX: Math.random() * 240 - 120,
+      duration: Math.random() * 50 + 45,
+      delay: Math.random() * -50,
+      opacityPeak: Math.random() * 0.17 + 0.45,
+    }));
 
-    const placedRegions: Array<{
-      cx: number;
-      cy: number;
-      rx: number;
-      ry: number;
-    }> = [];
-
-    const sampleAnchoredPosition = (sizeTier: EuclidShape["sizeTier"]) => {
-      if (sizeTier === "hero") {
-        const anchor =
-          heroAnchors[Math.floor(Math.random() * heroAnchors.length)];
-        return {
-          top: Math.min(94, Math.max(6, anchor.y + (Math.random() * 20 - 10))),
-          left: Math.min(94, Math.max(6, anchor.x + (Math.random() * 22 - 11))),
-        };
-      }
-
-      if (sizeTier === "large") {
-        const anchor =
-          largeAnchors[Math.floor(Math.random() * largeAnchors.length)];
-        return {
-          top: Math.min(95, Math.max(5, anchor.y + (Math.random() * 18 - 9))),
-          left: Math.min(95, Math.max(5, anchor.x + (Math.random() * 20 - 10))),
-        };
-      }
-
-      return { top: Math.random() * 100, left: Math.random() * 100 };
-    };
-
-    const pickPositionWithSpacing = (
-      sizeTier: EuclidShape["sizeTier"],
-      width: number,
-      height: number,
-    ) => {
-      const gapScale =
-        sizeTier === "hero" ? 0.78 : sizeTier === "large" ? 0.72 : 0.62;
-      let fallback = sampleAnchoredPosition(sizeTier);
-
-      for (let tries = 0; tries < 22; tries += 1) {
-        const candidate = sampleAnchoredPosition(sizeTier);
-        fallback = candidate;
-
-        const cx = (candidate.left / 100) * viewportWidth + width / 2;
-        const cy = (candidate.top / 100) * viewportHeight + height / 2;
-        const rx = width / 2;
-        const ry = height / 2;
-
-        const hasHeavyOverlap = placedRegions.some((region) => {
-          const nx =
-            Math.abs(cx - region.cx) / Math.max(1, (rx + region.rx) * gapScale);
-          const ny =
-            Math.abs(cy - region.cy) / Math.max(1, (ry + region.ry) * gapScale);
-          return nx * nx + ny * ny < 1;
-        });
-
-        if (!hasHeavyOverlap) {
-          placedRegions.push({ cx, cy, rx, ry });
-          return candidate;
-        }
-      }
-
-      placedRegions.push({
-        cx: (fallback.left / 100) * viewportWidth + width / 2,
-        cy: (fallback.top / 100) * viewportHeight + height / 2,
-        rx: width / 2,
-        ry: height / 2,
-      });
-
-      return fallback;
-    };
-
-    return [...Array(shapeCount)].map((_, i) => {
-      const sizeTier = tierPool[i] ?? "medium";
-      const lifecycleDuration = Math.random() * 24 + 18;
-      const appearAt = Math.random() * 0.18 + 0.1;
-      const holdUntil = appearAt + Math.random() * 0.34 + 0.36;
-      const kinds: EuclidShape["kind"][] = [
-        "circle",
-        "square",
-        "triangle",
-        "pentagon",
-        "rectangle",
-        "hexagon",
-        "diamond",
-        "ellipse",
-        "trapezoid",
-      ];
-      const kind = kinds[i % kinds.length];
-      const baseSize =
-        sizeTier === "small"
-          ? 34 + Math.random() * 30
-          : sizeTier === "medium"
-            ? 74 + Math.random() * 70
-            : sizeTier === "large"
-              ? 160 + Math.random() * 240
-              : 320 + Math.random() * 300;
-
-      let width =
-        kind === "rectangle"
-          ? Math.max(56, baseSize * (1.2 + Math.random() * 1.1))
-          : baseSize;
-      let height =
-        kind === "rectangle"
-          ? Math.max(34, baseSize * (0.45 + Math.random() * 0.5))
-          : baseSize;
-
-      if (sizeTier === "hero") {
-        const currentArea = Math.max(1, width * height);
-        if (currentArea < heroMinArea) {
-          const scale = Math.sqrt(heroMinArea / currentArea);
-          width *= scale;
-          height *= scale;
-        }
-      }
-
-      const placement = pickPositionWithSpacing(sizeTier, width, height);
-
-      const maxDimension = Math.max(width, height);
-      const sizeFactor = Math.min(1, Math.max(0, (maxDimension - 38) / 320));
-      const moveDurationX =
-        (sizeTier === "hero" ? 34 : 22) + sizeFactor * 28 + Math.random() * 10;
-      const moveDurationY =
-        (sizeTier === "hero" ? 36 : 24) + sizeFactor * 26 + Math.random() * 10;
-      const rotateDuration =
-        (sizeTier === "hero" ? 130 : 78) +
-        sizeFactor * 110 +
-        Math.random() * 24;
-      const rotateDirection = Math.random() > 0.5 ? 1 : -1;
-
+    const microShapes: MicroShape[] = [...Array(microCount)].map((_, i) => {
+      const size = Math.random() * 30 + 10;
       return {
         id: i,
-        sizeTier,
-        kind,
-        width,
-        height,
-        lifecycleDuration,
-        moveDurationX,
-        moveDurationY,
-        rotateDuration,
-        rotateDirection,
-        delay: Math.random() * 3.8,
-        top: placement.top,
-        left: placement.left,
-        rotateStart: Math.random() * 360,
-        driftX1: Math.random() * 120 - 60,
-        driftX2: Math.random() * 180 - 90,
-        driftY1: Math.random() * 120 - 60,
-        driftY2: Math.random() * 180 - 90,
-        appearAt,
-        holdUntil,
-        peakOpacity:
-          sizeTier === "small"
-            ? Math.random() * 0.08 + 0.18
-            : sizeTier === "medium"
-              ? Math.random() * 0.12 + 0.3
-              : sizeTier === "large"
-                ? Math.random() * 0.16 + 0.4
-                : Math.random() * 0.1 + 0.3,
-        borderAlpha:
-          sizeTier === "small"
-            ? Math.random() * 0.08 + 0.18
-            : sizeTier === "medium"
-              ? Math.random() * 0.14 + 0.28
-              : sizeTier === "large"
-                ? Math.random() * 0.18 + 0.34
-                : Math.random() * 0.12 + 0.24,
+        isCross: Math.random() > 0.45,
+        size,
+        top: Math.random() * 100,
+        left: Math.random() * 100,
+        driftX: Math.random() * 24 - 12,
+        driftY: Math.random() * -36 - 12,
+        duration: Math.random() * 15 + 15,
+        delay: Math.random() * -30,
+        opacityPeak: Math.random() * 0.22 + 0.4,
       };
     });
+
+    return { macroArcs, axisLines, microShapes };
   }, [shapeCount, viewport.height, viewport.width]);
 
   const isDarkDynamic = theme === "dark" && mode === "dynamic";
@@ -398,87 +258,87 @@ export function StartPage() {
 
       {isLightDynamic ? (
         <div className="absolute inset-0 z-0 overflow-hidden pointer-events-none">
-          {euclidShapes.map((shape) => {
-            const borderColor = `rgba(148,163,184,${shape.borderAlpha})`;
-            const fillColor = `rgba(148,163,184,${Math.max(0.06, shape.borderAlpha * 0.12)})`;
+          {generativeField.macroArcs.map((arc) => (
+            <motion.div
+              key={`macro-${arc.id}`}
+              className="absolute rounded-full border-[0.8px] border-slate-500/60"
+              style={{
+                width: arc.size,
+                height: arc.size,
+                top: `${arc.top}%`,
+                left: `${arc.left}%`,
+              }}
+              initial={{ opacity: 0, rotate: 0 }}
+              animate={{
+                opacity: [0, arc.opacityPeak, arc.opacityPeak, 0],
+                rotate: [0, arc.rotateTo],
+              }}
+              transition={{
+                duration: arc.duration,
+                repeat: Infinity,
+                ease: "linear",
+                delay: arc.delay,
+              }}
+            />
+          ))}
 
-            const clipPath =
-              shape.kind === "triangle"
-                ? "polygon(50% 0%, 0% 100%, 100% 100%)"
-                : shape.kind === "pentagon"
-                  ? "polygon(50% 0%, 95% 35%, 78% 100%, 22% 100%, 5% 35%)"
-                  : shape.kind === "hexagon"
-                    ? "polygon(25% 0%, 75% 0%, 100% 50%, 75% 100%, 25% 100%, 0% 50%)"
-                    : shape.kind === "diamond"
-                      ? "polygon(50% 0%, 100% 50%, 50% 100%, 0% 50%)"
-                      : shape.kind === "trapezoid"
-                        ? "polygon(20% 0%, 80% 0%, 100% 100%, 0% 100%)"
-                        : "none";
+          {generativeField.axisLines.map((line) => (
+            <motion.div
+              key={`axis-${line.id}`}
+              className="absolute w-px bg-linear-to-b from-transparent via-slate-500/70 to-transparent"
+              style={{
+                height: "200vh",
+                top: "-50%",
+                left: `${line.left}%`,
+                transform: `rotate(${line.angle}deg)`,
+              }}
+              initial={{ opacity: 0, x: 0 }}
+              animate={{
+                opacity: [0, line.opacityPeak, line.opacityPeak, 0],
+                x: [0, line.driftX],
+              }}
+              transition={{
+                duration: line.duration,
+                repeat: Infinity,
+                ease: "easeInOut",
+                delay: line.delay,
+              }}
+            />
+          ))}
 
-            return (
-              <motion.div
-                key={shape.id}
-                className="absolute flex items-center justify-center font-extralight mix-blend-multiply text-slate-500/55"
-                style={{
-                  top: `${shape.top}%`,
-                  left: `${shape.left}%`,
-                  width: shape.width,
-                  height: shape.height,
-                  border: `1px solid ${borderColor}`,
-                  borderRadius:
-                    shape.kind === "circle"
-                      ? "50%"
-                      : shape.kind === "ellipse"
-                        ? "50% / 38%"
-                        : "0",
-                  backgroundColor: fillColor,
-                  clipPath,
-                  transform: `rotate(${shape.rotateStart}deg)`,
-                }}
-                initial={{ opacity: 0 }}
-                animate={{
-                  opacity: [0, shape.peakOpacity, shape.peakOpacity, 0],
-                  x: [0, shape.driftX1, shape.driftX2],
-                  y: [0, shape.driftY1, shape.driftY2],
-                  rotate: [
-                    0,
-                    72 * shape.rotateDirection,
-                    138 * shape.rotateDirection,
-                  ],
-                }}
-                transition={{
-                  opacity: {
-                    duration: shape.lifecycleDuration,
-                    repeat: Infinity,
-                    ease: "easeInOut",
-                    delay: shape.delay,
-                    times: [0, shape.appearAt, shape.holdUntil, 1],
-                  },
-                  x: {
-                    duration: shape.moveDurationX,
-                    repeat: Infinity,
-                    ease: "easeInOut",
-                    delay: shape.delay,
-                    repeatType: "mirror",
-                  },
-                  y: {
-                    duration: shape.moveDurationY,
-                    repeat: Infinity,
-                    ease: "easeInOut",
-                    delay: shape.delay,
-                    repeatType: "mirror",
-                  },
-                  rotate: {
-                    duration: shape.rotateDuration,
-                    repeat: Infinity,
-                    ease: "linear",
-                    delay: shape.delay,
-                    repeatType: "mirror",
-                  },
-                }}
-              />
-            );
-          })}
+          {generativeField.microShapes.map((micro) => (
+            <motion.div
+              key={`micro-${micro.id}`}
+              className="absolute flex items-center justify-center font-extralight text-slate-500/70"
+              style={{
+                top: `${micro.top}%`,
+                left: `${micro.left}%`,
+                width: micro.isCross ? "auto" : micro.size,
+                height: micro.isCross ? "auto" : micro.size,
+                border: micro.isCross
+                  ? "none"
+                  : "0.8px solid rgba(100,116,139,0.62)",
+                borderRadius: micro.isCross ? "0" : "9999px",
+              }}
+              initial={{ opacity: 0, scale: 0.8 }}
+              animate={{
+                opacity: [0, micro.opacityPeak, micro.opacityPeak, 0],
+                scale: [0.8, 1, 1],
+                x: [0, micro.driftX],
+                y: [0, micro.driftY],
+              }}
+              transition={{
+                duration: micro.duration,
+                repeat: Infinity,
+                ease: "easeInOut",
+                delay: micro.delay,
+              }}
+            >
+              {micro.isCross ? (
+                <span style={{ fontSize: micro.size, lineHeight: 1 }}>+</span>
+              ) : null}
+            </motion.div>
+          ))}
         </div>
       ) : null}
 
