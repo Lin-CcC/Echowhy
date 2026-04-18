@@ -2,6 +2,8 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { Input } from "@/components/ui/input";
+import { cn } from "@/lib/utils";
+import type { Theme } from "@/app/theme/theme-provider";
 
 const questionEntrySchema = z.object({
   question: z
@@ -13,11 +15,13 @@ const questionEntrySchema = z.object({
 type QuestionEntryValues = z.infer<typeof questionEntrySchema>;
 
 type QuestionEntryProps = {
+  theme: Theme;
   onSubmit: (question: string) => void;
   onAttachSource?: () => void;
 };
 
 export function QuestionEntry({
+  theme,
   onSubmit,
   onAttachSource,
 }: QuestionEntryProps) {
@@ -34,7 +38,12 @@ export function QuestionEntry({
     <form className="space-y-3" onSubmit={handleSubmit}>
       <div className="relative flex items-center">
         <Input
-          className="w-full min-w-0 rounded-full border border-white/5 bg-white/[0.03] py-5 pl-8 pr-14 text-lg text-white shadow-[0_8px_32px_rgba(0,0,0,0.2)] backdrop-blur-xl transition-all placeholder:text-white/20 focus:border-cyan-500/30 focus:bg-white/[0.06] focus:outline-none sm:w-[36rem]"
+          className={cn(
+            "w-full min-w-0 rounded-full py-5 pl-8 pr-14 text-lg backdrop-blur-xl transition-all focus:outline-none sm:w-xl",
+            theme === "dark"
+              ? "border border-white/8 bg-white/3 text-slate-100 shadow-[0_8px_32px_rgba(0,0,0,0.2)] placeholder:text-slate-400 focus:border-cyan-500/30 focus:bg-white/6"
+              : "bg-white/60 backdrop-blur-xl border border-slate-200 shadow-[0_8px_30px_rgba(0,0,0,0.06)] text-slate-800 placeholder:text-slate-400 focus:bg-white/80 focus:border-cyan-400/40",
+          )}
           placeholder="Ask a question, follow a curiosity, or begin with a why..."
           aria-label="Learning question input"
           {...form.register("question")}
@@ -43,7 +52,12 @@ export function QuestionEntry({
         <button
           type="submit"
           aria-label="Start learning"
-          className="absolute right-3 rounded-full bg-transparent p-2.5 text-white/30 transition-all duration-300 hover:bg-cyan-500/20 hover:text-cyan-400"
+          className={cn(
+            "absolute right-3 rounded-full bg-transparent p-2.5 transition-all duration-300",
+            theme === "dark"
+              ? "text-white/30 hover:bg-cyan-500/20 hover:text-cyan-400"
+              : "text-slate-500 hover:bg-cyan-500/16 hover:text-cyan-600",
+          )}
         >
           <svg
             xmlns="http://www.w3.org/2000/svg"
@@ -67,14 +81,24 @@ export function QuestionEntry({
           <button
             type="button"
             onClick={onAttachSource}
-            className="mt-6 text-sm tracking-wide text-slate-500 transition-colors hover:text-slate-300"
+            className={cn(
+              "mt-6 text-sm tracking-wide transition-colors",
+              theme === "dark"
+                ? "text-slate-400 hover:text-slate-300"
+                : "text-slate-500 hover:text-slate-700",
+            )}
           >
             Attach a source
           </button>
         </div>
       ) : null}
 
-      <p className="min-h-5 text-center text-sm text-rose-200/70">
+      <p
+        className={cn(
+          "min-h-5 text-center text-sm",
+          theme === "dark" ? "text-rose-200/70" : "text-rose-600/80",
+        )}
+      >
         {form.formState.errors.question?.message ?? ""}
       </p>
     </form>
