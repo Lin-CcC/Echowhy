@@ -3,6 +3,7 @@ import { Link, Outlet, useRouterState } from "@tanstack/react-router";
 import { cn } from "@/lib/utils";
 import { useThemeMode } from "@/app/theme/theme-provider";
 import { Moon, Sparkles, Sun, Target } from "lucide-react";
+import { ThemedAmbientBackground } from "@/components/ui/themed-ambient-background";
 
 const navItems = [
   { to: "/", label: "Start" },
@@ -36,8 +37,10 @@ export function PageShell() {
   }, [pathname]);
 
   return (
-    <div className="min-h-screen w-full">
-      <div className="flex min-h-screen w-full flex-col">
+    <div className="relative min-h-screen w-full">
+      {!isStartPage ? <ThemedAmbientBackground /> : null}
+
+      <div className="relative z-10 flex min-h-screen w-full flex-col">
         <header
           className={cn(
             "z-30 flex items-center justify-between transition-all duration-700",
@@ -130,7 +133,7 @@ export function PageShell() {
 
         <main
           className={cn(
-            "flex-1 w-full",
+            "relative z-10 flex-1 w-full",
             isStartPage ? "px-0 py-0" : "px-0 py-0 pt-20",
           )}
         >
