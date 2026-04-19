@@ -194,7 +194,9 @@ export function LearningTopicPage() {
 
   const handlePinSource = (referenceId: string) => {
     setPinnedSources((previous) =>
-      previous.includes(referenceId) ? previous : [...previous, referenceId],
+      previous.includes(referenceId)
+        ? previous.filter((id) => id !== referenceId)
+        : [...previous, referenceId],
     );
     setPreviewSource(null);
   };

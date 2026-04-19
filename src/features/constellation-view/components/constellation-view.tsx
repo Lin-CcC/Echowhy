@@ -14,16 +14,7 @@ const sidebarNodeLayout = [
 ] as const;
 
 function buildPolylinePath(from: { x: number; y: number }, to: { x: number; y: number }) {
-  const bendX = Math.round((from.x + to.x) / 2);
-  const firstY = from.y + 22;
-  const secondY = to.y - 24;
-
-  return [
-    `M ${from.x} ${from.y}`,
-    `L ${bendX} ${firstY}`,
-    `L ${bendX} ${secondY}`,
-    `L ${to.x} ${to.y}`,
-  ].join(" ");
+  return `M ${from.x} ${from.y} L ${to.x} ${to.y}`;
 }
 
 export function ConstellationView({
