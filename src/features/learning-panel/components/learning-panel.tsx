@@ -209,7 +209,7 @@ export function LearningPanel({
         </p>
         <h1
           className={cn(
-            "max-w-[18ch] text-balance text-3xl font-light tracking-tight text-slate-900 dark:font-medium dark:text-white/95 dark:drop-shadow-sm sm:max-w-[20ch] sm:text-4xl 2xl:max-w-none",
+            "max-w-[18ch] text-balance text-3xl font-light tracking-tight text-slate-900 dark:text-white/95 dark:drop-shadow-sm sm:max-w-[20ch] sm:text-4xl 2xl:max-w-none",
             useLightShield && "text-halo-soft-light bg-slate-50/35 [box-decoration-break:clone] [-webkit-box-decoration-break:clone]",
           )}
         >
@@ -223,7 +223,7 @@ export function LearningPanel({
         </p>
         <p
           className={cn(
-            "text-lg italic leading-relaxed text-slate-600 dark:text-slate-300",
+            "text-lg font-normal italic leading-relaxed text-slate-600 dark:font-normal dark:text-slate-300",
             useLightShield && "text-halo-soft-light bg-slate-50/28 [box-decoration-break:clone] [-webkit-box-decoration-break:clone]",
           )}
         >
@@ -231,7 +231,7 @@ export function LearningPanel({
         </p>
       </div>
 
-      <div className="space-y-8 text-[15px] leading-relaxed text-slate-700 dark:font-light dark:text-slate-300/90">
+      <div className="space-y-8 text-[15px] font-normal leading-relaxed text-slate-700 dark:font-normal dark:text-slate-300/90">
         {visibleSteps.map((step, index) => {
           const answerState = answerStateByQuestionId[step.question.id];
           const isHistoryExpanded = expandedHistoryIds.includes(step.question.id);
@@ -246,7 +246,7 @@ export function LearningPanel({
                     onClick={() => onToggleHistory(step.question.id)}
                     className="group flex w-full items-center justify-between text-left"
                   >
-                    <p className="text-sm italic text-slate-500 transition-colors group-hover:text-cyan-600 dark:text-slate-500 dark:group-hover:text-cyan-400">
+                    <p className="text-sm font-normal italic text-slate-500 transition-colors group-hover:text-cyan-600 dark:font-normal dark:text-slate-500 dark:group-hover:text-cyan-400">
                       <ReadingLine shield={useLightShield}>
                         <span className="font-bold not-italic">Q:</span>{" "}
                         {step.question.prompt}
@@ -263,7 +263,7 @@ export function LearningPanel({
                       isHistoryExpanded ? "mt-3 max-h-56 opacity-100" : "max-h-0 opacity-0",
                     )}
                   >
-                    <p className="text-sm text-slate-600 dark:text-slate-400">
+                    <p className="text-sm font-normal text-slate-600 dark:font-normal dark:text-slate-400">
                       <ReadingLine shield={useLightShield}>
                         <span className="font-bold text-cyan-600 dark:text-cyan-400">Answer:</span>{" "}
                         {answerState.status === "skipped"
@@ -272,7 +272,7 @@ export function LearningPanel({
                       </ReadingLine>
                     </p>
                     {answerState.feedback ? (
-                      <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">
+                      <p className="mt-2 text-sm font-normal text-slate-500 dark:font-normal dark:text-slate-400">
                         <ReadingLine shield={useLightShield}>
                           <span className="font-bold text-cyan-600 dark:text-cyan-400">AI:</span>{" "}
                           {answerState.feedback.nextSuggestion}
@@ -284,7 +284,7 @@ export function LearningPanel({
               ) : null}
 
               <div>
-                <h3 className="mb-2 text-sm font-bold uppercase tracking-widest text-slate-900 dark:font-semibold dark:tracking-[0.1em] dark:text-slate-200">
+                <h3 className="mb-2 text-sm font-bold uppercase tracking-widest text-slate-900 dark:font-bold dark:tracking-widest dark:text-slate-200">
                   <ReadingLine shield={useLightShield}>
                     {step.block.title ?? `Step ${index + 1}`}
                   </ReadingLine>

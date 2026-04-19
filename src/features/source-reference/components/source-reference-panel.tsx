@@ -56,7 +56,7 @@ export function SourceReferencePanel({
   }, [pinnedReferenceIds]);
 
   return (
-    <aside className="relative hidden h-full w-[min(32rem,36vw)] min-w-[24rem] shrink-0 overflow-y-auto border-l border-slate-200/50 bg-transparent p-8 scroll-smooth xl:block dark:border-cyan-800/30">
+    <aside className="source-workbench-scrollbar relative hidden h-full w-[min(32rem,36vw)] min-w-[24rem] shrink-0 overflow-y-auto border-l border-slate-200/50 bg-transparent p-8 scroll-smooth xl:block dark:border-cyan-800/30">
       <p
         className={cn(
           "mb-6 flex items-center justify-between text-[10px] font-mono uppercase tracking-[0.2em] text-slate-400 dark:text-slate-500",
