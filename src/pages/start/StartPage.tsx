@@ -202,9 +202,38 @@ export function StartPage() {
             className="absolute left-1/2 top-1/2 h-[400px] w-[800px] -translate-x-1/2 -translate-y-1/2"
             style={{
               background:
-                "radial-gradient(ellipse at center, rgba(255,255,255,0.82) 0%, rgba(255,255,255,0) 70%)",
+                "radial-gradient(ellipse at center, rgba(255,255,255,0.22) 0%, rgba(255,255,255,0) 70%)",
             }}
           />
+
+          <div className="absolute right-[18rem] top-[7rem] h-32 w-32 rounded-full bg-cyan-400/10 blur-3xl" />
+
+          <motion.svg
+            viewBox="0 0 1440 900"
+            className="absolute left-0 top-0 h-full w-full overflow-visible"
+            fill="none"
+            animate={prefersReducedMotion ? {} : { opacity: [0.22, 0.34, 0.22] }}
+            transition={{ duration: 24, repeat: Infinity, ease: "easeInOut" }}
+          >
+            <defs>
+              <linearGradient id="main-axis-gradient" x1="120" y1="760" x2="1320" y2="150" gradientUnits="userSpaceOnUse">
+                <stop offset="0%" stopColor="rgba(100,116,139,0)" />
+                <stop offset="18%" stopColor="rgba(100,116,139,0.22)" />
+                <stop offset="50%" stopColor="rgba(100,116,139,0.38)" />
+                <stop offset="82%" stopColor="rgba(100,116,139,0.22)" />
+                <stop offset="100%" stopColor="rgba(100,116,139,0)" />
+              </linearGradient>
+            </defs>
+            <motion.path
+              d="M 60 760 C 360 640, 640 470, 900 330 S 1230 180, 1380 120"
+              stroke="url(#main-axis-gradient)"
+              strokeWidth="0.7"
+              strokeLinecap="round"
+              strokeDasharray="4 24 12 24"
+              animate={prefersReducedMotion ? {} : { strokeDashoffset: [0, -180] }}
+              transition={{ duration: 96, repeat: Infinity, ease: "linear" }}
+            />
+          </motion.svg>
 
           <motion.div
             className="absolute inset-0"
