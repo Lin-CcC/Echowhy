@@ -239,9 +239,8 @@ textarea {
 
   .text-halo-dark {
     text-shadow:
-      0 0 8px rgba(10, 15, 26, 0.98),
-      0 0 16px rgba(10, 15, 26, 0.9),
-      0 0 24px rgba(10, 15, 26, 0.8);
+      0 0 1px rgba(2, 3, 8, 0.55),
+      0 0 3px rgba(2, 3, 8, 0.42);
   }
 
   .reading-line-shield {

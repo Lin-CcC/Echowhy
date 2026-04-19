@@ -80,13 +80,13 @@ export function ConstellationView({
               }
             }}
           >
-            {isCurrent ? <circle r="12" className="fill-cyan-500/18 animate-ping" /> : null}
+            {isCurrent ? <circle r="12" className="animate-ping fill-cyan-400/22" /> : null}
 
             <circle
               r={isCurrent || isLit ? "4" : "3"}
               className={
                 isCurrent
-                  ? "fill-cyan-500"
+                  ? "fill-cyan-400"
                   : isLit
                     ? "fill-cyan-500"
                     : "fill-slate-300 dark:fill-slate-700"

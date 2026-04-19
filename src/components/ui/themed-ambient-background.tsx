@@ -37,12 +37,14 @@ type ThemedAmbientBackgroundProps = {
   className?: string;
   showLightDynamicAnnotations?: boolean;
   showLightDynamicCenterMask?: boolean;
+  quiet?: boolean;
 };
 
 export function ThemedAmbientBackground({
   className,
   showLightDynamicAnnotations = false,
   showLightDynamicCenterMask = false,
+  quiet = false,
 }: ThemedAmbientBackgroundProps) {
   const { theme, mode } = useThemeMode();
   const prefersReducedMotion = useReducedMotion();
@@ -61,42 +63,46 @@ export function ThemedAmbientBackground({
 
       {isDarkDynamic ? (
         <div className="absolute inset-0 overflow-hidden">
+          {!quiet ? (
+            <>
+              <motion.div
+                className="absolute -left-[10%] -top-[30%] h-[80vw] w-[80vw] rounded-full bg-indigo-900/10 blur-[160px] mix-blend-screen"
+                animate={{ scale: [1, 1.05, 1], opacity: [0.3, 0.5, 0.3] }}
+                transition={{ duration: 15, repeat: Infinity, ease: "easeInOut" }}
+              />
+              <motion.div
+                className="absolute -bottom-[30%] -right-[10%] h-[70vw] w-[70vw] rounded-full bg-cyan-900/10 blur-[160px] mix-blend-screen"
+                animate={{ scale: [1, 1.1, 1], opacity: [0.2, 0.4, 0.2] }}
+                transition={{
+                  duration: 18,
+                  repeat: Infinity,
+                  ease: "easeInOut",
+                  delay: 2,
+                }}
+              />
+            </>
+          ) : null}
           <motion.div
-            className="absolute -left-[10%] -top-[30%] h-[80vw] w-[80vw] rounded-full bg-indigo-900/10 blur-[160px] mix-blend-screen"
-            animate={{ scale: [1, 1.05, 1], opacity: [0.3, 0.5, 0.3] }}
-            transition={{ duration: 15, repeat: Infinity, ease: "easeInOut" }}
-          />
-          <motion.div
-            className="absolute -bottom-[30%] -right-[10%] h-[70vw] w-[70vw] rounded-full bg-cyan-900/10 blur-[160px] mix-blend-screen"
-            animate={{ scale: [1, 1.1, 1], opacity: [0.2, 0.4, 0.2] }}
-            transition={{
-              duration: 18,
-              repeat: Infinity,
-              ease: "easeInOut",
-              delay: 2,
-            }}
-          />
-          <motion.div
-            className="absolute -inset-full opacity-30"
+            className={cn("absolute -inset-full", quiet ? "opacity-18" : "opacity-30")}
             style={{
               backgroundImage:
                 "radial-gradient(1px 1px at 10% 10%, #fff, transparent), radial-gradient(1px 1px at 40% 60%, #fff, transparent), radial-gradient(1px 1px at 80% 30%, #fff, transparent)",
               backgroundSize: "150px 150px",
             }}
-            animate={{ y: ["0%", "-30%"], opacity: [0.2, 0.5, 0.2] }}
+            animate={{ y: ["0%", "-30%"], opacity: quiet ? [0.12, 0.28, 0.12] : [0.2, 0.5, 0.2] }}
             transition={{
               y: { duration: 150, repeat: Infinity, ease: "linear" },
               opacity: { duration: 5, repeat: Infinity, ease: "easeInOut" },
             }}
           />
           <motion.div
-            className="absolute -inset-full opacity-40"
+            className={cn("absolute -inset-full", quiet ? "opacity-24" : "opacity-40")}
             style={{
               backgroundImage:
                 "radial-gradient(1.5px 1.5px at 20% 80%, #cbd5e1, transparent), radial-gradient(1.5px 1.5px at 70% 20%, #fff, transparent)",
               backgroundSize: "250px 250px",
             }}
-            animate={{ y: ["0%", "-40%"], opacity: [0.1, 0.8, 0.1] }}
+            animate={{ y: ["0%", "-40%"], opacity: quiet ? [0.08, 0.32, 0.08] : [0.1, 0.8, 0.1] }}
             transition={{
               y: { duration: 100, repeat: Infinity, ease: "linear" },
               opacity: {
@@ -108,13 +114,13 @@ export function ThemedAmbientBackground({
             }}
           />
           <motion.div
-            className="absolute -inset-full opacity-45"
+            className={cn("absolute -inset-full", quiet ? "opacity-22" : "opacity-45")}
             style={{
               backgroundImage:
                 "radial-gradient(2px 2px at 15% 35%, #ffffff, transparent), radial-gradient(2px 2px at 55% 75%, #dbeafe, transparent)",
               backgroundSize: "360px 360px",
             }}
-            animate={{ y: ["0%", "-52%"], opacity: [0.12, 0.7, 0.12] }}
+            animate={{ y: ["0%", "-52%"], opacity: quiet ? [0.08, 0.28, 0.08] : [0.12, 0.7, 0.12] }}
             transition={{
               y: { duration: 72, repeat: Infinity, ease: "linear" },
               opacity: {

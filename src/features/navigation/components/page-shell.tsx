@@ -38,7 +38,7 @@ export function PageShell() {
 
   return (
     <div className="relative min-h-screen w-full">
-      {!isStartPage ? <ThemedAmbientBackground /> : null}
+      {!isStartPage ? <ThemedAmbientBackground quiet /> : null}
 
       <div className="relative z-10 flex min-h-screen w-full flex-col">
         <header
