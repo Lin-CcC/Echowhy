@@ -52,7 +52,7 @@ export function ConstellationView({
               isCompleted
                 ? "stroke-cyan-500/45"
                 : touchesCurrent
-                  ? "stroke-cyan-500/35"
+                  ? "stroke-cyan-400/55"
                   : "stroke-slate-300 dark:stroke-slate-700/55"
             }
             strokeDasharray={isCompleted ? undefined : touchesCurrent ? "3 6" : "2 8"}
@@ -80,7 +80,7 @@ export function ConstellationView({
               }
             }}
           >
-            {isCurrent ? <circle r="12" className="animate-ping fill-cyan-400/22" /> : null}
+            {isCurrent ? <circle r="12" className="animate-ping fill-cyan-400/28" /> : null}
 
             <circle
               r={isCurrent || isLit ? "4" : "3"}

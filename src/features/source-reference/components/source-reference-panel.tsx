@@ -59,7 +59,7 @@ export function SourceReferencePanel({
     <aside className="relative hidden h-full w-[min(32rem,36vw)] min-w-[24rem] shrink-0 overflow-y-auto border-l border-slate-200/50 bg-transparent p-8 scroll-smooth xl:block dark:border-cyan-800/30">
       <p
         className={cn(
-          "mb-6 flex items-center justify-between text-[10px] font-mono uppercase tracking-[0.2em] text-slate-400 dark:text-slate-400",
+          "mb-6 flex items-center justify-between text-[10px] font-mono uppercase tracking-[0.2em] text-slate-400 dark:text-slate-500",
           !isDark && "text-halo-light",
         )}
       >
@@ -80,7 +80,9 @@ export function SourceReferencePanel({
                 }}
                 className={cn(
                   "relative isolate overflow-hidden rounded-2xl border p-4 transition-all duration-200",
-                  isDark ? "bg-transparent" : "bg-white/[0.025] backdrop-blur-[2px]",
+                  isDark
+                    ? "border-cyan-500/18 bg-transparent"
+                    : "bg-white/[0.025] backdrop-blur-[2px]",
                   kind === "preview"
                     ? "border-cyan-200/42 opacity-90 shadow-[0_18px_52px_-42px_rgba(8,145,178,0.22)] dark:border-cyan-500/24"
                     : "border-slate-200/46 shadow-[0_18px_60px_-48px_rgba(15,23,42,0.24)] dark:border-cyan-500/18",
@@ -98,7 +100,7 @@ export function SourceReferencePanel({
                 ) : null}
 
                 <div className="relative z-10 mb-4 flex items-start justify-between gap-3">
-                  <div className="space-y-1 text-sm font-medium text-slate-700 dark:text-slate-100">
+                  <div className="space-y-1 text-sm font-medium text-slate-700 dark:text-slate-300">
                     <p className={cn(!isDark && "text-halo-light")}>{reference.label}</p>
                     <p
                       className={cn(

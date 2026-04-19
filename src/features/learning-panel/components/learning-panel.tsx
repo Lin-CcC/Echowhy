@@ -209,7 +209,7 @@ export function LearningPanel({
         </p>
         <h1
           className={cn(
-            "max-w-[18ch] text-balance text-3xl font-light tracking-tight text-slate-900 dark:text-slate-100 sm:max-w-[20ch] sm:text-4xl 2xl:max-w-none",
+            "max-w-[18ch] text-balance text-3xl font-light tracking-tight text-slate-900 dark:font-medium dark:text-white/95 dark:drop-shadow-sm sm:max-w-[20ch] sm:text-4xl 2xl:max-w-none",
             useLightShield && "text-halo-soft-light bg-slate-50/35 [box-decoration-break:clone] [-webkit-box-decoration-break:clone]",
           )}
         >
@@ -218,7 +218,7 @@ export function LearningPanel({
       </div>
 
       <div className="mb-12 border-l-[3px] border-slate-300 pl-6 dark:border-cyan-800/42">
-        <p className="mb-2 text-[10px] font-bold uppercase tracking-widest text-slate-400 dark:text-slate-400">
+        <p className="mb-2 text-[10px] font-bold uppercase tracking-widest text-slate-400 dark:text-slate-500">
           <ReadingLine shield={useLightShield}>Root Why</ReadingLine>
         </p>
         <p
@@ -231,7 +231,7 @@ export function LearningPanel({
         </p>
       </div>
 
-      <div className="space-y-8 text-[15px] leading-relaxed text-slate-700 dark:text-slate-300">
+      <div className="space-y-8 text-[15px] leading-relaxed text-slate-700 dark:font-light dark:text-slate-300/90">
         {visibleSteps.map((step, index) => {
           const answerState = answerStateByQuestionId[step.question.id];
           const isHistoryExpanded = expandedHistoryIds.includes(step.question.id);
@@ -246,7 +246,7 @@ export function LearningPanel({
                     onClick={() => onToggleHistory(step.question.id)}
                     className="group flex w-full items-center justify-between text-left"
                   >
-                    <p className="text-sm italic text-slate-500 transition-colors group-hover:text-cyan-600 dark:text-slate-400 dark:group-hover:text-cyan-400">
+                    <p className="text-sm italic text-slate-500 transition-colors group-hover:text-cyan-600 dark:text-slate-500 dark:group-hover:text-cyan-400">
                       <ReadingLine shield={useLightShield}>
                         <span className="font-bold not-italic">Q:</span>{" "}
                         {step.question.prompt}
@@ -263,7 +263,7 @@ export function LearningPanel({
                       isHistoryExpanded ? "mt-3 max-h-56 opacity-100" : "max-h-0 opacity-0",
                     )}
                   >
-                    <p className="text-sm text-slate-600 dark:text-slate-300">
+                    <p className="text-sm text-slate-600 dark:text-slate-400">
                       <ReadingLine shield={useLightShield}>
                         <span className="font-bold text-cyan-600 dark:text-cyan-400">Answer:</span>{" "}
                         {answerState.status === "skipped"
@@ -284,7 +284,7 @@ export function LearningPanel({
               ) : null}
 
               <div>
-                <h3 className="mb-2 text-sm font-bold uppercase tracking-widest text-slate-900 dark:text-slate-100">
+                <h3 className="mb-2 text-sm font-bold uppercase tracking-widest text-slate-900 dark:font-semibold dark:tracking-[0.1em] dark:text-slate-200">
                   <ReadingLine shield={useLightShield}>
                     {step.block.title ?? `Step ${index + 1}`}
                   </ReadingLine>
@@ -305,7 +305,7 @@ export function LearningPanel({
                   className={cn(
                     "my-10 rounded-r-xl border-l-[2px] py-2 pl-6 transition-all",
                     isDark
-                      ? "border-cyan-500/24 bg-transparent"
+                      ? "border-cyan-400/45 bg-transparent"
                       : "border-cyan-500/30 bg-transparent",
                   )}
                 >
@@ -325,7 +325,7 @@ export function LearningPanel({
                       className={cn(
                         "w-full resize-none border-b bg-transparent pb-2 transition-colors placeholder:italic focus:outline-none",
                         isDark
-                          ? "border-cyan-700/45 text-slate-100 placeholder:text-slate-400 focus:border-cyan-400"
+                          ? "border-cyan-700/45 text-slate-200 placeholder:text-slate-500 focus:border-cyan-400"
                           : "border-slate-300 text-slate-800 placeholder:text-slate-400 focus:border-cyan-500",
                       )}
                     />
@@ -338,13 +338,13 @@ export function LearningPanel({
                       <button
                         type="button"
                         onClick={onSkipCurrent}
-                        className="text-[11px] font-mono uppercase tracking-widest text-slate-400 transition-colors hover:text-slate-600 dark:text-slate-400 dark:hover:text-slate-200"
+                        className="text-[11px] font-mono uppercase tracking-widest text-slate-400 transition-colors hover:text-slate-600 dark:text-slate-500 dark:hover:text-slate-300"
                       >
                         [ Skip for now ]
                       </button>
                       <button
                         type="submit"
-                        className="border border-cyan-600/50 px-5 py-2 text-xs uppercase tracking-widest text-cyan-700 transition-colors hover:bg-cyan-500 hover:text-white dark:border-cyan-800/45 dark:text-cyan-400 dark:hover:bg-cyan-400/12"
+                        className="border border-cyan-600/50 px-5 py-2 text-xs uppercase tracking-widest text-cyan-700 transition-colors hover:bg-cyan-500 hover:text-white dark:border-cyan-400/45 dark:text-cyan-400 dark:hover:bg-cyan-400/12"
                       >
                         [ Check ]
                       </button>
@@ -361,7 +361,7 @@ export function LearningPanel({
             className={cn(
               "my-10 rounded-r-xl border-l-[2px] py-2 pl-6",
               isDark
-                ? "border-cyan-500/24 bg-transparent"
+                ? "border-cyan-400/45 bg-transparent"
                 : "border-cyan-500/30 bg-transparent",
             )}
           >
