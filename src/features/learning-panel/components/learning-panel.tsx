@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, type ReactNode } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -13,6 +13,13 @@ import type {
 const answerSchema = z.object({
   answer: z.string().trim().min(8, "Try answering in a complete thought."),
 });
+
+const readingProtectionClass =
+  "text-halo-light bg-[radial-gradient(ellipse_at_center,rgba(248,250,252,0.66)_0%,rgba(248,250,252,0.3)_42%,rgba(248,250,252,0)_78%)] dark:bg-transparent dark:text-halo-dark";
+
+function ReadingLine({ children }: { children: ReactNode }) {
+  return <span className="reading-line-shield">{children}</span>;
+}
 
 type AnswerValues = z.infer<typeof answerSchema>;
 
@@ -57,10 +64,10 @@ function AnchorToken({
       onMouseLeave={onClearPreviewReference}
       onClick={() => onPinSource(referenceId)}
       className={cn(
-        "inline-block rounded-sm border-b px-1 font-mono transition-all",
+        "text-halo-light dark:text-halo-dark inline-block rounded-sm border-b px-1 font-mono transition-all",
         isActive
           ? "border-cyan-500 bg-cyan-500/5 text-cyan-700 dark:border-cyan-400 dark:bg-cyan-400/8 dark:text-cyan-300"
-          : "border-dashed border-cyan-500/60 text-cyan-700 hover:bg-cyan-500/8 hover:border-solid dark:text-cyan-400",
+          : "border-dashed border-cyan-500/60 text-cyan-700 hover:border-solid hover:bg-cyan-500/8 dark:text-cyan-400",
       )}
     >
       {children}
@@ -79,57 +86,67 @@ function renderBlockContent(
     case "exp-login-first-proof":
       return (
         <p className="mb-8">
-          The backend cannot verify a JWT during login because no token has been
-          issued yet. It must first compare the submitted credentials against
-          stored user data and account status.
+          <ReadingLine>
+            The backend cannot verify a JWT during login because no token has
+            been issued yet. It must first compare the submitted credentials
+            against stored user data and account status.
+          </ReadingLine>
         </p>
       );
     case "exp-service-separation":
       return (
         <p className="mb-8">
-          The{" "}
-          <AnchorToken
-            referenceId="ref-auth-controller"
-            isActive={activeReferenceIds.includes("ref-auth-controller")}
-            onPreviewReference={onPreviewReference}
-            onClearPreviewReference={onClearPreviewReference}
-            onPinSource={onPinSource}
-          >
-            AuthController
-          </AnchorToken>{" "}
-          receives the HTTP request, but the actual decision about whether
-          credentials are valid belongs in{" "}
-          <AnchorToken
-            referenceId="ref-auth-service"
-            isActive={activeReferenceIds.includes("ref-auth-service")}
-            onPreviewReference={onPreviewReference}
-            onClearPreviewReference={onClearPreviewReference}
-            onPinSource={onPinSource}
-          >
-            AuthService
-          </AnchorToken>
-          . That keeps the transport layer thin and the business rule explicit.
+          <ReadingLine>
+            The{" "}
+            <AnchorToken
+              referenceId="ref-auth-controller"
+              isActive={activeReferenceIds.includes("ref-auth-controller")}
+              onPreviewReference={onPreviewReference}
+              onClearPreviewReference={onClearPreviewReference}
+              onPinSource={onPinSource}
+            >
+              AuthController
+            </AnchorToken>{" "}
+            receives the HTTP request, but the actual decision about whether
+            credentials are valid belongs in{" "}
+            <AnchorToken
+              referenceId="ref-auth-service"
+              isActive={activeReferenceIds.includes("ref-auth-service")}
+              onPreviewReference={onPreviewReference}
+              onClearPreviewReference={onClearPreviewReference}
+              onPinSource={onPinSource}
+            >
+              AuthService
+            </AnchorToken>
+            . That keeps the transport layer thin and the business rule explicit.
+          </ReadingLine>
         </p>
       );
     case "exp-jwt-after-validation":
       return (
         <p className="mb-8">
-          Only after the backend decides the user is valid does{" "}
-          <AnchorToken
-            referenceId="ref-jwt-service"
-            isActive={activeReferenceIds.includes("ref-jwt-service")}
-            onPreviewReference={onPreviewReference}
-            onClearPreviewReference={onClearPreviewReference}
-            onPinSource={onPinSource}
-          >
-            JwtService
-          </AnchorToken>{" "}
-          sign a token. Later protected requests can trust that token because
-          the server itself created it after a successful login.
+          <ReadingLine>
+            Only after the backend decides the user is valid does{" "}
+            <AnchorToken
+              referenceId="ref-jwt-service"
+              isActive={activeReferenceIds.includes("ref-jwt-service")}
+              onPreviewReference={onPreviewReference}
+              onClearPreviewReference={onClearPreviewReference}
+              onPinSource={onPinSource}
+            >
+              JwtService
+            </AnchorToken>{" "}
+            sign a token. Later protected requests can trust that token because
+            the server itself created it after a successful login.
+          </ReadingLine>
         </p>
       );
     default:
-      return <p className="mb-8">{step.block.content}</p>;
+      return (
+        <p className="mb-8">
+          <ReadingLine>{step.block.content}</ReadingLine>
+        </p>
+      );
   }
 }
 
@@ -172,22 +189,22 @@ export function LearningPanel({
     Boolean(currentAnswerState);
 
   return (
-    <div className="mx-auto w-full max-w-3xl px-8 py-16 sm:py-24">
+    <div className={cn("mx-auto w-full max-w-3xl px-8 py-16 sm:py-24", readingProtectionClass)}>
       <div className="mb-12">
         <p className="mb-4 text-[10px] font-mono uppercase tracking-[0.2em] text-slate-400 dark:text-slate-500">
-          Learning Topic
+          <ReadingLine>Learning Topic</ReadingLine>
         </p>
         <h1 className="text-3xl font-light tracking-tight text-slate-900 dark:text-white/90 sm:text-4xl">
-          {title}
+          <ReadingLine>{title}</ReadingLine>
         </h1>
       </div>
 
       <div className="mb-12 border-l-[3px] border-slate-300 pl-6 dark:border-slate-700">
         <p className="mb-2 text-[10px] font-bold uppercase tracking-widest text-slate-400 dark:text-slate-600">
-          Root Why
+          <ReadingLine>Root Why</ReadingLine>
         </p>
         <p className="text-lg italic leading-relaxed text-slate-600 dark:text-slate-400">
-          {rootQuestion}
+          <ReadingLine>{rootQuestion}</ReadingLine>
         </p>
       </div>
 
@@ -207,11 +224,13 @@ export function LearningPanel({
                     className="group flex w-full items-center justify-between text-left"
                   >
                     <p className="text-sm italic text-slate-500 transition-colors group-hover:text-cyan-600 dark:text-slate-400 dark:group-hover:text-cyan-400">
-                      <span className="font-bold not-italic">Q:</span>{" "}
-                      {step.question.prompt}
+                      <ReadingLine>
+                        <span className="font-bold not-italic">Q:</span>{" "}
+                        {step.question.prompt}
+                      </ReadingLine>
                     </p>
                     <span className="text-xs text-slate-400">
-                      {isHistoryExpanded ? "−" : "+"}
+                      {isHistoryExpanded ? "-" : "+"}
                     </span>
                   </button>
 
@@ -222,15 +241,19 @@ export function LearningPanel({
                     )}
                   >
                     <p className="text-sm text-slate-600 dark:text-slate-300">
-                      <span className="font-bold text-cyan-600 dark:text-cyan-500">Answer:</span>{" "}
-                      {answerState.status === "skipped"
-                        ? "Skipped for now."
-                        : answerState.answer}
+                      <ReadingLine>
+                        <span className="font-bold text-cyan-600 dark:text-cyan-500">Answer:</span>{" "}
+                        {answerState.status === "skipped"
+                          ? "Skipped for now."
+                          : answerState.answer}
+                      </ReadingLine>
                     </p>
                     {answerState.feedback ? (
                       <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">
-                        <span className="font-bold text-cyan-600 dark:text-cyan-500">AI:</span>{" "}
-                        {answerState.feedback.nextSuggestion}
+                        <ReadingLine>
+                          <span className="font-bold text-cyan-600 dark:text-cyan-500">AI:</span>{" "}
+                          {answerState.feedback.nextSuggestion}
+                        </ReadingLine>
                       </p>
                     ) : null}
                   </div>
@@ -239,7 +262,7 @@ export function LearningPanel({
 
               <div>
                 <h3 className="mb-2 text-sm font-bold uppercase tracking-widest text-slate-900 dark:text-slate-200">
-                  {step.block.title ?? `Step ${index + 1}`}
+                  <ReadingLine>{step.block.title ?? `Step ${index + 1}`}</ReadingLine>
                 </h3>
                 {renderBlockContent(
                   step,
@@ -253,11 +276,11 @@ export function LearningPanel({
               {isCurrent ? (
                 <div className="my-10 rounded-r-xl border-l-[2px] border-cyan-500/40 bg-cyan-50/20 py-2 pl-6 transition-all dark:bg-cyan-950/10">
                   <p className="mb-3 flex items-center gap-2 text-[10px] font-mono uppercase tracking-[0.2em] text-cyan-600 dark:text-cyan-500">
-                    <span className="h-1.5 w-1.5 rounded-full bg-cyan-500 animate-pulse" />
-                    Current Question
+                    <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-cyan-500" />
+                    <ReadingLine>Current Question</ReadingLine>
                   </p>
                   <p className="mb-6 text-lg font-light text-slate-900 dark:text-white/90">
-                    {step.question.prompt}
+                    <ReadingLine>{step.question.prompt}</ReadingLine>
                   </p>
 
                   <form onSubmit={handleSubmit}>
@@ -302,12 +325,14 @@ export function LearningPanel({
         {finishedAllSteps ? (
           <div className="my-10 rounded-r-xl border-l-[2px] border-cyan-500/40 bg-cyan-50/20 py-2 pl-6 dark:bg-cyan-950/10">
             <p className="mb-3 flex items-center gap-2 text-[10px] font-mono uppercase tracking-[0.2em] text-cyan-600 dark:text-cyan-500">
-              <span className="h-1.5 w-1.5 rounded-full bg-cyan-500 animate-pulse" />
-              Current state
+              <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-cyan-500" />
+              <ReadingLine>Current state</ReadingLine>
             </p>
             <p className="text-lg font-light text-slate-900 dark:text-white/90">
-              This branch is grounded for now. The next step is to persist it
-              into Library and let Review reopen it later.
+              <ReadingLine>
+                This branch is grounded for now. The next step is to persist it
+                into Library and let Review reopen it later.
+              </ReadingLine>
             </p>
           </div>
         ) : null}

@@ -228,3 +228,37 @@ textarea {
     typing-reveal 2.2s steps(44, end) 1.5s forwards,
     caret-blink 1s step-end 1.5s infinite;
 }
+
+@layer utilities {
+  .text-halo-light {
+    text-shadow:
+      0 0 8px rgba(248, 250, 252, 0.96),
+      0 0 16px rgba(248, 250, 252, 0.82),
+      0 0 24px rgba(248, 250, 252, 0.68);
+  }
+
+  .text-halo-dark {
+    text-shadow:
+      0 0 8px rgba(10, 15, 26, 0.98),
+      0 0 16px rgba(10, 15, 26, 0.9),
+      0 0 24px rgba(10, 15, 26, 0.8);
+  }
+
+  .reading-line-shield {
+    -webkit-box-decoration-break: clone;
+    box-decoration-break: clone;
+    margin-inline: -0.08em;
+    padding-inline: 0.08em;
+    border-radius: 0.18rem;
+    background: rgba(248, 250, 252, 0.78);
+    box-shadow:
+      0 0 0 0.12em rgba(248, 250, 252, 0.78),
+      0 0 18px 8px rgba(248, 250, 252, 0.72);
+  }
+
+  :root.dark .reading-line-shield,
+  .dark .reading-line-shield {
+    background: transparent;
+    box-shadow: none;
+  }
+}
