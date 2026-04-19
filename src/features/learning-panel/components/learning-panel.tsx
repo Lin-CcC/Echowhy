@@ -72,8 +72,8 @@ function AnchorToken({
         "inline-block rounded-sm border-b px-1 font-mono transition-all",
         !isDark && "text-halo-light",
         isActive
-          ? "border-cyan-500 bg-cyan-500/5 text-cyan-700 dark:border-cyan-400 dark:bg-cyan-400/8 dark:text-cyan-300"
-          : "border-dashed border-cyan-500/60 text-cyan-700 hover:border-solid hover:bg-cyan-500/8 dark:border-cyan-400/60 dark:text-cyan-300",
+          ? "border-cyan-500 bg-cyan-500/5 text-cyan-700 dark:border-cyan-400 dark:bg-cyan-400/8 dark:text-cyan-400"
+          : "border-dashed border-cyan-500/60 text-cyan-700 hover:border-solid hover:bg-cyan-500/8 dark:border-cyan-400/70 dark:text-cyan-400",
       )}
     >
       {children}
@@ -184,9 +184,6 @@ export function LearningPanel({
   const currentAnswerState = currentStep
     ? answerStateByQuestionId[currentStep.question.id]
     : undefined;
-  const readingProtectionClass = useLightShield
-    ? "text-halo-light bg-[radial-gradient(ellipse_at_center,rgba(248,250,252,0.66)_0%,rgba(248,250,252,0.3)_42%,rgba(248,250,252,0)_78%)]"
-    : "";
 
   const form = useForm<AnswerValues>({
     resolver: zodResolver(answerSchema),
@@ -205,13 +202,18 @@ export function LearningPanel({
     Boolean(currentAnswerState);
 
   return (
-    <div className={cn("mx-auto w-full max-w-3xl px-8 py-16 sm:py-24", readingProtectionClass)}>
+    <div className="mx-auto w-full max-w-3xl px-8 py-8 pb-24">
       <div className="mb-12">
         <p className="mb-4 text-[10px] font-mono uppercase tracking-[0.2em] text-slate-400 dark:text-slate-400">
           <ReadingLine shield={useLightShield}>Learning Topic</ReadingLine>
         </p>
-        <h1 className="text-3xl font-light tracking-tight text-slate-900 dark:text-slate-200 sm:text-4xl">
-          <ReadingLine shield={useLightShield}>{title}</ReadingLine>
+        <h1
+          className={cn(
+            "max-w-[18ch] text-balance text-3xl font-light tracking-tight text-slate-900 dark:text-slate-100 sm:max-w-[20ch] sm:text-4xl 2xl:max-w-none",
+            useLightShield && "text-halo-soft-light bg-slate-50/35 [box-decoration-break:clone] [-webkit-box-decoration-break:clone]",
+          )}
+        >
+          {title}
         </h1>
       </div>
 
@@ -219,8 +221,13 @@ export function LearningPanel({
         <p className="mb-2 text-[10px] font-bold uppercase tracking-widest text-slate-400 dark:text-slate-400">
           <ReadingLine shield={useLightShield}>Root Why</ReadingLine>
         </p>
-        <p className="text-lg italic leading-relaxed text-slate-600 dark:text-slate-300">
-          <ReadingLine shield={useLightShield}>{rootQuestion}</ReadingLine>
+        <p
+          className={cn(
+            "text-lg italic leading-relaxed text-slate-600 dark:text-slate-300",
+            useLightShield && "text-halo-soft-light bg-slate-50/28 [box-decoration-break:clone] [-webkit-box-decoration-break:clone]",
+          )}
+        >
+          {rootQuestion}
         </p>
       </div>
 
@@ -239,13 +246,13 @@ export function LearningPanel({
                     onClick={() => onToggleHistory(step.question.id)}
                     className="group flex w-full items-center justify-between text-left"
                   >
-                    <p className="text-sm italic text-slate-500 transition-colors group-hover:text-cyan-600 dark:text-slate-400 dark:group-hover:text-cyan-300">
+                    <p className="text-sm italic text-slate-500 transition-colors group-hover:text-cyan-600 dark:text-slate-400 dark:group-hover:text-cyan-400">
                       <ReadingLine shield={useLightShield}>
                         <span className="font-bold not-italic">Q:</span>{" "}
                         {step.question.prompt}
                       </ReadingLine>
                     </p>
-                    <span className="text-xs text-slate-400 dark:text-slate-500">
+                    <span className="text-xs text-slate-400 dark:text-slate-400">
                       {isHistoryExpanded ? "-" : "+"}
                     </span>
                   </button>
@@ -277,7 +284,7 @@ export function LearningPanel({
               ) : null}
 
               <div>
-                <h3 className="mb-2 text-sm font-bold uppercase tracking-widest text-slate-900 dark:text-slate-200">
+                <h3 className="mb-2 text-sm font-bold uppercase tracking-widest text-slate-900 dark:text-slate-100">
                   <ReadingLine shield={useLightShield}>
                     {step.block.title ?? `Step ${index + 1}`}
                   </ReadingLine>
@@ -299,14 +306,14 @@ export function LearningPanel({
                     "my-10 rounded-r-xl border-l-[2px] py-2 pl-6 transition-all",
                     isDark
                       ? "border-cyan-500/24 bg-transparent"
-                      : "border-cyan-500/40 bg-cyan-50/20",
+                      : "border-cyan-500/30 bg-transparent",
                   )}
                 >
                   <p className="mb-3 flex items-center gap-2 text-[10px] font-mono uppercase tracking-[0.2em] text-cyan-600 dark:text-cyan-400">
                     <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-cyan-500" />
                     <ReadingLine shield={useLightShield}>Current Question</ReadingLine>
                   </p>
-                  <p className="mb-6 text-lg font-light text-slate-900 dark:text-slate-200">
+                  <p className="mb-6 text-lg font-light text-slate-900 dark:text-slate-100">
                     <ReadingLine shield={useLightShield}>{step.question.prompt}</ReadingLine>
                   </p>
 
@@ -318,7 +325,7 @@ export function LearningPanel({
                       className={cn(
                         "w-full resize-none border-b bg-transparent pb-2 transition-colors placeholder:italic focus:outline-none",
                         isDark
-                          ? "border-cyan-800/30 text-slate-200 placeholder:text-slate-500 focus:border-cyan-400"
+                          ? "border-cyan-700/45 text-slate-100 placeholder:text-slate-400 focus:border-cyan-400"
                           : "border-slate-300 text-slate-800 placeholder:text-slate-400 focus:border-cyan-500",
                       )}
                     />
@@ -355,14 +362,14 @@ export function LearningPanel({
               "my-10 rounded-r-xl border-l-[2px] py-2 pl-6",
               isDark
                 ? "border-cyan-500/24 bg-transparent"
-                : "border-cyan-500/40 bg-cyan-50/20",
+                : "border-cyan-500/30 bg-transparent",
             )}
           >
             <p className="mb-3 flex items-center gap-2 text-[10px] font-mono uppercase tracking-[0.2em] text-cyan-600 dark:text-cyan-400">
               <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-cyan-500" />
               <ReadingLine shield={useLightShield}>Current state</ReadingLine>
             </p>
-            <p className="text-lg font-light text-slate-900 dark:text-slate-200">
+            <p className="text-lg font-light text-slate-900 dark:text-slate-100">
               <ReadingLine shield={useLightShield}>
                 This branch is grounded for now. The next step is to persist it
                 into Library and let Review reopen it later.

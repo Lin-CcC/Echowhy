@@ -8,9 +8,9 @@ type ConstellationViewProps = {
 };
 
 const sidebarNodeLayout = [
-  { x: 108, y: 96 },
-  { x: 150, y: 246 },
-  { x: 90, y: 404 },
+  { x: 108, y: 72 },
+  { x: 150, y: 222 },
+  { x: 90, y: 380 },
 ] as const;
 
 function buildPolylinePath(from: { x: number; y: number }, to: { x: number; y: number }) {

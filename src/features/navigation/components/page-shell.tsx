@@ -56,7 +56,7 @@ export function PageShell() {
             <span className="text-[10px] uppercase tracking-[0.32em] text-slate-500 dark:text-slate-400">
               Echowhy
             </span>
-            <h1 className="mt-1 text-sm font-semibold text-slate-800 dark:text-slate-50 sm:text-base">
+            <h1 className="mt-1 text-sm font-semibold text-slate-800 dark:text-slate-100 sm:text-base">
               Question-driven learning
             </h1>
           </div>
@@ -119,8 +119,8 @@ export function PageShell() {
                     key={item.to}
                     to={item.to}
                     className={cn(
-                      "rounded-full px-3 py-2 text-sm text-slate-500 transition-colors hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-100",
-                      active && "text-slate-800 dark:text-slate-50",
+                      "rounded-full px-3 py-2 text-sm text-slate-500 transition-colors hover:text-slate-800 dark:text-slate-300 dark:hover:text-slate-100",
+                      active && "text-slate-800 dark:text-slate-100",
                     )}
                   >
                     {item.label}

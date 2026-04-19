@@ -149,17 +149,28 @@ export function ThemedAmbientBackground({
             className="absolute left-1/2 top-1/2 h-[400px] w-[800px] -translate-x-1/2 -translate-y-1/2"
             style={{
               background:
-                "radial-gradient(ellipse at center, rgba(255,255,255,0.16) 0%, rgba(255,255,255,0) 70%)",
+                quiet
+                  ? "radial-gradient(ellipse at center, rgba(255,255,255,0.1) 0%, rgba(255,255,255,0) 70%)"
+                  : "radial-gradient(ellipse at center, rgba(255,255,255,0.16) 0%, rgba(255,255,255,0) 70%)",
             }}
           />
 
-          <div className="absolute right-[12rem] top-[3rem] h-64 w-64 rounded-full bg-cyan-400/6 blur-[110px]" />
+          <div
+            className={cn(
+              "absolute right-[12rem] top-[3rem] h-64 w-64 rounded-full blur-[110px]",
+              quiet ? "bg-cyan-400/4" : "bg-cyan-400/6",
+            )}
+          />
 
           <motion.svg
             viewBox="0 0 1440 900"
             className="absolute left-0 top-0 h-full w-full overflow-visible"
             fill="none"
-            animate={prefersReducedMotion ? {} : { opacity: [0.22, 0.34, 0.22] }}
+            animate={
+              prefersReducedMotion
+                ? {}
+                : { opacity: quiet ? [0.1, 0.16, 0.1] : [0.22, 0.34, 0.22] }
+            }
             transition={{ duration: 24, repeat: Infinity, ease: "easeInOut" }}
           >
             <defs>
@@ -195,7 +206,7 @@ export function ThemedAmbientBackground({
               background:
                 "radial-gradient(78% 74% at 16% 22%, rgba(191,219,254,0.22) 0%, rgba(191,219,254,0.06) 26%, rgba(248,250,252,0) 58%), radial-gradient(84% 76% at 84% 18%, rgba(125,211,252,0.18) 0%, rgba(125,211,252,0.05) 24%, rgba(248,250,252,0) 56%), radial-gradient(70% 66% at 76% 74%, rgba(199,210,254,0.12) 0%, rgba(199,210,254,0.04) 24%, rgba(248,250,252,0) 54%)",
             }}
-            animate={{ opacity: [0.92, 1, 0.94] }}
+            animate={{ opacity: quiet ? [0.66, 0.74, 0.68] : [0.92, 1, 0.94] }}
             transition={{ duration: 24, repeat: Infinity, ease: "easeInOut" }}
           />
 
@@ -237,7 +248,10 @@ export function ThemedAmbientBackground({
                 }}
               />
               <motion.div
-                className="absolute left-[4rem] top-[6rem] h-px w-[22rem] origin-left bg-gradient-to-r from-slate-500/70 via-slate-500/26 to-transparent"
+                className={cn(
+                  "absolute left-[4rem] top-[6rem] h-px w-[22rem] origin-left bg-gradient-to-r from-slate-500/70 via-slate-500/26 to-transparent",
+                  quiet && "hidden",
+                )}
                 animate={
                   prefersReducedMotion
                     ? {}
@@ -282,7 +296,10 @@ export function ThemedAmbientBackground({
                 }}
               />
               <motion.div
-                className="absolute right-[6rem] bottom-[8rem] h-px w-[18rem] origin-right bg-gradient-to-l from-slate-500/66 via-slate-500/24 to-transparent"
+                className={cn(
+                  "absolute right-[6rem] bottom-[8rem] h-px w-[18rem] origin-right bg-gradient-to-l from-slate-500/66 via-slate-500/24 to-transparent",
+                  quiet && "hidden",
+                )}
                 animate={
                   prefersReducedMotion
                     ? {}
@@ -297,30 +314,32 @@ export function ThemedAmbientBackground({
               />
             </motion.div>
 
-            <svg
-              viewBox="0 0 560 360"
-              className="absolute left-0 top-0 h-full w-full overflow-visible"
-              fill="none"
-            >
-              <motion.path
-                d="M 52 146 C 136 108, 212 88, 308 84"
-                stroke="rgba(100,116,139,0.36)"
-                strokeWidth="0.8"
-                strokeLinecap="round"
-                strokeDasharray="4 20 12 20"
-                animate={prefersReducedMotion ? {} : { strokeDashoffset: [0, -180] }}
-                transition={{ duration: 72, repeat: Infinity, ease: "linear" }}
-              />
-              <motion.path
-                d="M 510 118 C 470 126, 432 144, 384 178"
-                stroke="rgba(100,116,139,0.32)"
-                strokeWidth="0.75"
-                strokeLinecap="round"
-                strokeDasharray="4 20 12 20"
-                animate={prefersReducedMotion ? {} : { strokeDashoffset: [0, 150] }}
-                transition={{ duration: 64, repeat: Infinity, ease: "linear" }}
-              />
-            </svg>
+            {!quiet ? (
+              <svg
+                viewBox="0 0 560 360"
+                className="absolute left-0 top-0 h-full w-full overflow-visible"
+                fill="none"
+              >
+                <motion.path
+                  d="M 52 146 C 136 108, 212 88, 308 84"
+                  stroke="rgba(100,116,139,0.36)"
+                  strokeWidth="0.8"
+                  strokeLinecap="round"
+                  strokeDasharray="4 20 12 20"
+                  animate={prefersReducedMotion ? {} : { strokeDashoffset: [0, -180] }}
+                  transition={{ duration: 72, repeat: Infinity, ease: "linear" }}
+                />
+                <motion.path
+                  d="M 510 118 C 470 126, 432 144, 384 178"
+                  stroke="rgba(100,116,139,0.32)"
+                  strokeWidth="0.75"
+                  strokeLinecap="round"
+                  strokeDasharray="4 20 12 20"
+                  animate={prefersReducedMotion ? {} : { strokeDashoffset: [0, 150] }}
+                  transition={{ duration: 64, repeat: Infinity, ease: "linear" }}
+                />
+              </svg>
+            ) : null}
 
             {showLightDynamicAnnotations
               ? lightLabelItems.map((item) => (

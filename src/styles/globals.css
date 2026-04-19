@@ -1,5 +1,7 @@
 @import "tailwindcss";
 
+@custom-variant dark (&:where(.dark, .dark *));
+
 :root {
   color-scheme: light;
   --background: #f8fafc;
@@ -237,6 +239,12 @@ textarea {
       0 0 24px rgba(248, 250, 252, 0.68);
   }
 
+  .text-halo-soft-light {
+    text-shadow:
+      0 0 4px rgba(248, 250, 252, 0.78),
+      0 0 8px rgba(248, 250, 252, 0.38);
+  }
+
   .text-halo-dark {
     text-shadow:
       0 0 1px rgba(2, 3, 8, 0.55),
@@ -249,10 +257,10 @@ textarea {
     margin-inline: -0.08em;
     padding-inline: 0.08em;
     border-radius: 0.18rem;
-    background: rgba(248, 250, 252, 0.78);
+    background: rgba(248, 250, 252, 0.64);
     box-shadow:
-      0 0 0 0.12em rgba(248, 250, 252, 0.78),
-      0 0 18px 8px rgba(248, 250, 252, 0.72);
+      0 0 0 0.08em rgba(248, 250, 252, 0.64),
+      0 0 8px 2px rgba(248, 250, 252, 0.28);
   }
 
   :root.dark .reading-line-shield,

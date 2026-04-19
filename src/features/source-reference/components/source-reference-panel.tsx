@@ -64,7 +64,7 @@ export function SourceReferencePanel({
         )}
       >
         <span>Source Workbench</span>
-        <span className="text-slate-400/70">{displayedReferences.length}</span>
+        <span className="text-slate-400">{displayedReferences.length}</span>
       </p>
 
       {displayedReferences.length ? (
@@ -98,9 +98,14 @@ export function SourceReferencePanel({
                 ) : null}
 
                 <div className="relative z-10 mb-4 flex items-start justify-between gap-3">
-                  <div className="space-y-1 text-sm font-medium text-slate-700 dark:text-slate-300">
+                  <div className="space-y-1 text-sm font-medium text-slate-700 dark:text-slate-100">
                     <p className={cn(!isDark && "text-halo-light")}>{reference.label}</p>
-                    <p className={cn("break-all text-slate-500 dark:text-slate-400", !isDark && "text-halo-light")}>
+                    <p
+                      className={cn(
+                        "break-all text-slate-500 dark:text-slate-300",
+                        !isDark && "text-halo-light",
+                      )}
+                    >
                       {reference.referencePath}
                       {reference.startLine
                         ? ` : ${reference.startLine}-${reference.endLine}`
@@ -112,7 +117,7 @@ export function SourceReferencePanel({
                     <button
                       type="button"
                       onClick={() => onUnpinSource(reference.id)}
-                      className="shrink-0 text-xs text-slate-400 transition-colors hover:text-slate-600 dark:text-slate-400 dark:hover:text-slate-200"
+                        className="shrink-0 text-xs text-slate-400 transition-colors hover:text-slate-600 dark:text-slate-400 dark:hover:text-slate-200"
                     >
                       [ x ]
                     </button>
@@ -124,7 +129,7 @@ export function SourceReferencePanel({
                 </div>
 
                 <div
-                  className={cn(
+                    className={cn(
                     "relative z-10 font-mono text-[12px] leading-loose text-slate-600 dark:text-slate-300",
                     !isDark && "text-halo-light",
                   )}
@@ -138,7 +143,7 @@ export function SourceReferencePanel({
                         className={cn(
                           "relative inline-block w-full whitespace-pre-wrap border-l-[2px] pl-4 transition-all duration-200",
                           highlighted
-                            ? "border-cyan-500 bg-gradient-to-r from-cyan-500/[0.055] via-cyan-500/[0.022] to-transparent text-cyan-700 shadow-[-4px_0_12px_rgba(6,182,212,0.08)] dark:border-cyan-400 dark:from-cyan-400/[0.1] dark:via-cyan-400/[0.025] dark:text-cyan-300"
+                            ? "border-cyan-500 bg-gradient-to-r from-cyan-500/[0.055] via-cyan-500/[0.022] to-transparent text-cyan-700 shadow-[-4px_0_12px_rgba(6,182,212,0.08)] dark:border-cyan-400 dark:from-cyan-400/[0.1] dark:via-cyan-400/[0.025] dark:text-cyan-400"
                             : "border-transparent",
                         )}
                       >
@@ -156,7 +161,7 @@ export function SourceReferencePanel({
           className={cn(
             "rounded-2xl border border-dashed p-5 text-sm italic text-slate-400",
             isDark
-              ? "border-cyan-500/18 bg-transparent"
+              ? "border-cyan-500/24 bg-transparent text-slate-300"
               : "border-slate-200/60 bg-white/[0.06] backdrop-blur-[2px]",
           )}
         >
