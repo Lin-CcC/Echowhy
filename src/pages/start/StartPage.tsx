@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { AnimatePresence, motion } from "framer-motion";
+import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { useNavigate } from "@tanstack/react-router";
 import { QuestionEntry } from "@/features/start-entry/components/question-entry";
 import { guidedQuestions } from "@/mock/data/guided-questions";
@@ -13,12 +13,63 @@ const bubblePlacements = [
   "left-[8%] top-[46%]",
 ] as const;
 
+const lightLabelItems = [
+  {
+    label: "phi = 1.618",
+    dotClass:
+      "absolute left-[12rem] top-[5.95rem] h-1.5 w-1.5 rounded-full bg-slate-500/60 shadow-[0_0_0_3px_rgba(148,163,184,0.08)]",
+    lineClass:
+      "absolute left-[5rem] top-[4.9rem] h-px w-[6.5rem] bg-gradient-to-r from-slate-500/72 to-transparent",
+    textClass:
+      "absolute left-[5rem] top-[5rem] text-[10px] font-mono tracking-[0.12em] text-slate-600/92",
+    delay: 0,
+    duration: 17,
+  },
+  {
+    label: "theta = pi/2",
+    dotClass:
+      "absolute right-[23rem] top-[8rem] h-1.5 w-1.5 rounded-full bg-slate-500/58 shadow-[0_0_0_3px_rgba(148,163,184,0.08)]",
+    lineClass:
+      "absolute right-[6rem] top-[7.9rem] h-px w-[5.3rem] bg-gradient-to-l from-slate-500/68 to-transparent",
+    textClass:
+      "absolute right-[6rem] top-[8rem] text-[10px] font-mono tracking-[0.12em] text-slate-600/92",
+    delay: 4,
+    duration: 19,
+  },
+  {
+    label: "r = 4.0u",
+    dotClass:
+      "absolute left-[7rem] bottom-[6.9rem] h-1.5 w-1.5 rounded-full bg-slate-500/56 shadow-[0_0_0_3px_rgba(148,163,184,0.08)]",
+    lineClass:
+      "absolute left-[4rem] bottom-[6.95rem] h-px w-[5rem] bg-gradient-to-r from-slate-500/68 to-transparent",
+    textClass:
+      "absolute left-[4rem] bottom-[7rem] text-[10px] font-mono tracking-[0.12em] text-slate-600/90",
+    delay: 8,
+    duration: 21,
+  },
+  {
+    label: "lim x->inf",
+    dotClass:
+      "absolute right-[18rem] bottom-[7.9rem] h-1.5 w-1.5 rounded-full bg-slate-500/58 shadow-[0_0_0_3px_rgba(148,163,184,0.08)]",
+    lineClass:
+      "absolute right-[7rem] bottom-[9.95rem] h-px w-[5.4rem] bg-gradient-to-l from-slate-500/68 to-transparent",
+    textClass:
+      "absolute right-[7rem] bottom-[10rem] text-[10px] font-mono tracking-[0.12em] text-slate-600/90",
+    delay: 12,
+    duration: 18,
+  },
+] as const;
+
 export function StartPage() {
   const { theme, mode } = useThemeMode();
   const navigate = useNavigate();
+  const prefersReducedMotion = useReducedMotion();
   const [sourceId, setSourceId] = useState<string | null>(null);
   const [isAwake, setIsAwake] = useState(false);
   const [textVisible, setTextVisible] = useState(true);
+
+  const isDarkDynamic = theme === "dark" && mode === "dynamic";
+  const isLightDynamic = theme === "light" && mode === "dynamic";
 
   useEffect(() => {
     const textTimer = window.setTimeout(() => {
@@ -34,9 +85,6 @@ export function StartPage() {
       window.clearTimeout(awakeTimer);
     };
   }, []);
-
-  const isDarkDynamic = theme === "dark" && mode === "dynamic";
-  const isLightDynamic = theme === "light" && mode === "dynamic";
 
   const goToTopic = (topicId: string) => {
     void navigate({ to: "/topic/$id", params: { id: topicId } });
@@ -145,7 +193,7 @@ export function StartPage() {
             className="absolute inset-0"
             style={{
               backgroundImage:
-                "radial-gradient(circle at 1px 1px, rgba(71,85,105,0.16) 1.1px, transparent 0)",
+                "radial-gradient(circle at 1px 1px, rgba(71,85,105,0.02) 1px, transparent 0)",
               backgroundSize: "92px 92px",
             }}
           />
@@ -153,79 +201,155 @@ export function StartPage() {
           <motion.div
             className="absolute inset-0"
             style={{
-              background: `
-                radial-gradient(82% 78% at 16% 24%, rgba(191,219,254,0.24) 0%, rgba(191,219,254,0.09) 24%, rgba(248,250,252,0) 58%),
-                radial-gradient(88% 82% at 84% 18%, rgba(125,211,252,0.2) 0%, rgba(125,211,252,0.08) 24%, rgba(248,250,252,0) 58%),
-                radial-gradient(78% 70% at 74% 76%, rgba(199,210,254,0.18) 0%, rgba(199,210,254,0.06) 26%, rgba(248,250,252,0) 54%)
-              `,
+              background:
+                "radial-gradient(78% 74% at 16% 22%, rgba(191,219,254,0.22) 0%, rgba(191,219,254,0.06) 26%, rgba(248,250,252,0) 58%), radial-gradient(84% 76% at 84% 18%, rgba(125,211,252,0.18) 0%, rgba(125,211,252,0.05) 24%, rgba(248,250,252,0) 56%), radial-gradient(70% 66% at 76% 74%, rgba(199,210,254,0.12) 0%, rgba(199,210,254,0.04) 24%, rgba(248,250,252,0) 54%)",
             }}
-            animate={{ opacity: [0.9, 1, 0.92] }}
-            transition={{ duration: 22, repeat: Infinity, ease: "easeInOut" }}
+            animate={{ opacity: [0.92, 1, 0.94] }}
+            transition={{ duration: 24, repeat: Infinity, ease: "easeInOut" }}
           />
 
           <div
             className="absolute inset-0"
             style={{
               maskImage:
-                "radial-gradient(circle at 50% 53%, transparent 0 140px, black 220px 100%)",
+                "radial-gradient(circle at 50% 53%, transparent 0 150px, black 230px 100%)",
               WebkitMaskImage:
-                "radial-gradient(circle at 50% 53%, transparent 0 140px, black 220px 100%)",
+                "radial-gradient(circle at 50% 53%, transparent 0 150px, black 230px 100%)",
             }}
+          >
+            <motion.div
+              className="absolute inset-0"
+              style={{ transformOrigin: "18% 22%" }}
+              animate={prefersReducedMotion ? {} : { rotate: [0, 360] }}
+              transition={{ duration: 260, repeat: Infinity, ease: "linear" }}
             >
-            <motion.div
-              className="absolute -left-[14rem] -top-[10rem] h-[38rem] w-[38rem] rounded-full border border-slate-500/32 shadow-[0_0_0_1px_rgba(148,163,184,0.06)]"
-              animate={{ rotate: [0, 16, 0], opacity: [0.4, 0.58, 0.4] }}
-              transition={{ duration: 46, repeat: Infinity, ease: "easeInOut" }}
-            />
-            <motion.div
-              className="absolute -left-[8rem] top-[5rem] h-[26rem] w-[26rem] rounded-full border border-slate-500/28"
-              animate={{ rotate: [0, -12, 0], opacity: [0.32, 0.46, 0.32] }}
-              transition={{ duration: 34, repeat: Infinity, ease: "easeInOut" }}
-            />
-            <motion.div
-              className="absolute -right-[12rem] top-[8rem] h-[34rem] w-[34rem] rounded-full border border-slate-500/30 shadow-[0_0_0_1px_rgba(148,163,184,0.05)]"
-              animate={{ rotate: [0, -14, 0], opacity: [0.36, 0.54, 0.36] }}
-              transition={{ duration: 42, repeat: Infinity, ease: "easeInOut" }}
-            />
-            <motion.div
-              className="absolute right-[4rem] top-[2rem] h-[24rem] w-[24rem] rounded-full border border-slate-500/24"
-              animate={{ rotate: [0, 10, 0], opacity: [0.28, 0.4, 0.28] }}
-              transition={{ duration: 32, repeat: Infinity, ease: "easeInOut" }}
-            />
+              <motion.div
+                className="absolute -left-[14rem] -top-[10rem] h-[38rem] w-[38rem] rounded-full border border-slate-500/40 shadow-[0_0_0_1px_rgba(148,163,184,0.08)]"
+                animate={
+                  prefersReducedMotion
+                    ? {}
+                    : { scale: [1, 1.016, 1], opacity: [0.34, 0.56, 0.34] }
+                }
+                transition={{ duration: 22, repeat: Infinity, ease: "easeInOut" }}
+              />
+              <motion.div
+                className="absolute -left-[8rem] top-[5rem] h-[26rem] w-[26rem] rounded-full border border-slate-500/30"
+                animate={
+                  prefersReducedMotion
+                    ? {}
+                    : { scale: [1, 1.012, 1], opacity: [0.24, 0.42, 0.24] }
+                }
+                transition={{
+                  duration: 18,
+                  repeat: Infinity,
+                  ease: "easeInOut",
+                  delay: 1.6,
+                }}
+              />
+              <motion.div
+                className="absolute left-[4rem] top-[6rem] h-px w-[22rem] origin-left bg-gradient-to-r from-slate-500/70 via-slate-500/26 to-transparent"
+                animate={
+                  prefersReducedMotion
+                    ? {}
+                    : { opacity: [0.42, 0.62, 0.42], scaleX: [0.98, 1.02, 0.98] }
+                }
+                transition={{ duration: 16, repeat: Infinity, ease: "easeInOut" }}
+              />
+            </motion.div>
 
             <motion.div
-              className="absolute left-[4rem] top-[6rem] h-px w-[22rem] bg-gradient-to-r from-slate-500/70 via-slate-500/28 to-transparent"
-              animate={{ opacity: [0.56, 0.8, 0.56], x: [-8, 4, -8] }}
-              transition={{ duration: 18, repeat: Infinity, ease: "easeInOut" }}
-            />
-            <motion.div
-              className="absolute right-[6rem] bottom-[8rem] h-px w-[18rem] bg-gradient-to-l from-slate-500/68 via-slate-500/24 to-transparent"
-              animate={{ opacity: [0.5, 0.74, 0.5], x: [6, -6, 6] }}
-              transition={{
-                duration: 16,
-                repeat: Infinity,
-                ease: "easeInOut",
-                delay: 2,
-              }}
-            />
+              className="absolute inset-0"
+              style={{ transformOrigin: "84% 18%" }}
+              animate={prefersReducedMotion ? {} : { rotate: [0, -360] }}
+              transition={{ duration: 300, repeat: Infinity, ease: "linear" }}
+            >
+              <motion.div
+                className="absolute -right-[12rem] top-[8rem] h-[34rem] w-[34rem] rounded-full border border-slate-500/38 shadow-[0_0_0_1px_rgba(148,163,184,0.06)]"
+                animate={
+                  prefersReducedMotion
+                    ? {}
+                    : { scale: [1, 1.016, 1], opacity: [0.32, 0.52, 0.32] }
+                }
+                transition={{
+                  duration: 24,
+                  repeat: Infinity,
+                  ease: "easeInOut",
+                  delay: 0.8,
+                }}
+              />
+              <motion.div
+                className="absolute right-[4rem] top-[2rem] h-[24rem] w-[24rem] rounded-full border border-slate-500/28"
+                animate={
+                  prefersReducedMotion
+                    ? {}
+                    : { scale: [1, 1.014, 1], opacity: [0.22, 0.38, 0.22] }
+                }
+                transition={{
+                  duration: 20,
+                  repeat: Infinity,
+                  ease: "easeInOut",
+                  delay: 2.8,
+                }}
+              />
+              <motion.div
+                className="absolute right-[6rem] bottom-[8rem] h-px w-[18rem] origin-right bg-gradient-to-l from-slate-500/66 via-slate-500/24 to-transparent"
+                animate={
+                  prefersReducedMotion
+                    ? {}
+                    : { opacity: [0.4, 0.58, 0.4], scaleX: [0.98, 1.03, 0.98] }
+                }
+                transition={{
+                  duration: 18,
+                  repeat: Infinity,
+                  ease: "easeInOut",
+                  delay: 1.5,
+                }}
+              />
+            </motion.div>
 
-            <div className="absolute left-[11.8rem] top-[5.95rem] h-1.5 w-1.5 rounded-full bg-slate-500/52 shadow-[0_0_0_3px_rgba(148,163,184,0.08)]" />
-            <div className="absolute right-[23.5rem] top-[7.95rem] h-1.5 w-1.5 rounded-full bg-slate-500/48 shadow-[0_0_0_3px_rgba(148,163,184,0.07)]" />
-            <div className="absolute right-[17.8rem] bottom-[7.95rem] h-1.5 w-1.5 rounded-full bg-slate-500/48 shadow-[0_0_0_3px_rgba(148,163,184,0.07)]" />
-            <div className="absolute left-[7rem] bottom-[6.9rem] h-1.5 w-1.5 rounded-full bg-slate-500/46 shadow-[0_0_0_3px_rgba(148,163,184,0.07)]" />
+            <svg
+              viewBox="0 0 560 360"
+              className="absolute left-0 top-0 h-full w-full overflow-visible"
+              fill="none"
+            >
+              <motion.path
+                d="M 52 146 C 136 108, 212 88, 308 84"
+                stroke="rgba(100,116,139,0.36)"
+                strokeWidth="0.8"
+                strokeLinecap="round"
+                strokeDasharray="9 14 120 0"
+                animate={prefersReducedMotion ? {} : { strokeDashoffset: [0, -180] }}
+                transition={{ duration: 72, repeat: Infinity, ease: "linear" }}
+              />
+              <motion.path
+                d="M 510 118 C 470 126, 432 144, 384 178"
+                stroke="rgba(100,116,139,0.32)"
+                strokeWidth="0.75"
+                strokeLinecap="round"
+                strokeDasharray="8 16 110 0"
+                animate={prefersReducedMotion ? {} : { strokeDashoffset: [0, 150] }}
+                transition={{ duration: 64, repeat: Infinity, ease: "linear" }}
+              />
+            </svg>
 
-            <div className="absolute left-[5rem] top-[5rem] text-[10px] font-mono tracking-[0.22em] text-slate-600/85">
-              AXIS 01
-            </div>
-            <div className="absolute right-[6rem] top-[8rem] text-[10px] font-mono tracking-[0.22em] text-slate-600/85">
-              ORBITAL GRID
-            </div>
-            <div className="absolute left-[4rem] bottom-[7rem] text-[10px] font-mono tracking-[0.22em] text-slate-600/84">
-              SCALE 0-4U
-            </div>
-            <div className="absolute right-[7rem] bottom-[10rem] text-[10px] font-mono tracking-[0.22em] text-slate-600/84">
-              THETA 90
-            </div>
+            {lightLabelItems.map((item) => (
+              <motion.div
+                key={item.label}
+                animate={
+                  prefersReducedMotion ? {} : { opacity: [0.15, 0.4, 0.15] }
+                }
+                transition={{
+                  duration: item.duration,
+                  repeat: Infinity,
+                  ease: "easeInOut",
+                  delay: item.delay,
+                }}
+              >
+                <div className={item.dotClass} />
+                <div className={item.lineClass} />
+                <div className={item.textClass}>{item.label}</div>
+              </motion.div>
+            ))}
           </div>
         </div>
       ) : null}
@@ -241,9 +365,7 @@ export function StartPage() {
             transform: "translate(-50%, -50%)",
           }}
           initial={{ width: 0, height: 0, opacity: 0 }}
-          animate={
-            isAwake ? { width: "200vw", height: "200vw", opacity: 1 } : {}
-          }
+          animate={isAwake ? { width: "200vw", height: "200vw", opacity: 1 } : {}}
           transition={{ duration: 0.8, ease: "easeOut" }}
         />
       ) : null}
@@ -253,7 +375,7 @@ export function StartPage() {
           <motion.div
             key="wake-text"
             className={cn(
-              "pointer-events-none absolute left-1/2 top-1/2 z-30 flex -translate-x-1/2 -translate-y-1/2 text-2xl font-light tracking-[0.08em] sm:text-4xl",
+              "pointer-events-none absolute left-1/2 top-1/2 z-30 flex -translate-x-1/2 -translate-y-1/2 text-2xl font-light tracking-[0.04em] sm:text-4xl",
               theme === "dark" ? "text-slate-100" : "text-slate-700",
             )}
             initial={{ opacity: 1, filter: "blur(0px)", scale: 1, y: 0 }}
@@ -295,7 +417,7 @@ export function StartPage() {
         animate={isAwake ? { opacity: 1, scale: 1, filter: "blur(0px)" } : {}}
         transition={{ duration: 1.2, ease: [0.19, 1, 0.22, 1], delay: 0.05 }}
       >
-        <div className="relative flex min-h-136 w-full items-center justify-center">
+        <div className="relative flex min-h-screen w-full items-center justify-center">
           {mode === "dynamic"
             ? guidedQuestions.map((question, index) => (
                 <motion.button
@@ -327,7 +449,7 @@ export function StartPage() {
           <div className="relative flex w-full flex-col items-center justify-center gap-12 text-center">
             <h2
               className={cn(
-                "text-2xl font-extralight tracking-[0.08em] sm:text-3xl",
+                "text-2xl font-extralight tracking-[0.06em] sm:text-3xl",
                 theme === "dark"
                   ? "text-white/90 drop-shadow-[0_0_15px_rgba(255,255,255,0.3)]"
                   : "text-slate-800",
@@ -376,9 +498,7 @@ export function StartPage() {
                 <QuestionEntry
                   theme={theme}
                   onSubmit={() => goToTopic("topic-login-jwt")}
-                  onAttachSource={
-                    !sourceId ? () => setSourceId("source-rbac") : undefined
-                  }
+                  onAttachSource={!sourceId ? () => setSourceId("source-rbac") : undefined}
                 />
               </div>
             </div>
