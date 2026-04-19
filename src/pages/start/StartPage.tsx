@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { useNavigate } from "@tanstack/react-router";
 import { QuestionEntry } from "@/features/start-entry/components/question-entry";
@@ -13,187 +13,12 @@ const bubblePlacements = [
   "left-[8%] top-[46%]",
 ] as const;
 
-type ShapeDefinition = {
-  id: "familyA" | "familyB" | "familyC" | "familyD";
-};
-
-const SHAPE_LIBRARY: ShapeDefinition[] = [
-  { id: "familyA" },
-  { id: "familyB" },
-  { id: "familyC" },
-  { id: "familyD" },
-];
-
-type HeterogeneousElement = {
-  id: string;
-  kind: ShapeDefinition["id"];
-  left: number;
-  top: number;
-  width: number;
-  height: number;
-  rotate: number;
-  scale: number;
-  opacity: number;
-  flipX: number;
-  flipY: number;
-  duration: number;
-  delay: number;
-  label: string;
-  spiralPath: string;
-};
-
-function buildSpiralPath(turns: number, maxRadius: number) {
-  const points: string[] = [];
-
-  for (let t = 0; t <= turns * Math.PI * 2; t += 0.22) {
-    const ratio = t / (turns * Math.PI * 2);
-    const r = 6 + ratio * maxRadius;
-    const x = 64 + Math.cos(t) * r;
-    const y = 64 + Math.sin(t) * r;
-    points.push(`${x.toFixed(2)} ${y.toFixed(2)}`);
-  }
-
-  return `M ${points.join(" L ")}`;
-}
-
-function drawFamilyA(element: HeterogeneousElement): ReactNode {
-  return (
-    <svg viewBox="0 0 160 160" className="h-full w-full" fill="none">
-      <path
-        d={element.spiralPath}
-        className="stroke-slate-600/78"
-        strokeWidth="0.8"
-        strokeLinecap="round"
-      />
-    </svg>
-  );
-}
-
-function drawFamilyB(): ReactNode {
-  return (
-    <svg viewBox="0 0 160 120" className="h-full w-full" fill="none">
-      <path
-        d="M 18 96 L 130 96 L 74 24 Z"
-        className="stroke-slate-600/85"
-        strokeWidth="0.8"
-      />
-      <line
-        x1="74"
-        y1="24"
-        x2="74"
-        y2="96"
-        className="stroke-slate-600/72"
-        strokeWidth="0.7"
-      />
-      <line
-        x1="18"
-        y1="96"
-        x2="74"
-        y2="24"
-        className="stroke-slate-600/62"
-        strokeWidth="0.65"
-        strokeDasharray="3 4"
-      />
-      <text
-        x="84"
-        y="40"
-        className="fill-slate-600/84"
-        fontSize="10"
-        fontFamily="ui-monospace, SFMono-Regular, Menlo, monospace"
-      >
-        alpha
-      </text>
-      <text
-        x="34"
-        y="92"
-        className="fill-slate-600/80"
-        fontSize="9"
-        fontFamily="ui-monospace, SFMono-Regular, Menlo, monospace"
-      >
-        90deg
-      </text>
-    </svg>
-  );
-}
-
-function drawFamilyC(element: HeterogeneousElement): ReactNode {
-  return (
-    <svg viewBox="0 0 180 84" className="h-full w-full" fill="none">
-      <text
-        x="8"
-        y="20"
-        className="fill-slate-600/88"
-        fontSize="9"
-        fontFamily="ui-monospace, SFMono-Regular, Menlo, monospace"
-      >
-        {element.label}
-      </text>
-      <text
-        x="8"
-        y="42"
-        className="fill-slate-600/82"
-        fontSize="9"
-        fontFamily="ui-monospace, SFMono-Regular, Menlo, monospace"
-      >
-        pi sum
-      </text>
-      <text
-        x="8"
-        y="64"
-        className="fill-slate-600/80"
-        fontSize="9"
-        fontFamily="ui-monospace, SFMono-Regular, Menlo, monospace"
-      >
-        theta phi
-      </text>
-    </svg>
-  );
-}
-
-function drawFamilyD(): ReactNode {
-  return (
-    <svg viewBox="0 0 150 120" className="h-full w-full" fill="none">
-      <line
-        x1="16"
-        y1="92"
-        x2="132"
-        y2="28"
-        className="stroke-slate-600/84"
-        strokeWidth="0.7"
-      />
-      <line
-        x1="20"
-        y1="20"
-        x2="124"
-        y2="100"
-        className="stroke-slate-600/78"
-        strokeWidth="0.7"
-      />
-      <circle
-        cx="73"
-        cy="62"
-        r="5.5"
-        className="stroke-slate-600/72"
-        strokeWidth="0.65"
-      />
-    </svg>
-  );
-}
-
 export function StartPage() {
   const { theme, mode } = useThemeMode();
   const navigate = useNavigate();
-  const pointerIdleTimerRef = useRef<number | null>(null);
   const [sourceId, setSourceId] = useState<string | null>(null);
   const [isAwake, setIsAwake] = useState(false);
   const [textVisible, setTextVisible] = useState(true);
-  const [lightPointer, setLightPointer] = useState<{
-    x: number;
-    y: number;
-    nx: number;
-    ny: number;
-  } | null>(null);
-  const [showPointerEcho, setShowPointerEcho] = useState(false);
 
   useEffect(() => {
     const textTimer = window.setTimeout(() => {
@@ -212,90 +37,6 @@ export function StartPage() {
 
   const isDarkDynamic = theme === "dark" && mode === "dynamic";
   const isLightDynamic = theme === "light" && mode === "dynamic";
-
-  const heterogeneousElements = useMemo(() => {
-    const randomBetween = (min: number, max: number) =>
-      min + Math.random() * (max - min);
-
-    const pickCount = Math.floor(randomBetween(4, 7));
-    const randomPeripheralPosition = () => {
-      let left = 0;
-      let top = 0;
-      let attempts = 0;
-
-      do {
-        left = randomBetween(4, 96);
-        top = randomBetween(5, 95);
-        attempts += 1;
-      } while (left > 32 && left < 68 && top > 30 && top < 72 && attempts < 30);
-
-      return { left, top };
-    };
-
-    const elements: HeterogeneousElement[] = [];
-
-    const heroPosition = randomPeripheralPosition();
-    elements.push({
-      id: `familyA-hero-${Math.random().toString(36).slice(2, 7)}`,
-      kind: "familyA",
-      left: heroPosition.left,
-      top: heroPosition.top,
-      width: randomBetween(50, 68),
-      height: randomBetween(44, 62),
-      rotate: randomBetween(-16, 16),
-      scale: randomBetween(1, 1.25),
-      opacity: randomBetween(0.14, 0.22),
-      flipX: Math.random() > 0.5 ? -1 : 1,
-      flipY: Math.random() > 0.5 ? -1 : 1,
-      duration: randomBetween(56, 84),
-      delay: -randomBetween(0, 12),
-      label: `(x.${randomBetween(0.111, 9.999).toFixed(3)}, y.${randomBetween(0.111, 9.999).toFixed(3)})`,
-      spiralPath: buildSpiralPath(
-        randomBetween(2.8, 4.4),
-        randomBetween(40, 56),
-      ),
-    });
-
-    const pool: ShapeDefinition["id"][] = SHAPE_LIBRARY.map(
-      (item) => item.id,
-    ).filter((id) => id !== "familyA");
-
-    for (let i = 1; i < pickCount; i += 1) {
-      const kind = pool[Math.floor(Math.random() * pool.length)];
-      const position = randomPeripheralPosition();
-
-      elements.push({
-        id: `${kind}-${i}-${Math.random().toString(36).slice(2, 7)}`,
-        kind,
-        left: position.left,
-        top: position.top,
-        width: randomBetween(14, 30),
-        height: randomBetween(12, 24),
-        rotate: randomBetween(-34, 34),
-        scale: randomBetween(0.5, 1.5),
-        opacity: randomBetween(0.28, 0.48),
-        flipX: Math.random() > 0.5 ? -1 : 1,
-        flipY: Math.random() > 0.5 ? -1 : 1,
-        duration: randomBetween(24, 64),
-        delay: -randomBetween(0, 12),
-        label: `(x.${randomBetween(0.111, 9.999).toFixed(3)}, y.${randomBetween(0.111, 9.999).toFixed(3)})`,
-        spiralPath: buildSpiralPath(
-          randomBetween(2.1, 3.6),
-          randomBetween(22, 36),
-        ),
-      });
-    }
-
-    return elements;
-  }, []);
-
-  useEffect(() => {
-    return () => {
-      if (pointerIdleTimerRef.current !== null) {
-        window.clearTimeout(pointerIdleTimerRef.current);
-      }
-    };
-  }, []);
 
   const goToTopic = (topicId: string) => {
     void navigate({ to: "/topic/$id", params: { id: topicId } });
@@ -321,36 +62,7 @@ export function StartPage() {
   );
 
   return (
-    <section
-      className="relative isolate flex min-h-screen w-full items-center justify-center overflow-hidden bg-slate-50 dark:bg-transparent"
-      onPointerMove={(event) => {
-        if (!isLightDynamic) return;
-
-        const rect = event.currentTarget.getBoundingClientRect();
-        const x = event.clientX - rect.left;
-        const y = event.clientY - rect.top;
-        const nx = rect.width > 0 ? x / rect.width : 0;
-        const ny = rect.height > 0 ? y / rect.height : 0;
-
-        setLightPointer({ x, y, nx, ny });
-        setShowPointerEcho(false);
-
-        if (pointerIdleTimerRef.current !== null) {
-          window.clearTimeout(pointerIdleTimerRef.current);
-        }
-
-        pointerIdleTimerRef.current = window.setTimeout(() => {
-          setShowPointerEcho(true);
-        }, 220);
-      }}
-      onPointerLeave={() => {
-        if (pointerIdleTimerRef.current !== null) {
-          window.clearTimeout(pointerIdleTimerRef.current);
-          pointerIdleTimerRef.current = null;
-        }
-        setShowPointerEcho(false);
-      }}
-    >
+    <section className="relative isolate flex min-h-screen w-full items-center justify-center overflow-hidden bg-slate-50 dark:bg-transparent">
       <div
         className={cn(
           "pointer-events-none absolute inset-0 z-0",
@@ -428,150 +140,88 @@ export function StartPage() {
       ) : null}
 
       {isLightDynamic ? (
-        <div className="absolute inset-0 z-0 overflow-hidden pointer-events-none opacity-95">
-          <div className="absolute inset-0 bg-[linear-gradient(to_right,#4755693a_1px,transparent_1px),linear-gradient(to_bottom,#4755693a_1px,transparent_1px)] bg-size-[80px_80px]" />
-
-          {lightPointer ? (
-            <motion.div
-              className="absolute inset-0 bg-[linear-gradient(to_right,#33415555_1px,transparent_1px),linear-gradient(to_bottom,#33415555_1px,transparent_1px)] bg-size-[76px_76px]"
-              style={{
-                maskImage: `radial-gradient(150px 150px at ${lightPointer.x}px ${lightPointer.y}px, rgba(0,0,0,0.9), rgba(0,0,0,0))`,
-                WebkitMaskImage: `radial-gradient(150px 150px at ${lightPointer.x}px ${lightPointer.y}px, rgba(0,0,0,0.9), rgba(0,0,0,0))`,
-              }}
-              animate={{
-                x: (lightPointer.nx - 0.5) * 8,
-                y: (lightPointer.ny - 0.5) * 8,
-                scale: 1.03,
-                opacity: [0.34, 0.7, 0.34],
-              }}
-              transition={{ duration: 6, ease: "easeInOut" }}
-            />
-          ) : null}
+        <div className="absolute inset-0 z-0 overflow-hidden pointer-events-none opacity-100">
+          <div
+            className="absolute inset-0"
+            style={{
+              backgroundImage:
+                "radial-gradient(circle at 1px 1px, rgba(71,85,105,0.12) 1px, transparent 0)",
+              backgroundSize: "96px 96px",
+            }}
+          />
 
           <motion.div
             className="absolute inset-0"
-            animate={{
-              x: [-10, 10, -10],
-              y: [-5, 5, -5],
-              opacity: [0.5, 0.95, 0.5],
+            style={{
+              background: `
+                radial-gradient(82% 78% at 16% 24%, rgba(191,219,254,0.2) 0%, rgba(191,219,254,0.07) 24%, rgba(248,250,252,0) 58%),
+                radial-gradient(88% 82% at 84% 18%, rgba(125,211,252,0.16) 0%, rgba(125,211,252,0.05) 24%, rgba(248,250,252,0) 58%),
+                radial-gradient(78% 70% at 74% 76%, rgba(199,210,254,0.14) 0%, rgba(199,210,254,0.04) 26%, rgba(248,250,252,0) 54%)
+              `,
             }}
-            transition={{ duration: 40, repeat: Infinity, ease: "linear" }}
-          >
-            {heterogeneousElements.map((element) => {
-              const categoryAnimation =
-                element.kind === "familyA"
-                  ? {
-                      rotate: [
-                        element.rotate,
-                        element.rotate + 10,
-                        element.rotate,
-                      ],
-                      opacity: [
-                        element.opacity * 0.55,
-                        element.opacity,
-                        element.opacity * 0.55,
-                      ],
-                    }
-                  : element.kind === "familyD"
-                    ? {
-                        x: [-5, 5, -5],
-                        opacity: [
-                          element.opacity * 0.65,
-                          element.opacity,
-                          element.opacity * 0.65,
-                        ],
-                      }
-                    : element.kind === "familyC"
-                      ? {
-                          opacity: [
-                            element.opacity * 0.4,
-                            element.opacity,
-                            element.opacity * 0.4,
-                          ],
-                          scale: [
-                            element.scale * 0.98,
-                            element.scale,
-                            element.scale * 0.98,
-                          ],
-                        }
-                      : {
-                          opacity: [
-                            element.opacity * 0.5,
-                            element.opacity,
-                            element.opacity * 0.5,
-                          ],
-                          y: [0, -3, 0],
-                        };
+            animate={{ opacity: [0.86, 1, 0.88] }}
+            transition={{ duration: 22, repeat: Infinity, ease: "easeInOut" }}
+          />
 
-              return (
-                <motion.div
-                  key={element.id}
-                  className="absolute"
-                  style={{
-                    left: `${element.left}%`,
-                    top: `${element.top}%`,
-                    width: `${element.width}vw`,
-                    height: `${element.height}vw`,
-                    opacity: element.opacity,
-                    transform: `translate(-50%, -50%) scale(${element.scale * element.flipX}, ${element.scale * element.flipY}) rotate(${element.rotate}deg)`,
-                    filter: "drop-shadow(0 0 1px rgba(71,85,105,0.22))",
-                  }}
-                  animate={categoryAnimation}
-                  transition={{
-                    duration: element.duration,
-                    delay: element.delay,
-                    repeat: Infinity,
-                    ease: "easeInOut",
-                  }}
-                >
-                  {element.kind === "familyA" ? drawFamilyA(element) : null}
-                  {element.kind === "familyB" ? drawFamilyB() : null}
-                  {element.kind === "familyC" ? drawFamilyC(element) : null}
-                  {element.kind === "familyD" ? drawFamilyD() : null}
-                </motion.div>
-              );
-            })}
-          </motion.div>
-
-          <motion.div
-            className="absolute bottom-14 left-14"
-            animate={{
-              x: [-6, 6, -6],
-              y: [0, 3, 0],
-              opacity: [0.42, 0.86, 0.42],
+          <div
+            className="absolute inset-0"
+            style={{
+              maskImage:
+                "radial-gradient(circle at 50% 53%, transparent 0 140px, black 220px 100%)",
+              WebkitMaskImage:
+                "radial-gradient(circle at 50% 53%, transparent 0 140px, black 220px 100%)",
             }}
-            transition={{ duration: 48, repeat: Infinity, ease: "linear" }}
           >
-            <div className="relative h-5 w-44 border-t border-slate-500/70">
-              <div className="absolute -top-1 left-0 h-2 w-px bg-slate-500/70" />
-              <div className="absolute -top-1 left-[25%] h-2 w-px bg-slate-500/58" />
-              <div className="absolute -top-1 left-[50%] h-2 w-px bg-slate-500/70" />
-              <div className="absolute -top-1 left-[75%] h-2 w-px bg-slate-500/58" />
-              <div className="absolute -top-1 right-0 h-2 w-px bg-slate-500/70" />
-              <div className="absolute top-2 left-0 text-[9px] font-mono tracking-[0.12em] text-slate-500/65">
-                scale 0-4u
-              </div>
-            </div>
-          </motion.div>
-
-          {lightPointer && showPointerEcho ? (
             <motion.div
-              className="absolute"
-              style={{ left: lightPointer.x, top: lightPointer.y }}
-              initial={{ opacity: 0, scale: 0.9 }}
-              animate={{ opacity: 0.62, scale: 1 }}
-              exit={{ opacity: 0 }}
-              transition={{ duration: 0.35, ease: "easeOut" }}
-            >
-              <div className="relative -translate-x-1/2 -translate-y-1/2">
-                <div className="absolute left-1/2 top-1/2 h-4 w-px -translate-x-1/2 -translate-y-1/2 bg-slate-500/65" />
-                <div className="absolute left-1/2 top-1/2 h-px w-4 -translate-x-1/2 -translate-y-1/2 bg-slate-500/65" />
-                <div className="absolute left-3 top-3 text-[9px] font-mono text-slate-500/70">
-                  ({lightPointer.nx.toFixed(3)}, {lightPointer.ny.toFixed(3)})
-                </div>
-              </div>
-            </motion.div>
-          ) : null}
+              className="absolute -left-[14rem] -top-[10rem] h-[38rem] w-[38rem] rounded-full border border-slate-400/22"
+              animate={{ rotate: [0, 16, 0], opacity: [0.28, 0.42, 0.28] }}
+              transition={{ duration: 46, repeat: Infinity, ease: "easeInOut" }}
+            />
+            <motion.div
+              className="absolute -left-[8rem] top-[5rem] h-[26rem] w-[26rem] rounded-full border border-slate-400/18"
+              animate={{ rotate: [0, -12, 0], opacity: [0.22, 0.36, 0.22] }}
+              transition={{ duration: 34, repeat: Infinity, ease: "easeInOut" }}
+            />
+            <motion.div
+              className="absolute -right-[12rem] top-[8rem] h-[34rem] w-[34rem] rounded-full border border-slate-400/20"
+              animate={{ rotate: [0, -14, 0], opacity: [0.24, 0.38, 0.24] }}
+              transition={{ duration: 42, repeat: Infinity, ease: "easeInOut" }}
+            />
+            <motion.div
+              className="absolute right-[4rem] top-[2rem] h-[24rem] w-[24rem] rounded-full border border-slate-400/16"
+              animate={{ rotate: [0, 10, 0], opacity: [0.18, 0.3, 0.18] }}
+              transition={{ duration: 32, repeat: Infinity, ease: "easeInOut" }}
+            />
+
+            <motion.div
+              className="absolute left-[4rem] top-[6rem] h-px w-[22rem] bg-gradient-to-r from-slate-400/45 via-slate-500/18 to-transparent"
+              animate={{ opacity: [0.34, 0.56, 0.34], x: [-8, 4, -8] }}
+              transition={{ duration: 18, repeat: Infinity, ease: "easeInOut" }}
+            />
+            <motion.div
+              className="absolute right-[6rem] bottom-[8rem] h-px w-[18rem] bg-gradient-to-l from-slate-400/42 via-slate-500/18 to-transparent"
+              animate={{ opacity: [0.3, 0.52, 0.3], x: [6, -6, 6] }}
+              transition={{
+                duration: 16,
+                repeat: Infinity,
+                ease: "easeInOut",
+                delay: 2,
+              }}
+            />
+
+            <div className="absolute left-[5rem] top-[5rem] text-[10px] font-mono tracking-[0.22em] text-slate-500/80">
+              AXIS 01
+            </div>
+            <div className="absolute right-[6rem] top-[8rem] text-[10px] font-mono tracking-[0.22em] text-slate-500/78">
+              ORBITAL GRID
+            </div>
+            <div className="absolute left-[4rem] bottom-[7rem] text-[10px] font-mono tracking-[0.22em] text-slate-500/78">
+              SCALE 0-4U
+            </div>
+            <div className="absolute right-[7rem] bottom-[10rem] text-[10px] font-mono tracking-[0.22em] text-slate-500/78">
+              THETA 90
+            </div>
+          </div>
         </div>
       ) : null}
 
@@ -638,11 +288,7 @@ export function StartPage() {
         className="relative z-20 flex w-full max-w-6xl flex-col items-center justify-center px-4 py-10 sm:px-6"
         initial={{ opacity: 0, scale: 0.85, filter: "blur(15px)" }}
         animate={isAwake ? { opacity: 1, scale: 1, filter: "blur(0px)" } : {}}
-        transition={{
-          duration: 1.2,
-          ease: [0.19, 1, 0.22, 1],
-          delay: 0.05,
-        }}
+        transition={{ duration: 1.2, ease: [0.19, 1, 0.22, 1], delay: 0.05 }}
       >
         <div className="relative flex min-h-136 w-full items-center justify-center">
           {mode === "dynamic"
