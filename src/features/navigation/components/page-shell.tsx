@@ -73,10 +73,10 @@ export function PageShell() {
           <div className="flex items-center gap-3">
             <div
               className={cn(
-                "flex items-center gap-1 p-1 rounded-full border transition-colors duration-300 backdrop-blur-md",
+                "flex items-center gap-1 rounded-full border p-1 transition-colors duration-300 backdrop-blur-xl",
                 theme === "dark"
                   ? "border-white/10 bg-white/5"
-                  : "border-slate-200 bg-slate-900/5",
+                  : "border-slate-200/60 bg-white/28 shadow-[0_8px_24px_-18px_rgba(148,163,184,0.4)]",
               )}
             >
               <button

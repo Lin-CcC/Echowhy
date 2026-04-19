@@ -16,47 +16,35 @@ const bubblePlacements = [
 const lightLabelItems = [
   {
     label: "phi = 1.618",
-    dotClass:
-      "absolute left-[12rem] top-[5.95rem] h-1.5 w-1.5 rounded-full bg-slate-500/60 shadow-[0_0_0_3px_rgba(148,163,184,0.08)]",
     lineClass:
-      "absolute left-[5rem] top-[4.9rem] h-px w-[6.5rem] bg-gradient-to-r from-slate-500/72 to-transparent",
+      "absolute left-[5rem] top-[7.15rem] h-px w-[6.5rem] bg-gradient-to-r from-slate-500/72 to-transparent",
     textClass:
-      "absolute left-[5rem] top-[5rem] text-[10px] font-mono tracking-[0.12em] text-slate-600/92",
+      "absolute left-[4.8rem] top-[6.3rem] px-1 text-[10px] font-mono tracking-[0.12em] text-slate-500/80 [text-shadow:0_1px_8px_rgba(248,250,252,0.9)]",
     delay: 0,
-    duration: 17,
   },
   {
     label: "theta = pi/2",
-    dotClass:
-      "absolute right-[23rem] top-[8rem] h-1.5 w-1.5 rounded-full bg-slate-500/58 shadow-[0_0_0_3px_rgba(148,163,184,0.08)]",
     lineClass:
       "absolute right-[6rem] top-[7.9rem] h-px w-[5.3rem] bg-gradient-to-l from-slate-500/68 to-transparent",
     textClass:
-      "absolute right-[6rem] top-[8rem] text-[10px] font-mono tracking-[0.12em] text-slate-600/92",
+      "absolute right-[5.8rem] top-[6.95rem] px-1 text-[10px] font-mono tracking-[0.12em] text-slate-500/80 [text-shadow:0_1px_8px_rgba(248,250,252,0.9)]",
     delay: 4,
-    duration: 19,
   },
   {
     label: "r = 4.0u",
-    dotClass:
-      "absolute left-[7rem] bottom-[6.9rem] h-1.5 w-1.5 rounded-full bg-slate-500/56 shadow-[0_0_0_3px_rgba(148,163,184,0.08)]",
     lineClass:
       "absolute left-[4rem] bottom-[6.95rem] h-px w-[5rem] bg-gradient-to-r from-slate-500/68 to-transparent",
     textClass:
-      "absolute left-[4rem] bottom-[7rem] text-[10px] font-mono tracking-[0.12em] text-slate-600/90",
+      "absolute left-[3.85rem] bottom-[7.85rem] px-1 text-[10px] font-mono tracking-[0.12em] text-slate-500/78 [text-shadow:0_1px_8px_rgba(248,250,252,0.88)]",
     delay: 8,
-    duration: 21,
   },
   {
     label: "lim x->inf",
-    dotClass:
-      "absolute right-[18rem] bottom-[7.9rem] h-1.5 w-1.5 rounded-full bg-slate-500/58 shadow-[0_0_0_3px_rgba(148,163,184,0.08)]",
     lineClass:
       "absolute right-[7rem] bottom-[9.95rem] h-px w-[5.4rem] bg-gradient-to-l from-slate-500/68 to-transparent",
     textClass:
-      "absolute right-[7rem] bottom-[10rem] text-[10px] font-mono tracking-[0.12em] text-slate-600/90",
+      "absolute right-[6.85rem] bottom-[10.95rem] px-1 text-[10px] font-mono tracking-[0.12em] text-slate-500/78 [text-shadow:0_1px_8px_rgba(248,250,252,0.88)]",
     delay: 12,
-    duration: 18,
   },
 ] as const;
 
@@ -202,11 +190,11 @@ export function StartPage() {
             className="absolute left-1/2 top-1/2 h-[400px] w-[800px] -translate-x-1/2 -translate-y-1/2"
             style={{
               background:
-                "radial-gradient(ellipse at center, rgba(255,255,255,0.22) 0%, rgba(255,255,255,0) 70%)",
+                "radial-gradient(ellipse at center, rgba(255,255,255,0.16) 0%, rgba(255,255,255,0) 70%)",
             }}
           />
 
-          <div className="absolute right-[18rem] top-[7rem] h-32 w-32 rounded-full bg-cyan-400/10 blur-3xl" />
+          <div className="absolute right-[12rem] top-[3rem] h-64 w-64 rounded-full bg-cyan-400/6 blur-[110px]" />
 
           <motion.svg
             viewBox="0 0 1440 900"
@@ -218,20 +206,20 @@ export function StartPage() {
             <defs>
               <linearGradient id="main-axis-gradient" x1="120" y1="760" x2="1320" y2="150" gradientUnits="userSpaceOnUse">
                 <stop offset="0%" stopColor="rgba(100,116,139,0)" />
-                <stop offset="18%" stopColor="rgba(100,116,139,0.22)" />
-                <stop offset="50%" stopColor="rgba(100,116,139,0.38)" />
-                <stop offset="82%" stopColor="rgba(100,116,139,0.22)" />
+                <stop offset="18%" stopColor="rgba(100,116,139,0.12)" />
+                <stop offset="50%" stopColor="rgba(100,116,139,0.22)" />
+                <stop offset="82%" stopColor="rgba(100,116,139,0.12)" />
                 <stop offset="100%" stopColor="rgba(100,116,139,0)" />
               </linearGradient>
             </defs>
             <motion.path
               d="M 60 760 C 360 640, 640 470, 900 330 S 1230 180, 1380 120"
               stroke="url(#main-axis-gradient)"
-              strokeWidth="0.7"
+              strokeWidth="0.5"
               strokeLinecap="round"
-              strokeDasharray="4 24 12 24"
+              strokeDasharray="1 5"
               animate={prefersReducedMotion ? {} : { strokeDashoffset: [0, -180] }}
-              transition={{ duration: 96, repeat: Infinity, ease: "linear" }}
+              transition={{ duration: 112, repeat: Infinity, ease: "linear" }}
             />
           </motion.svg>
 
@@ -370,22 +358,10 @@ export function StartPage() {
             </svg>
 
             {lightLabelItems.map((item) => (
-              <motion.div
-                key={item.label}
-                animate={
-                  prefersReducedMotion ? {} : { opacity: [0.15, 0.4, 0.15] }
-                }
-                transition={{
-                  duration: item.duration,
-                  repeat: Infinity,
-                  ease: "easeInOut",
-                  delay: item.delay,
-                }}
-              >
-                <div className={item.dotClass} />
+              <div key={item.label}>
                 <div className={item.lineClass} />
                 <div className={item.textClass}>{item.label}</div>
-              </motion.div>
+              </div>
             ))}
           </div>
         </div>

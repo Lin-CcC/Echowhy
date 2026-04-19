@@ -42,7 +42,7 @@ export function QuestionEntry({
             "w-full min-w-0 rounded-full py-5 pl-8 pr-14 text-lg backdrop-blur-xl transition-all focus:outline-none sm:w-xl",
             theme === "dark"
               ? "border border-white/8 bg-white/3 text-slate-100 shadow-[0_8px_32px_rgba(0,0,0,0.2)] placeholder:text-slate-400 focus:border-cyan-500/30 focus:bg-white/6"
-              : "bg-white/60 backdrop-blur-xl border border-slate-200 shadow-[0_8px_30px_rgba(0,0,0,0.06)] text-slate-800 placeholder:text-slate-400 focus:bg-white/80 focus:border-cyan-400/40",
+              : "border border-slate-200/55 bg-white/62 text-slate-800 shadow-[0_4px_24px_-4px_rgba(148,163,184,0.15)] placeholder:text-slate-400 focus:border-cyan-400/35 focus:bg-white/78",
           )}
           placeholder="Ask a question, follow a curiosity, or begin with a why..."
           aria-label="Learning question input"
