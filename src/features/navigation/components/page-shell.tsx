@@ -36,26 +36,14 @@ export function PageShell() {
   }, [pathname]);
 
   return (
-    <div
-      className={cn(
-        "min-h-screen",
-        isStartPage ? "px-0 py-0" : "px-4 py-4 sm:px-6",
-      )}
-    >
-      <div
-        className={cn(
-          "mx-auto flex flex-col",
-          isStartPage
-            ? "min-h-screen max-w-none"
-            : "min-h-[calc(100vh-2rem)] max-w-7xl",
-        )}
-      >
+    <div className="min-h-screen w-full">
+      <div className="flex min-h-screen w-full flex-col">
         <header
           className={cn(
-            "z-20 flex items-center justify-between px-1 py-3 transition-all duration-700 sm:px-2",
+            "z-30 flex items-center justify-between transition-all duration-700",
             isStartPage
               ? "absolute inset-x-0 top-0 px-6 py-6 sm:px-8"
-              : "sticky top-4",
+              : "fixed inset-x-0 top-0 h-20 px-6 py-4 sm:px-8",
             headerVisible
               ? "translate-y-0 opacity-100"
               : "pointer-events-none -translate-y-6 opacity-0",
@@ -142,8 +130,8 @@ export function PageShell() {
 
         <main
           className={cn(
-            "flex-1",
-            isStartPage ? "px-0 py-0" : "px-1 py-6 sm:px-2 sm:py-8",
+            "flex-1 w-full",
+            isStartPage ? "px-0 py-0" : "px-0 py-0 pt-20",
           )}
         >
           <Outlet />

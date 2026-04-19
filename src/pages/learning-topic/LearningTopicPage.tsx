@@ -211,10 +211,9 @@ export function LearningTopicPage() {
   );
 
   return (
-    <section className="relative -mx-1 min-h-[calc(100vh-4rem)] overflow-hidden bg-slate-50 dark:bg-[#0a0f1a] sm:-mx-2">
-
-      <div className="flex h-[calc(100vh-4rem)] w-full overflow-hidden">
-        <aside className="relative hidden h-full w-[280px] shrink-0 border-r border-slate-200/50 lg:block dark:border-slate-800/50">
+    <section className="relative min-h-[calc(100vh-5rem)] w-full overflow-hidden bg-transparent">
+      <div className="flex h-[calc(100vh-5rem)] w-full overflow-hidden">
+        <aside className="relative hidden h-full w-[220px] shrink-0 border-r border-slate-200/50 bg-transparent lg:block dark:border-slate-800/50">
           <ConstellationView
             nodes={constellationNodes}
             edges={constellationEdges}
@@ -223,7 +222,7 @@ export function LearningTopicPage() {
           />
         </aside>
 
-        <main className="flex-1 overflow-y-auto overflow-x-hidden pb-40 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
+        <main className="flex-1 overflow-y-auto overflow-x-hidden bg-transparent pb-40 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
           <div className="w-full">
             <LearningPanel
               title={topic.title}

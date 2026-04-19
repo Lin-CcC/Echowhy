@@ -53,7 +53,7 @@ export function SourceReferencePanel({
   }, [pinnedReferenceIds]);
 
   return (
-    <aside className="relative hidden h-full w-[380px] shrink-0 overflow-y-auto border-l border-slate-200/50 p-8 scroll-smooth xl:block dark:border-slate-800/50">
+    <aside className="relative hidden h-full w-[min(32rem,36vw)] min-w-[24rem] shrink-0 overflow-y-auto border-l border-slate-200/50 bg-transparent p-8 scroll-smooth xl:block dark:border-slate-800/50">
       <p className="mb-6 flex items-center justify-between text-[10px] font-mono uppercase tracking-[0.2em] text-slate-400 dark:text-slate-600">
         <span>Source Workbench</span>
         <span className="text-slate-400/70">{displayedReferences.length}</span>
@@ -73,8 +73,8 @@ export function SourceReferencePanel({
                 className={cn(
                   "rounded-2xl border p-4 transition-all duration-200",
                   kind === "preview"
-                    ? "border-cyan-200/50 bg-cyan-50/25 opacity-80 dark:border-cyan-800/30 dark:bg-cyan-950/15"
-                    : "border-slate-200/60 bg-white/30 dark:border-slate-800/60 dark:bg-slate-900/20",
+                    ? "border-cyan-200/50 bg-cyan-50/20 opacity-80 dark:border-cyan-800/30 dark:bg-cyan-950/12"
+                    : "border-slate-200/60 bg-white/20 dark:border-slate-800/60 dark:bg-slate-900/16",
                 )}
               >
                 <div className="mb-4 flex items-start justify-between gap-3">
@@ -127,7 +127,7 @@ export function SourceReferencePanel({
           })}
         </div>
       ) : (
-        <div className="rounded-2xl border border-dashed border-slate-200/70 bg-white/20 p-5 text-sm italic text-slate-400 dark:border-slate-800/70 dark:bg-slate-900/15 dark:text-slate-500">
+        <div className="rounded-2xl border border-dashed border-slate-200/70 bg-white/10 p-5 text-sm italic text-slate-400 dark:border-slate-800/70 dark:bg-slate-900/10 dark:text-slate-500">
           Hover a code identifier to preview it here, or click to pin multiple
           sources side by side.
         </div>
