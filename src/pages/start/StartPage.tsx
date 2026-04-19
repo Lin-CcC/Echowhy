@@ -145,8 +145,8 @@ export function StartPage() {
             className="absolute inset-0"
             style={{
               backgroundImage:
-                "radial-gradient(circle at 1px 1px, rgba(71,85,105,0.12) 1px, transparent 0)",
-              backgroundSize: "96px 96px",
+                "radial-gradient(circle at 1px 1px, rgba(71,85,105,0.16) 1.1px, transparent 0)",
+              backgroundSize: "92px 92px",
             }}
           />
 
@@ -154,12 +154,12 @@ export function StartPage() {
             className="absolute inset-0"
             style={{
               background: `
-                radial-gradient(82% 78% at 16% 24%, rgba(191,219,254,0.2) 0%, rgba(191,219,254,0.07) 24%, rgba(248,250,252,0) 58%),
-                radial-gradient(88% 82% at 84% 18%, rgba(125,211,252,0.16) 0%, rgba(125,211,252,0.05) 24%, rgba(248,250,252,0) 58%),
-                radial-gradient(78% 70% at 74% 76%, rgba(199,210,254,0.14) 0%, rgba(199,210,254,0.04) 26%, rgba(248,250,252,0) 54%)
+                radial-gradient(82% 78% at 16% 24%, rgba(191,219,254,0.24) 0%, rgba(191,219,254,0.09) 24%, rgba(248,250,252,0) 58%),
+                radial-gradient(88% 82% at 84% 18%, rgba(125,211,252,0.2) 0%, rgba(125,211,252,0.08) 24%, rgba(248,250,252,0) 58%),
+                radial-gradient(78% 70% at 74% 76%, rgba(199,210,254,0.18) 0%, rgba(199,210,254,0.06) 26%, rgba(248,250,252,0) 54%)
               `,
             }}
-            animate={{ opacity: [0.86, 1, 0.88] }}
+            animate={{ opacity: [0.9, 1, 0.92] }}
             transition={{ duration: 22, repeat: Infinity, ease: "easeInOut" }}
           />
 
@@ -171,36 +171,36 @@ export function StartPage() {
               WebkitMaskImage:
                 "radial-gradient(circle at 50% 53%, transparent 0 140px, black 220px 100%)",
             }}
-          >
+            >
             <motion.div
-              className="absolute -left-[14rem] -top-[10rem] h-[38rem] w-[38rem] rounded-full border border-slate-400/22"
-              animate={{ rotate: [0, 16, 0], opacity: [0.28, 0.42, 0.28] }}
+              className="absolute -left-[14rem] -top-[10rem] h-[38rem] w-[38rem] rounded-full border border-slate-500/32 shadow-[0_0_0_1px_rgba(148,163,184,0.06)]"
+              animate={{ rotate: [0, 16, 0], opacity: [0.4, 0.58, 0.4] }}
               transition={{ duration: 46, repeat: Infinity, ease: "easeInOut" }}
             />
             <motion.div
-              className="absolute -left-[8rem] top-[5rem] h-[26rem] w-[26rem] rounded-full border border-slate-400/18"
-              animate={{ rotate: [0, -12, 0], opacity: [0.22, 0.36, 0.22] }}
+              className="absolute -left-[8rem] top-[5rem] h-[26rem] w-[26rem] rounded-full border border-slate-500/28"
+              animate={{ rotate: [0, -12, 0], opacity: [0.32, 0.46, 0.32] }}
               transition={{ duration: 34, repeat: Infinity, ease: "easeInOut" }}
             />
             <motion.div
-              className="absolute -right-[12rem] top-[8rem] h-[34rem] w-[34rem] rounded-full border border-slate-400/20"
-              animate={{ rotate: [0, -14, 0], opacity: [0.24, 0.38, 0.24] }}
+              className="absolute -right-[12rem] top-[8rem] h-[34rem] w-[34rem] rounded-full border border-slate-500/30 shadow-[0_0_0_1px_rgba(148,163,184,0.05)]"
+              animate={{ rotate: [0, -14, 0], opacity: [0.36, 0.54, 0.36] }}
               transition={{ duration: 42, repeat: Infinity, ease: "easeInOut" }}
             />
             <motion.div
-              className="absolute right-[4rem] top-[2rem] h-[24rem] w-[24rem] rounded-full border border-slate-400/16"
-              animate={{ rotate: [0, 10, 0], opacity: [0.18, 0.3, 0.18] }}
+              className="absolute right-[4rem] top-[2rem] h-[24rem] w-[24rem] rounded-full border border-slate-500/24"
+              animate={{ rotate: [0, 10, 0], opacity: [0.28, 0.4, 0.28] }}
               transition={{ duration: 32, repeat: Infinity, ease: "easeInOut" }}
             />
 
             <motion.div
-              className="absolute left-[4rem] top-[6rem] h-px w-[22rem] bg-gradient-to-r from-slate-400/45 via-slate-500/18 to-transparent"
-              animate={{ opacity: [0.34, 0.56, 0.34], x: [-8, 4, -8] }}
+              className="absolute left-[4rem] top-[6rem] h-px w-[22rem] bg-gradient-to-r from-slate-500/70 via-slate-500/28 to-transparent"
+              animate={{ opacity: [0.56, 0.8, 0.56], x: [-8, 4, -8] }}
               transition={{ duration: 18, repeat: Infinity, ease: "easeInOut" }}
             />
             <motion.div
-              className="absolute right-[6rem] bottom-[8rem] h-px w-[18rem] bg-gradient-to-l from-slate-400/42 via-slate-500/18 to-transparent"
-              animate={{ opacity: [0.3, 0.52, 0.3], x: [6, -6, 6] }}
+              className="absolute right-[6rem] bottom-[8rem] h-px w-[18rem] bg-gradient-to-l from-slate-500/68 via-slate-500/24 to-transparent"
+              animate={{ opacity: [0.5, 0.74, 0.5], x: [6, -6, 6] }}
               transition={{
                 duration: 16,
                 repeat: Infinity,
@@ -209,16 +209,21 @@ export function StartPage() {
               }}
             />
 
-            <div className="absolute left-[5rem] top-[5rem] text-[10px] font-mono tracking-[0.22em] text-slate-500/80">
+            <div className="absolute left-[11.8rem] top-[5.95rem] h-1.5 w-1.5 rounded-full bg-slate-500/52 shadow-[0_0_0_3px_rgba(148,163,184,0.08)]" />
+            <div className="absolute right-[23.5rem] top-[7.95rem] h-1.5 w-1.5 rounded-full bg-slate-500/48 shadow-[0_0_0_3px_rgba(148,163,184,0.07)]" />
+            <div className="absolute right-[17.8rem] bottom-[7.95rem] h-1.5 w-1.5 rounded-full bg-slate-500/48 shadow-[0_0_0_3px_rgba(148,163,184,0.07)]" />
+            <div className="absolute left-[7rem] bottom-[6.9rem] h-1.5 w-1.5 rounded-full bg-slate-500/46 shadow-[0_0_0_3px_rgba(148,163,184,0.07)]" />
+
+            <div className="absolute left-[5rem] top-[5rem] text-[10px] font-mono tracking-[0.22em] text-slate-600/85">
               AXIS 01
             </div>
-            <div className="absolute right-[6rem] top-[8rem] text-[10px] font-mono tracking-[0.22em] text-slate-500/78">
+            <div className="absolute right-[6rem] top-[8rem] text-[10px] font-mono tracking-[0.22em] text-slate-600/85">
               ORBITAL GRID
             </div>
-            <div className="absolute left-[4rem] bottom-[7rem] text-[10px] font-mono tracking-[0.22em] text-slate-500/78">
+            <div className="absolute left-[4rem] bottom-[7rem] text-[10px] font-mono tracking-[0.22em] text-slate-600/84">
               SCALE 0-4U
             </div>
-            <div className="absolute right-[7rem] bottom-[10rem] text-[10px] font-mono tracking-[0.22em] text-slate-500/78">
+            <div className="absolute right-[7rem] bottom-[10rem] text-[10px] font-mono tracking-[0.22em] text-slate-600/84">
               THETA 90
             </div>
           </div>
