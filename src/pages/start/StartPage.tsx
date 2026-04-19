@@ -110,7 +110,7 @@ export function StartPage() {
   );
 
   return (
-    <section className="relative isolate flex min-h-screen w-full items-center justify-center overflow-hidden bg-slate-50 dark:bg-transparent">
+    <section className="relative isolate flex h-screen w-full items-center justify-center overflow-hidden bg-slate-50 dark:bg-transparent">
       <div
         className={cn(
           "pointer-events-none absolute inset-0 z-0",
@@ -195,6 +195,14 @@ export function StartPage() {
               backgroundImage:
                 "radial-gradient(circle at 1px 1px, rgba(71,85,105,0.02) 1px, transparent 0)",
               backgroundSize: "92px 92px",
+            }}
+          />
+
+          <div
+            className="absolute left-1/2 top-1/2 h-[400px] w-[800px] -translate-x-1/2 -translate-y-1/2"
+            style={{
+              background:
+                "radial-gradient(ellipse at center, rgba(255,255,255,0.82) 0%, rgba(255,255,255,0) 70%)",
             }}
           />
 
@@ -317,7 +325,7 @@ export function StartPage() {
                 stroke="rgba(100,116,139,0.36)"
                 strokeWidth="0.8"
                 strokeLinecap="round"
-                strokeDasharray="9 14 120 0"
+                strokeDasharray="4 20 12 20"
                 animate={prefersReducedMotion ? {} : { strokeDashoffset: [0, -180] }}
                 transition={{ duration: 72, repeat: Infinity, ease: "linear" }}
               />
@@ -326,7 +334,7 @@ export function StartPage() {
                 stroke="rgba(100,116,139,0.32)"
                 strokeWidth="0.75"
                 strokeLinecap="round"
-                strokeDasharray="8 16 110 0"
+                strokeDasharray="4 20 12 20"
                 animate={prefersReducedMotion ? {} : { strokeDashoffset: [0, 150] }}
                 transition={{ duration: 64, repeat: Infinity, ease: "linear" }}
               />
@@ -417,7 +425,7 @@ export function StartPage() {
         animate={isAwake ? { opacity: 1, scale: 1, filter: "blur(0px)" } : {}}
         transition={{ duration: 1.2, ease: [0.19, 1, 0.22, 1], delay: 0.05 }}
       >
-        <div className="relative flex min-h-screen w-full items-center justify-center">
+        <div className="relative flex h-screen w-full items-center justify-center overflow-hidden">
           {mode === "dynamic"
             ? guidedQuestions.map((question, index) => (
                 <motion.button
