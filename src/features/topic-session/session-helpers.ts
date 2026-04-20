@@ -1,4 +1,5 @@
 import type {
+  AttemptRecordStatus,
   TopicDiscussionStep,
   TopicFeedbackLevel,
   TopicFeedbackPreview,
@@ -152,6 +153,18 @@ export function evaluateTopicAnswer(question: TopicNode, answer: string): TopicF
     missingPoints: template.missingPoints,
     nextSuggestion: template.nextSuggestion,
   };
+}
+
+export function getAttemptRecordStatus(score: number): AttemptRecordStatus {
+  if (score >= 85) {
+    return "Strong";
+  }
+
+  if (score >= 60) {
+    return "Partial";
+  }
+
+  return "Weak";
 }
 
 export function getFirstIncompleteAngleId(

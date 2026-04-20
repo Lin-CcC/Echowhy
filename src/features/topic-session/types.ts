@@ -64,6 +64,18 @@ export type TopicFeedbackPreview = TopicFeedbackTemplate & {
   label: string;
 };
 
+export type AttemptRecordStatus = "Weak" | "Partial" | "Strong";
+
+export type AttemptRecord = {
+  id: string;
+  createdAt: string;
+  userAnswer: string;
+  aiFeedback: TopicFeedbackPreview;
+  score: number;
+  status: AttemptRecordStatus;
+  revealedAnswerUsed: boolean;
+};
+
 export type TopicDiscussionStep = {
   id: string;
   angleId: string;
@@ -88,6 +100,13 @@ export type TopicAnswerState = {
   summary: string | null;
   isCollapsed: boolean;
   revealedAnswerUsed?: boolean;
+};
+
+export type TopicAngleProgressState = {
+  unlockedStepCount: number;
+  answerStateByQuestionId: Record<string, TopicAnswerState | undefined>;
+  attemptRecordsByQuestionId: Record<string, AttemptRecord[] | undefined>;
+  customQuestion: string;
 };
 
 export type TopicGuidedEntry = {

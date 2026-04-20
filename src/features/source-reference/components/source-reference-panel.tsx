@@ -143,7 +143,7 @@ export function SourceReferencePanel({
   return (
     <aside className="source-workbench-scrollbar relative hidden h-full w-[min(32rem,36vw)] min-w-[24rem] shrink-0 overflow-y-auto border-l border-slate-200/50 bg-transparent p-8 scroll-smooth xl:block dark:border-cyan-800/30">
       {floatingFeedback ? (
-        <div className="sticky top-8 z-20 mb-6">
+        <div className="relative z-20 mb-8">
           <div
             className={cn(
               "rounded-2xl border p-5",

@@ -1,4 +1,4 @@
-import { useEffect, type ReactNode } from "react";
+import { useEffect, useRef, type ReactNode } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -42,6 +42,8 @@ type LearningPanelProps = {
   showCompletionCard: boolean;
   activeAngleTitle: string;
   canExploreAnotherAngle: boolean;
+  onDraftAnswerChange: (questionId: string, draft: string) => void;
+  onCustomQuestionDraftChange: (draft: string) => void;
   onToggleHistory: (questionId: string) => void;
   onCheckCurrent: (answer: string) => void;
   onSkipCurrent: () => void;
@@ -267,6 +269,8 @@ export function LearningPanel({
   showCompletionCard,
   activeAngleTitle,
   canExploreAnotherAngle,
+  onDraftAnswerChange,
+  onCustomQuestionDraftChange,
   onToggleHistory,
   onCheckCurrent,
   onSkipCurrent,
@@ -298,18 +302,52 @@ export function LearningPanel({
     defaultValues: { question: customQuestionDraft },
   });
 
+  const lastQuestionIdRef = useRef<string | null>(null);
+  const lastCustomComposerVisibleRef = useRef(false);
+
   useEffect(() => {
-    answerForm.reset({ answer: prefilledAnswer ?? "" });
+    const nextQuestionId = currentStep?.question.id ?? null;
+
+    if (!nextQuestionId) {
+      lastQuestionIdRef.current = null;
+      return;
+    }
+
+    const nextAnswer = prefilledAnswer ?? "";
+    const currentValue = answerForm.getValues("answer") ?? "";
+    const questionChanged = lastQuestionIdRef.current !== nextQuestionId;
+
+    if (questionChanged || currentValue !== nextAnswer) {
+      answerForm.reset({ answer: nextAnswer });
+    }
+
+    lastQuestionIdRef.current = nextQuestionId;
   }, [currentStep?.question.id, prefilledAnswer, answerForm]);
 
   useEffect(() => {
-    customQuestionForm.reset({ question: customQuestionDraft });
-  }, [customQuestionDraft, customQuestionForm]);
+    if (!showCustomComposer) {
+      lastCustomComposerVisibleRef.current = false;
+      return;
+    }
+
+    const nextQuestion = customQuestionDraft ?? "";
+    const currentValue = customQuestionForm.getValues("question") ?? "";
+    const composerBecameVisible = !lastCustomComposerVisibleRef.current;
+
+    if (composerBecameVisible || currentValue !== nextQuestion) {
+      customQuestionForm.reset({ question: nextQuestion });
+    }
+
+    lastCustomComposerVisibleRef.current = true;
+  }, [customQuestionDraft, customQuestionForm, showCustomComposer]);
 
   const handleSubmit = answerForm.handleSubmit(({ answer }) => onCheckCurrent(answer));
   const handleCustomQuestionSubmit = customQuestionForm.handleSubmit(({ question }) =>
     onSubmitCustomQuestion(question),
   );
+
+  const answerField = answerForm.register("answer");
+  const customQuestionField = customQuestionForm.register("question");
 
   const visibleSteps = steps.slice(0, visibleStepCount);
   const failedCurrentAttempt = currentAnswerState?.status === "failed";
@@ -455,7 +493,14 @@ export function LearningPanel({
 
                   <form onSubmit={handleSubmit}>
                     <textarea
-                      {...answerForm.register("answer")}
+                      {...answerField}
+                      onChange={(event) => {
+                        answerField.onChange(event);
+
+                        if (currentStep) {
+                          onDraftAnswerChange(currentStep.question.id, event.target.value);
+                        }
+                      }}
                       rows={2}
                       placeholder={step.question.inputPlaceholder ?? "Type your thought..."}
                       className={cn(
@@ -527,7 +572,11 @@ export function LearningPanel({
             </p>
             <form onSubmit={handleCustomQuestionSubmit}>
               <textarea
-                {...customQuestionForm.register("question")}
+                {...customQuestionField}
+                onChange={(event) => {
+                  customQuestionField.onChange(event);
+                  onCustomQuestionDraftChange(event.target.value);
+                }}
                 rows={2}
                 placeholder="Or ask any follow-up you want to understand next..."
                 className={cn(

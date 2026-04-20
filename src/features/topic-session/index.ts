@@ -1,6 +1,9 @@
 export type {
+  AttemptRecord,
+  AttemptRecordStatus,
   TopicAnswerState,
   TopicAngle,
+  TopicAngleProgressState,
   TopicDiscussionStep,
   TopicDiscussionPlan,
   TopicEdge,
@@ -16,3 +19,9 @@ export type {
   TopicSourceImport,
   TopicSourceReference,
 } from "./types";
+
+export {
+  loadPersistedTopicSessionState,
+  savePersistedTopicSessionState,
+  type PersistedTopicSessionState,
+} from "./storage";
