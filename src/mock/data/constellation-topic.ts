@@ -1,5 +1,4 @@
 import type {
-  TopicFeedbackPreview,
   TopicFeedbackTemplate,
   TopicSession,
 } from "@/features/topic-session";

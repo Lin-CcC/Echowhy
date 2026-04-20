@@ -43,6 +43,7 @@ export type TopicAngle = {
   title: string;
   description: string;
   isCustom: boolean;
+  rootQuestion?: string;
 };
 
 export type TopicSourceReference = {

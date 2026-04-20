@@ -1,26 +1,218 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { useNavigate } from "@tanstack/react-router";
 import { QuestionEntry } from "@/features/start-entry/components/question-entry";
 import { guidedQuestions } from "@/mock/data/guided-questions";
+import { constellationTopic } from "@/mock/data/constellation-topic";
 import { cn } from "@/lib/utils";
 import { useThemeMode } from "@/app/theme/theme-provider";
 import { ThemedAmbientBackground } from "@/components/ui/themed-ambient-background";
 
 const wakeLine = "Echowhy, emm?";
+const importedSourcesStorageKey = "echowhy:start-imported-sources";
 const bubblePlacements = [
   "left-1/2 top-[12%] -translate-x-1/2",
   "right-[8%] top-[42%]",
   "left-[8%] top-[46%]",
 ] as const;
 
+type StartMode = "ask" | "recent";
+
+type StartSourceChild = {
+  id: string;
+  label: string;
+  topicId: string;
+  angleId?: string;
+  customQuestion?: string;
+};
+
+type StartSource = {
+  id: string;
+  label: string;
+  caption: string;
+  kind: "project" | "folder" | "file" | "conceptual";
+  children: StartSourceChild[];
+};
+
+const seedRecentSources: StartSource[] = [
+  {
+    id: constellationTopic.sourceImport.id,
+    label: constellationTopic.sourceImport.projectName,
+    caption: "RBAC source",
+    kind: "project",
+    children: constellationTopic.sourceImport.guidedQuestions.map((question) => ({
+      id: question.id,
+      label: question.label,
+      topicId: question.topicId,
+      angleId: question.angleId,
+    })),
+  },
+];
+
+function createGeneratedWhyId(sourceId?: string) {
+  const suffix = `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`;
+  return sourceId ? `why-${sourceId}-${suffix}` : `why-conceptual-${suffix}`;
+}
+
+function readImportedSources() {
+  if (typeof window === "undefined") {
+    return [];
+  }
+
+  try {
+    const rawValue = window.localStorage.getItem(importedSourcesStorageKey);
+
+    if (!rawValue) {
+      return [];
+    }
+
+    const parsedValue = JSON.parse(rawValue) as StartSource[];
+    return Array.isArray(parsedValue) ? parsedValue : [];
+  } catch {
+    return [];
+  }
+}
+
+function saveImportedSources(sources: StartSource[]) {
+  if (typeof window === "undefined") {
+    return;
+  }
+
+  try {
+    window.localStorage.setItem(importedSourcesStorageKey, JSON.stringify(sources));
+  } catch {
+    // Keep the visual flow usable even if the browser refuses persistence.
+  }
+}
+
+function createImportedSource(files: FileList | File[]) {
+  const fileArray = Array.from(files);
+  const firstFile = fileArray[0];
+  const label =
+    firstFile?.webkitRelativePath?.split("/")?.[0] ??
+    firstFile?.name?.replace(/\.[^/.]+$/, "") ??
+    "Imported source";
+
+  return {
+    id: `source-local-${Date.now().toString(36)}`,
+    label,
+    caption: `${fileArray.length || 1} local file${fileArray.length === 1 ? "" : "s"}`,
+    kind: fileArray.length > 1 ? "folder" : "file",
+    children: [] as StartSourceChild[],
+  } satisfies StartSource;
+}
+
+function getRecentSourcePoint(index: number, total: number) {
+  if (total <= 1) {
+    return { x: 82, y: 39 };
+  }
+
+  const yOffsets = [48, 37, 52, 34, 45];
+
+  return {
+    x: 35 + (index * 50) / Math.max(total - 1, 1),
+    y: yOffsets[index % yOffsets.length],
+  };
+}
+
+const recentTrackStartPoint = { x: 9, y: 54 };
+
+function TypewriterHeading({
+  text,
+  theme,
+}: {
+  text: string;
+  theme: "light" | "dark";
+}) {
+  return (
+    <motion.h2
+      key={text}
+      className={cn(
+        "min-h-9 text-2xl font-extralight tracking-[0.06em] sm:text-3xl",
+        theme === "dark"
+          ? "text-white/90 drop-shadow-[0_0_15px_rgba(255,255,255,0.3)]"
+          : "text-slate-800",
+      )}
+      initial="hidden"
+      animate="visible"
+      variants={{
+        hidden: {},
+        visible: {
+          transition: {
+            staggerChildren: 0.018,
+          },
+        },
+      }}
+    >
+      {text.split("").map((char, index) => (
+        <motion.span
+          key={`${text}-${char}-${index}`}
+          variants={{
+            hidden: { opacity: 0 },
+            visible: { opacity: 1 },
+          }}
+          transition={{ duration: 0.03 }}
+        >
+          {char}
+        </motion.span>
+      ))}
+    </motion.h2>
+  );
+}
+
 export function StartPage() {
   const { theme, mode } = useThemeMode();
   const navigate = useNavigate();
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const sourceSelectionTimerRef = useRef<number | null>(null);
+  const trackPulseTimerRef = useRef<number | null>(null);
   const [isAwake, setIsAwake] = useState(false);
   const [textVisible, setTextVisible] = useState(true);
+  const [startMode, setStartMode] = useState<StartMode>("ask");
+  const [selectedSource, setSelectedSource] = useState<StartSource | null>(null);
+  const [importedSources, setImportedSources] = useState<StartSource[]>([]);
+  const [hoveredSourceId, setHoveredSourceId] = useState<string | null>(null);
+  const [selectingSourceId, setSelectingSourceId] = useState<string | null>(null);
+  const [trackPulseKey, setTrackPulseKey] = useState(0);
+  const [isTrackPulseActive, setIsTrackPulseActive] = useState(false);
 
   const isDarkDynamic = theme === "dark" && mode === "dynamic";
+  const recentSources = useMemo(
+    () => [
+      ...importedSources,
+      ...seedRecentSources.filter(
+        (source) => !importedSources.some((importedSource) => importedSource.id === source.id),
+      ),
+    ]
+      .filter((source) => source.children.length > 0)
+      .slice(0, 5),
+    [importedSources],
+  );
+  const activeHeading =
+    startMode === "recent"
+      ? "Which source are you looking for?"
+      : "What are you trying to understand?";
+  const recentSourcePoints = useMemo(
+    () => recentSources.map((_, index) => getRecentSourcePoint(index, recentSources.length)),
+    [recentSources],
+  );
+  const recentTrackPoints = useMemo(
+    () => [recentTrackStartPoint, ...recentSourcePoints],
+    [recentSourcePoints],
+  );
+  const recentSourcePath = recentTrackPoints
+    .map((point, index) => `${index === 0 ? "M" : "L"} ${point.x} ${point.y}`)
+    .join(" ");
+  const selectingSourceIndex = selectingSourceId
+    ? recentSources.findIndex((source) => source.id === selectingSourceId)
+    : -1;
+  const selectingSourcePath =
+    selectingSourceIndex >= 0
+      ? recentTrackPoints
+          .slice(0, selectingSourceIndex + 2)
+          .map((point, index) => `${index === 0 ? "M" : "L"} ${point.x} ${point.y}`)
+          .join(" ")
+      : "";
 
   useEffect(() => {
     const textTimer = window.setTimeout(() => {
@@ -37,15 +229,105 @@ export function StartPage() {
     };
   }, []);
 
-  const goToTopic = (topicId: string, angleId?: string, customQuestion?: string) => {
+  useEffect(() => {
+    setImportedSources(readImportedSources());
+  }, []);
+
+  useEffect(
+    () => () => {
+      if (sourceSelectionTimerRef.current) {
+        window.clearTimeout(sourceSelectionTimerRef.current);
+      }
+
+      if (trackPulseTimerRef.current) {
+        window.clearTimeout(trackPulseTimerRef.current);
+      }
+    },
+    [],
+  );
+
+  const persistImportedSources = (sources: StartSource[]) => {
+    setImportedSources(sources);
+    saveImportedSources(sources);
+  };
+
+  const goToTopic = (
+    topicId: string,
+    angleId?: string,
+    customQuestion?: string,
+    sourceId?: string,
+  ) => {
     void navigate({
       to: "/topic/$id",
       params: { id: topicId },
       search: {
         angle: angleId,
         customQuestion,
+        sourceId,
       },
     });
+  };
+
+  const createWhyFromQuestion = (question: string) => {
+    goToTopic(
+      createGeneratedWhyId(selectedSource?.id),
+      "angle-custom-followup",
+      question,
+      selectedSource?.id,
+    );
+  };
+
+  const handleFilesSelected = (files: FileList | File[]) => {
+    const fileArray = Array.from(files);
+
+    if (!fileArray.length) {
+      return;
+    }
+
+    const nextSource = createImportedSource(fileArray);
+    const nextImportedSources = [
+      nextSource,
+      ...importedSources.filter((source) => source.label !== nextSource.label),
+    ].slice(0, 8);
+
+    persistImportedSources(nextImportedSources);
+    setSelectedSource(nextSource);
+    setStartMode("ask");
+  };
+
+  const handleSelectRecentSource = (source: StartSource) => {
+    setHoveredSourceId(null);
+    setIsTrackPulseActive(false);
+    setSelectingSourceId(source.id);
+
+    if (sourceSelectionTimerRef.current) {
+      window.clearTimeout(sourceSelectionTimerRef.current);
+    }
+
+    sourceSelectionTimerRef.current = window.setTimeout(() => {
+      setSelectedSource(source);
+      setSelectingSourceId(null);
+      setStartMode("ask");
+    }, 780);
+  };
+
+  const handlePulseRecentTrack = () => {
+    setHoveredSourceId(null);
+    setSelectingSourceId(null);
+    setTrackPulseKey((currentKey) => currentKey + 1);
+    setIsTrackPulseActive(true);
+
+    if (sourceSelectionTimerRef.current) {
+      window.clearTimeout(sourceSelectionTimerRef.current);
+    }
+
+    if (trackPulseTimerRef.current) {
+      window.clearTimeout(trackPulseTimerRef.current);
+    }
+
+    trackPulseTimerRef.current = window.setTimeout(() => {
+      setIsTrackPulseActive(false);
+    }, 2400);
   };
 
   const showGuidedPaths = false;
@@ -167,16 +449,7 @@ export function StartPage() {
             : null}
 
           <div className="relative flex w-full flex-col items-center justify-center gap-12 text-center">
-            <h2
-              className={cn(
-                "text-2xl font-extralight tracking-[0.06em] sm:text-3xl",
-                theme === "dark"
-                  ? "text-white/90 drop-shadow-[0_0_15px_rgba(255,255,255,0.3)]"
-                  : "text-slate-800",
-              )}
-            >
-              What are you trying to understand?
-            </h2>
+            <TypewriterHeading text={activeHeading} theme={theme} />
 
             <div className="relative flex flex-col items-center">
               {isDarkDynamic ? (
@@ -188,18 +461,308 @@ export function StartPage() {
               ) : null}
 
               <div className="relative z-10">
-                <QuestionEntry
-                  theme={theme}
-                  onSubmit={(question) =>
-                    goToTopic("topic-login-jwt", "angle-custom-followup", question)
-                  }
-                  onAttachSource={() =>
-                    void navigate({
-                      to: "/ladder/$sourceId",
-                      params: { sourceId: "source-rbac" },
-                    })
-                  }
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  multiple
+                  className="hidden"
+                  onChange={(event) => {
+                    if (event.target.files) {
+                      handleFilesSelected(event.target.files);
+                      event.target.value = "";
+                    }
+                  }}
                 />
+
+                <AnimatePresence mode="wait">
+                  {startMode === "ask" ? (
+                    <motion.div
+                      key="ask"
+                      initial={{ opacity: 0, y: 8, filter: "blur(8px)" }}
+                      animate={{ opacity: 1, y: 0, filter: "blur(0px)" }}
+                      exit={{ opacity: 0, y: -8, filter: "blur(8px)" }}
+                      transition={{ duration: 0.28, ease: [0.22, 1, 0.36, 1] }}
+                    >
+                      <QuestionEntry
+                        theme={theme}
+                        onSubmit={createWhyFromQuestion}
+                        onAttachSource={() => fileInputRef.current?.click()}
+                        onFilesSelected={handleFilesSelected}
+                        onShowRecentSources={() => setStartMode("recent")}
+                        selectedSourceLabel={selectedSource?.label}
+                        onClearSelectedSource={() => setSelectedSource(null)}
+                      />
+                    </motion.div>
+                  ) : null}
+
+                  {startMode === "recent" ? (
+                    <motion.div
+                      key="recent"
+                      initial={{ opacity: 0, y: 8, filter: "blur(8px)" }}
+                      animate={{ opacity: 1, y: 0, filter: "blur(0px)" }}
+                      exit={{ opacity: 0, y: -8, filter: "blur(8px)" }}
+                      transition={{ duration: 0.28, ease: [0.22, 1, 0.36, 1] }}
+                      className="relative flex min-h-48 w-[min(46rem,90vw)] flex-col items-center"
+                    >
+                      <div className="relative h-40 w-full">
+                        <svg
+                          className="pointer-events-none absolute inset-0 h-full w-full"
+                          viewBox="0 0 100 100"
+                          preserveAspectRatio="none"
+                          aria-hidden="true"
+                        >
+                          <path
+                            d={recentSourcePath}
+                            fill="none"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth="0.35"
+                            strokeDasharray={theme === "dark" ? "1.2 3.4" : "1 4"}
+                            className={cn(
+                              theme === "dark"
+                                ? "stroke-cyan-300/24"
+                                : "stroke-slate-400/45",
+                            )}
+                          />
+
+                          {selectingSourcePath || isTrackPulseActive ? (
+                            <motion.path
+                              key={isTrackPulseActive ? `recent-track-pulse-${trackPulseKey}` : selectingSourcePath}
+                              d={isTrackPulseActive ? recentSourcePath : selectingSourcePath}
+                              fill="none"
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth="0.7"
+                              className={cn(
+                                theme === "dark"
+                                  ? "stroke-cyan-200"
+                                  : "stroke-cyan-500",
+                              )}
+                              initial={{ pathLength: 0, opacity: 0 }}
+                              animate={
+                                isTrackPulseActive
+                                  ? { pathLength: 1, opacity: [0, 1, 0.82, 0] }
+                                  : { pathLength: 1, opacity: [0, 1, 0.86] }
+                              }
+                              transition={{
+                                pathLength: {
+                                  duration: isTrackPulseActive ? 1.25 : 0.62,
+                                  ease: [0.22, 1, 0.36, 1],
+                                },
+                                opacity: {
+                                  duration: isTrackPulseActive ? 2.3 : 0.62,
+                                  times: isTrackPulseActive ? [0, 0.36, 0.72, 1] : undefined,
+                                  ease: "easeOut",
+                                },
+                              }}
+                            />
+                          ) : null}
+                        </svg>
+
+                        <div
+                          className="absolute -translate-x-1/2 -translate-y-1/2"
+                          style={{
+                            left: `${recentTrackStartPoint.x}%`,
+                            top: `${recentTrackStartPoint.y}%`,
+                          }}
+                        >
+                          <button
+                            type="button"
+                            onClick={handlePulseRecentTrack}
+                            disabled={Boolean(selectingSourceId || isTrackPulseActive)}
+                            aria-label="Preview recent source track"
+                            className="group relative flex h-8 w-8 items-center justify-center"
+                          >
+                            <motion.span
+                              className={cn(
+                                "absolute h-7 w-7 rounded-full transition-opacity",
+                                theme === "dark"
+                                  ? "bg-cyan-300/8 group-hover:bg-cyan-300/12"
+                                  : "bg-cyan-300/10 group-hover:bg-cyan-300/16",
+                              )}
+                              animate={
+                                isTrackPulseActive
+                                  ? { opacity: [0.25, 0.72, 0.48, 0.16], scale: [0.82, 1.45, 1.1, 0.92] }
+                                  : { opacity: 0.3, scale: 1 }
+                              }
+                              transition={{
+                                duration: isTrackPulseActive ? 2.2 : 0.2,
+                                times: isTrackPulseActive ? [0, 0.32, 0.68, 1] : undefined,
+                                ease: [0.22, 1, 0.36, 1],
+                              }}
+                            />
+                            <motion.span
+                              className={cn(
+                                "relative h-3 w-3 rounded-full transition-colors",
+                                theme === "dark"
+                                  ? "bg-cyan-300/78 shadow-[0_0_18px_rgba(103,232,249,0.32)] group-hover:bg-cyan-200"
+                                  : "border border-cyan-500/70 bg-cyan-100 shadow-[0_0_0_5px_rgba(6,182,212,0.08)]",
+                              )}
+                              animate={
+                                isTrackPulseActive
+                                  ? { scale: [1, 1.48, 1.18, 1], opacity: [0.88, 1, 0.9, 0.82] }
+                                  : { scale: 1 }
+                              }
+                              transition={{
+                                duration: isTrackPulseActive ? 2.05 : 0.2,
+                                times: isTrackPulseActive ? [0, 0.28, 0.68, 1] : undefined,
+                                ease: [0.22, 1, 0.36, 1],
+                              }}
+                            />
+                          </button>
+                        </div>
+
+                        {recentSources.map((source, index) => {
+                          const point = recentSourcePoints[index] ?? { x: 50, y: 48 };
+                          const hovered = hoveredSourceId === source.id;
+                          const hasChildren = source.children.length > 0;
+                          const isInSelectingPath =
+                            selectingSourceIndex >= 0 && index <= selectingSourceIndex;
+                          const isLitByTrackPulse = isTrackPulseActive;
+                          const isSelectingTarget = selectingSourceId === source.id;
+                          const tooltipBelow = point.y < 50;
+                          const tooltipAlignment =
+                            point.x < 24
+                              ? "left-0 translate-x-0"
+                              : point.x > 76
+                                ? "right-0 translate-x-0"
+                                : "left-1/2 -translate-x-1/2";
+
+                          return (
+                            <div
+                              key={source.id}
+                              className="absolute -translate-x-1/2 -translate-y-1/2"
+                              style={{ left: `${point.x}%`, top: `${point.y}%` }}
+                              onMouseEnter={() => {
+                                if (hasChildren) {
+                                  setHoveredSourceId(source.id);
+                                }
+                              }}
+                              onMouseLeave={() => setHoveredSourceId(null)}
+                            >
+                              <button
+                                type="button"
+                                onClick={() => handleSelectRecentSource(source)}
+                                disabled={Boolean(selectingSourceId || isTrackPulseActive)}
+                                className="group relative flex h-8 w-8 items-center justify-center"
+                              >
+                                <motion.span
+                                  className={cn(
+                                    "relative h-3 w-3 rounded-full transition-colors",
+                                    theme === "dark"
+                                      ? "bg-cyan-300/80 shadow-[0_0_18px_rgba(103,232,249,0.38)] group-hover:bg-cyan-200"
+                                      : "border border-slate-400/70 bg-slate-100 shadow-[0_0_0_5px_rgba(148,163,184,0.08)] group-hover:border-cyan-500",
+                                    (isInSelectingPath || isLitByTrackPulse) &&
+                                      (theme === "dark"
+                                        ? "bg-cyan-100 shadow-[0_0_26px_rgba(165,243,252,0.58)]"
+                                        : "border-cyan-500 bg-cyan-100 shadow-[0_0_0_7px_rgba(6,182,212,0.12)]"),
+                                  )}
+                                  animate={
+                                    isSelectingTarget
+                                      ? { scale: [1, 1.55, 1.16], opacity: [0.92, 1, 1] }
+                                      : isLitByTrackPulse
+                                        ? { scale: [1, 1.28, 1.14, 1], opacity: [0.88, 1, 0.9, 0.82] }
+                                        : { scale: hovered || isInSelectingPath ? 1.2 : 1 }
+                                  }
+                                  transition={{
+                                    duration: isSelectingTarget ? 0.58 : isLitByTrackPulse ? 2.05 : 0.2,
+                                    times: isLitByTrackPulse ? [0, 0.32, 0.72, 1] : undefined,
+                                    ease: [0.22, 1, 0.36, 1],
+                                  }}
+                                />
+                                <span
+                                  className={cn(
+                                    "absolute left-1/2 top-7 max-w-36 -translate-x-1/2 truncate whitespace-nowrap text-xs tracking-wide transition-colors",
+                                    theme === "dark"
+                                      ? "text-slate-300 drop-shadow-[0_0_10px_rgba(2,6,23,0.9)] group-hover:text-slate-100"
+                                      : "text-slate-600 [text-shadow:0_0_10px_#f8fafc,_0_0_20px_#f8fafc] group-hover:text-slate-900",
+                                  )}
+                                >
+                                  {source.label}
+                                </span>
+                              </button>
+
+                              <AnimatePresence>
+                                {hovered && hasChildren ? (
+                                  <motion.div
+                                    initial={{ opacity: 0, y: 8, filter: "blur(8px)" }}
+                                    animate={{ opacity: 1, y: 0, filter: "blur(0px)" }}
+                                    exit={{ opacity: 0, y: 8, filter: "blur(8px)" }}
+                                    transition={{ duration: 0.2 }}
+                                    className={cn(
+                                      "absolute z-30 w-72 rounded-2xl border p-3 text-left backdrop-blur-xl",
+                                      tooltipBelow ? "top-16" : "bottom-16",
+                                      tooltipAlignment,
+                                      theme === "dark"
+                                        ? "border-white/10 bg-slate-950/72 text-slate-300 shadow-[0_18px_50px_-32px_rgba(8,145,178,0.28)]"
+                                        : "border-slate-200/70 bg-white/86 text-slate-600 shadow-[0_20px_60px_-44px_rgba(15,23,42,0.35)]",
+                                    )}
+                                  >
+                                    <p className="mb-2 text-[10px] uppercase tracking-[0.22em] text-slate-400">
+                                      {source.caption}
+                                    </p>
+
+                                    <div className="space-y-1">
+                                      {source.children.slice(0, 4).map((child) => (
+                                        <button
+                                          key={child.id}
+                                          type="button"
+                                          onClick={() =>
+                                            goToTopic(
+                                              child.topicId,
+                                              child.angleId,
+                                              child.customQuestion,
+                                              source.id,
+                                            )
+                                          }
+                                          className={cn(
+                                            "block w-full truncate border-l px-2 py-1 text-left text-xs transition-colors",
+                                            theme === "dark"
+                                              ? "border-cyan-400/20 text-slate-400 hover:border-cyan-400 hover:text-cyan-300"
+                                              : "border-slate-300 text-slate-500 hover:border-cyan-500 hover:text-cyan-700",
+                                          )}
+                                        >
+                                          {child.label}
+                                        </button>
+                                      ))}
+                                    </div>
+                                  </motion.div>
+                                ) : null}
+                              </AnimatePresence>
+                            </div>
+                          );
+                        })}
+                      </div>
+
+                      <div className="mt-2 flex justify-center gap-8">
+                        <button
+                          type="button"
+                          onClick={() => setStartMode("ask")}
+                          className={cn(
+                            "text-sm tracking-wide transition-colors",
+                            theme === "dark"
+                              ? "text-slate-500 hover:text-slate-300"
+                              : "text-slate-400 hover:text-slate-700",
+                          )}
+                        >
+                          Back to asking
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => void navigate({ to: "/library" })}
+                          className={cn(
+                            "text-sm tracking-wide transition-colors",
+                            theme === "dark"
+                              ? "text-slate-400 hover:text-slate-300"
+                              : "text-slate-500 hover:text-slate-700",
+                          )}
+                        >
+                          Open Library
+                        </button>
+                      </div>
+                    </motion.div>
+                  ) : null}
+                </AnimatePresence>
               </div>
             </div>
           </div>

@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -18,12 +19,20 @@ type QuestionEntryProps = {
   theme: Theme;
   onSubmit: (question: string) => void;
   onAttachSource?: () => void;
+  onFilesSelected?: (files: FileList | File[]) => void;
+  onShowRecentSources?: () => void;
+  selectedSourceLabel?: string | null;
+  onClearSelectedSource?: () => void;
 };
 
 export function QuestionEntry({
   theme,
   onSubmit,
   onAttachSource,
+  onFilesSelected,
+  onShowRecentSources,
+  selectedSourceLabel,
+  onClearSelectedSource,
 }: QuestionEntryProps) {
   const form = useForm<QuestionEntryValues>({
     resolver: zodResolver(questionEntrySchema),
@@ -33,18 +42,55 @@ export function QuestionEntry({
   });
 
   const handleSubmit = form.handleSubmit(({ question }) => onSubmit(question));
+  const [isDraggingSource, setIsDraggingSource] = useState(false);
 
   return (
     <form className="space-y-3" onSubmit={handleSubmit}>
-      <div className="relative flex items-center">
+      <div
+        className="relative flex items-center"
+        onDragEnter={(event) => {
+          if (!onFilesSelected) {
+            return;
+          }
+
+          event.preventDefault();
+          setIsDraggingSource(true);
+        }}
+        onDragOver={(event) => {
+          if (!onFilesSelected) {
+            return;
+          }
+
+          event.preventDefault();
+          setIsDraggingSource(true);
+        }}
+        onDragLeave={(event) => {
+          if (!event.currentTarget.contains(event.relatedTarget as Node | null)) {
+            setIsDraggingSource(false);
+          }
+        }}
+        onDrop={(event) => {
+          if (!onFilesSelected) {
+            return;
+          }
+
+          event.preventDefault();
+          setIsDraggingSource(false);
+          onFilesSelected(event.dataTransfer.files);
+        }}
+      >
         <Input
           className={cn(
             "w-full min-w-0 rounded-full py-5 pl-8 pr-14 text-lg backdrop-blur-xl transition-all focus:outline-none sm:w-xl",
             theme === "dark"
               ? "border border-white/8 bg-white/3 text-slate-100 shadow-[0_8px_32px_rgba(0,0,0,0.2)] placeholder:text-slate-400 focus:border-cyan-500/30 focus:bg-white/6"
               : "border border-slate-200/55 bg-white/62 text-slate-800 shadow-[0_4px_24px_-4px_rgba(148,163,184,0.15)] placeholder:text-slate-400 focus:border-cyan-400/35 focus:bg-white/78",
+            isDraggingSource &&
+              (theme === "dark"
+                ? "border-cyan-400/45 bg-cyan-400/8 shadow-[0_0_34px_rgba(34,211,238,0.12)]"
+                : "border-cyan-400/45 bg-cyan-50/75"),
           )}
-          placeholder="Ask a question, follow a curiosity, or begin with a why..."
+          placeholder=""
           aria-label="Learning question input"
           {...form.register("question")}
         />
@@ -76,20 +122,62 @@ export function QuestionEntry({
         </button>
       </div>
 
-      {onAttachSource ? (
-        <div className="flex justify-center">
-          <button
-            type="button"
-            onClick={onAttachSource}
-            className={cn(
-              "mt-6 text-sm tracking-wide transition-colors",
-              theme === "dark"
-                ? "text-slate-400 hover:text-slate-300"
-                : "text-slate-500 hover:text-slate-700",
-            )}
-          >
-            Attach a source
-          </button>
+      {selectedSourceLabel ? (
+        <div
+          className={cn(
+            "mt-5 flex items-center justify-center gap-3 text-xs tracking-wide",
+            theme === "dark" ? "text-slate-400" : "text-slate-500",
+          )}
+        >
+          <span>Using: {selectedSourceLabel}</span>
+          {onClearSelectedSource ? (
+            <button
+              type="button"
+              onClick={onClearSelectedSource}
+              className={cn(
+                "transition-colors",
+                theme === "dark"
+                  ? "text-slate-500 hover:text-slate-200"
+                  : "text-slate-400 hover:text-slate-700",
+              )}
+            >
+              [ remove ]
+            </button>
+          ) : null}
+        </div>
+      ) : null}
+
+      {onAttachSource || onShowRecentSources ? (
+        <div className="mt-6 flex justify-center gap-8">
+          {onAttachSource ? (
+            <button
+              type="button"
+              onClick={onAttachSource}
+              className={cn(
+                "text-sm tracking-wide transition-colors",
+                theme === "dark"
+                  ? "text-slate-400 hover:text-slate-300"
+                  : "text-slate-500 hover:text-slate-700",
+              )}
+            >
+              Attach a source
+            </button>
+          ) : null}
+
+          {onShowRecentSources ? (
+            <button
+              type="button"
+              onClick={onShowRecentSources}
+              className={cn(
+                "text-sm tracking-wide transition-colors",
+                theme === "dark"
+                  ? "text-slate-400 hover:text-slate-300"
+                  : "text-slate-500 hover:text-slate-700",
+              )}
+            >
+              Recent sources
+            </button>
+          ) : null}
         </div>
       ) : null}
 

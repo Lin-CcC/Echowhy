@@ -119,7 +119,22 @@ export function LearningTopicPage() {
   const { id } = useParams({ from: "/topic/$id" });
   const search = useSearch({ from: "/topic/$id" });
   const navigate = useNavigate();
-  const topic = getConstellationTopicById(id) ?? constellationTopic;
+  const knownTopic = getConstellationTopicById(id);
+  const generatedQuestionTitle = search.customQuestion?.trim();
+  const topic = useMemo(
+    () =>
+      knownTopic ?? {
+        ...constellationTopic,
+        id,
+        title: generatedQuestionTitle || constellationTopic.title,
+        rootQuestion: generatedQuestionTitle || constellationTopic.rootQuestion,
+        sourceImport: {
+          ...constellationTopic.sourceImport,
+          id: search.sourceId ?? constellationTopic.sourceImport.id,
+        },
+      },
+    [generatedQuestionTitle, id, knownTopic, search.sourceId],
+  );
   const defaultAngleId =
     topic.learningAngles.find((angle) => !angle.isCustom)?.id ?? topic.learningAngles[0]?.id ?? "";
 
@@ -234,9 +249,6 @@ export function LearningTopicPage() {
 
   const currentStepIndex = visibleStepCount > 0 ? Math.min(visibleStepCount - 1, discussionSteps.length - 1) : -1;
   const currentStep = currentStepIndex >= 0 ? discussionSteps[currentStepIndex] : null;
-  const currentAnswerState = currentStep
-    ? activeAngleState?.answerStateByQuestionId[currentStep.question.id]
-    : undefined;
   const currentDraftAnswer = currentStep ? draftAnswersByQuestionId[currentStep.question.id] : "";
 
   const completedAngleIds = useMemo(
