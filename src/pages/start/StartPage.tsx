@@ -183,33 +183,6 @@ export function StartPage() {
                 <div className="pointer-events-none absolute left-1/2 top-[58%] z-0 h-52 w-[95vw] -translate-x-1/2 -translate-y-1/2 sm:h-60 sm:w-200">
                   <div className="absolute left-1/2 top-1/2 h-14 w-68 -translate-x-1/2 -translate-y-1/2 rounded-[100%] bg-cyan-300/14 blur-[34px] sm:h-16 sm:w-100 sm:blur-2xl" />
 
-                  <motion.div
-                    className="absolute left-[36%] top-[40%] h-[6.8rem] w-[18rem] -translate-x-1/2 -translate-y-1/2 -rotate-12 rounded-[100%] bg-indigo-600/23 blur-[52px] sm:h-32 sm:w-md sm:blur-[60px]"
-                    animate={{
-                      scale: [1, 1.1, 1],
-                      opacity: [0.28, 0.58, 0.28],
-                    }}
-                    transition={{
-                      duration: 7,
-                      repeat: Infinity,
-                      ease: "easeInOut",
-                    }}
-                  />
-
-                  <motion.div
-                    className="absolute left-[65%] top-[60%] h-32 w-80 -translate-x-1/2 -translate-y-1/2 rotate-12 rounded-[100%] bg-cyan-700/20 blur-[60px] sm:h-40 sm:w-120 sm:blur-[70px]"
-                    animate={{
-                      scale: [1, 1.05, 1],
-                      opacity: [0.35, 0.68, 0.35],
-                    }}
-                    transition={{
-                      duration: 5.2,
-                      repeat: Infinity,
-                      ease: "easeInOut",
-                      delay: 1.4,
-                    }}
-                  />
-
                   <div className="absolute left-1/2 top-[76%] h-24 w-92 -translate-x-1/2 -translate-y-1/2 rounded-[100%] bg-blue-900/28 blur-[62px] sm:h-32 sm:w-180 sm:blur-[80px]" />
                 </div>
               ) : null}
