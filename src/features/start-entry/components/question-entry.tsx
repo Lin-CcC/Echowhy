@@ -3,8 +3,8 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { Input } from "@/components/ui/input";
-import { cn } from "@/lib/utils";
 import type { Theme } from "@/app/theme/theme-provider";
+import { cn } from "@/lib/utils";
 
 const questionEntrySchema = z.object({
   question: z
@@ -22,6 +22,10 @@ type QuestionEntryProps = {
   onFilesSelected?: (files: FileList | File[]) => void;
   onShowRecentSources?: () => void;
   selectedSourceLabel?: string | null;
+  selectedSourceCaption?: string | null;
+  sourcePreviewAvailable?: boolean;
+  isSourcePreviewOpen?: boolean;
+  onPreviewSource?: () => void;
   onClearSelectedSource?: () => void;
 };
 
@@ -32,6 +36,10 @@ export function QuestionEntry({
   onFilesSelected,
   onShowRecentSources,
   selectedSourceLabel,
+  selectedSourceCaption,
+  sourcePreviewAvailable,
+  isSourcePreviewOpen,
+  onPreviewSource,
   onClearSelectedSource,
 }: QuestionEntryProps) {
   const form = useForm<QuestionEntryValues>({
@@ -40,9 +48,9 @@ export function QuestionEntry({
       question: "",
     },
   });
+  const [isDraggingSource, setIsDraggingSource] = useState(false);
 
   const handleSubmit = form.handleSubmit(({ question }) => onSubmit(question));
-  const [isDraggingSource, setIsDraggingSource] = useState(false);
 
   return (
     <form className="space-y-3" onSubmit={handleSubmit}>
@@ -95,6 +103,17 @@ export function QuestionEntry({
           {...form.register("question")}
         />
 
+        {isDraggingSource ? (
+          <div
+            className={cn(
+              "pointer-events-none absolute left-8 text-sm tracking-wide",
+              theme === "dark" ? "text-cyan-200/80" : "text-cyan-700/75",
+            )}
+          >
+            Drop to attach source
+          </div>
+        ) : null}
+
         <button
           type="submit"
           aria-label="Start learning"
@@ -125,11 +144,40 @@ export function QuestionEntry({
       {selectedSourceLabel ? (
         <div
           className={cn(
-            "mt-5 flex items-center justify-center gap-3 text-xs tracking-wide",
+            "mt-5 flex flex-wrap items-center justify-center gap-x-3 gap-y-2 text-xs tracking-wide",
             theme === "dark" ? "text-slate-400" : "text-slate-500",
           )}
         >
-          <span>Using: {selectedSourceLabel}</span>
+          <span className="max-w-80 truncate">
+            {"Source attached - "}
+            {selectedSourceLabel}
+            {selectedSourceCaption ? (
+              <span className={theme === "dark" ? "text-slate-500" : "text-slate-400"}>
+                {" - "}
+                {selectedSourceCaption}
+              </span>
+            ) : null}
+          </span>
+
+          {sourcePreviewAvailable && onPreviewSource ? (
+            <button
+              type="button"
+              onClick={onPreviewSource}
+              className={cn(
+                "transition-colors",
+                isSourcePreviewOpen
+                  ? theme === "dark"
+                    ? "text-cyan-300"
+                    : "text-cyan-700"
+                  : theme === "dark"
+                    ? "text-slate-500 hover:text-cyan-300"
+                    : "text-slate-400 hover:text-cyan-700",
+              )}
+            >
+              [ preview ]
+            </button>
+          ) : null}
+
           {onClearSelectedSource ? (
             <button
               type="button"

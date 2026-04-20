@@ -66,6 +66,7 @@ export function SourceReferencePanel({
   const [fileModeById, setFileModeById] = useState<Record<string, "snippet" | "full">>({});
   const [loadingById, setLoadingById] = useState<Record<string, boolean>>({});
   const [flashReferenceId, setFlashReferenceId] = useState<string | null>(null);
+  const [focusReferenceId, setFocusReferenceId] = useState<string | null>(null);
 
   const pinnedReferences = pinnedReferenceIds
     .map((referenceId) => references.find((reference) => reference.id === referenceId))
@@ -98,7 +99,10 @@ export function SourceReferencePanel({
 
   useEffect(() => {
     const activeReferenceId =
-      previewReferenceId ?? pinnedReferenceIds[pinnedReferenceIds.length - 1] ?? null;
+      focusReferenceId ??
+      previewReferenceId ??
+      pinnedReferenceIds[pinnedReferenceIds.length - 1] ??
+      null;
 
     if (!activeReferenceId || fileModeById[activeReferenceId] !== "full") {
       return;
@@ -112,23 +116,26 @@ export function SourceReferencePanel({
     }
 
     const lineKey = `${activeReferenceId}-${targetLine}`;
-    lineRefs.current[lineKey]?.scrollIntoView({ block: "center", behavior: "smooth" });
+    window.setTimeout(() => {
+      lineRefs.current[lineKey]?.scrollIntoView({ block: "center", behavior: "smooth" });
+    }, 0);
     setFlashReferenceId(activeReferenceId);
 
     const timeoutId = window.setTimeout(() => {
       setFlashReferenceId((previous) => (previous === activeReferenceId ? null : previous));
-    }, 2000);
+    }, 720);
 
     return () => {
       window.clearTimeout(timeoutId);
     };
-  }, [fileModeById, pinnedReferenceIds, previewReferenceId, references]);
+  }, [fileModeById, focusReferenceId, pinnedReferenceIds, previewReferenceId, references]);
 
   const toggleReferenceMode = (reference: TopicSourceReference) => {
     const currentMode = fileModeById[reference.id] ?? "snippet";
 
     if (currentMode === "full") {
       setFileModeById((previous) => ({ ...previous, [reference.id]: "snippet" }));
+      setFocusReferenceId((previous) => (previous === reference.id ? null : previous));
       return;
     }
 
@@ -137,6 +144,7 @@ export function SourceReferencePanel({
     window.setTimeout(() => {
       setLoadingById((previous) => ({ ...previous, [reference.id]: false }));
       setFileModeById((previous) => ({ ...previous, [reference.id]: "full" }));
+      setFocusReferenceId(reference.id);
     }, 220);
   };
 
@@ -345,15 +353,15 @@ export function SourceReferencePanel({
                               )
                             }
                             className={cn(
-                              "group relative flex w-full items-start gap-3 border-l-[2px] pl-3 text-left transition-all duration-200",
+                              "group relative flex w-full items-start gap-3 border-l-[2px] pl-3 text-left transition-all duration-150 focus:outline-none focus-visible:outline-none",
                               isFullFile
                                 ? "cursor-pointer border-transparent hover:border-cyan-500/35"
                                 : "cursor-pointer",
                               isHighlighted
-                                ? "border-cyan-500 bg-gradient-to-r from-cyan-500/[0.055] via-cyan-500/[0.022] to-transparent text-cyan-700 shadow-[-4px_0_12px_rgba(6,182,212,0.08)] dark:border-cyan-400 dark:from-cyan-400/[0.08] dark:via-cyan-400/[0.018] dark:text-cyan-400"
+                                ? "border-cyan-500 bg-gradient-to-r from-cyan-500/[0.035] via-cyan-500/[0.012] to-transparent text-cyan-700 shadow-[-3px_0_10px_rgba(6,182,212,0.05)] dark:border-cyan-400 dark:from-cyan-400/[0.045] dark:via-cyan-400/[0.012] dark:text-cyan-400"
                                 : "border-transparent",
                               isFlashing &&
-                                "bg-cyan-500/[0.08] dark:bg-cyan-400/[0.1]",
+                                "bg-cyan-500/[0.045] dark:bg-cyan-400/[0.06]",
                             )}
                           >
                             {isFullFile ? (
@@ -373,9 +381,11 @@ export function SourceReferencePanel({
                   <button
                     type="button"
                     onClick={() => toggleReferenceMode(reference)}
-                    className="text-xs text-slate-400 transition-colors hover:text-cyan-600 dark:text-slate-400 dark:hover:text-cyan-400"
+                    className="text-[9px] uppercase tracking-[0.18em] text-slate-400 transition-colors hover:text-cyan-600 dark:text-slate-500 dark:hover:text-cyan-400"
+                    aria-label={isFullFile ? "Show snippet" : "View full file"}
+                    title={isFullFile ? "Show snippet" : "View full file"}
                   >
-                    {isFullFile ? "📄 Show snippet" : "📂 View full file"}
+                    [ {isFullFile ? "Snippet" : "Full file"} ]
                   </button>
                 </div>
               </div>

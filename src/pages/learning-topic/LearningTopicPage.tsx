@@ -19,7 +19,10 @@ import {
   loadPersistedTopicSessionState,
   savePersistedTopicSessionState,
 } from "@/features/topic-session";
-import { constellationTopic, getConstellationTopicById } from "@/mock/data/constellation-topic";
+import {
+  constellationTopic,
+  getConstellationTopicById,
+} from "@/mock/data/constellation-topic";
 import { cn } from "@/lib/utils";
 
 type FeedbackCardState = {
@@ -31,15 +34,18 @@ type FeedbackCardState = {
 };
 
 function createInitialAngleProgress(topic: TopicSession) {
-  return topic.learningAngles.reduce<Record<string, TopicAngleProgressState>>((accumulator, angle) => {
-    accumulator[angle.id] = {
-      unlockedStepCount: angle.isCustom ? 0 : 1,
-      answerStateByQuestionId: {},
-      attemptRecordsByQuestionId: {},
-      customQuestion: "",
-    };
-    return accumulator;
-  }, {});
+  return topic.learningAngles.reduce<Record<string, TopicAngleProgressState>>(
+    (accumulator, angle) => {
+      accumulator[angle.id] = {
+        unlockedStepCount: angle.isCustom ? 0 : 1,
+        answerStateByQuestionId: {},
+        attemptRecordsByQuestionId: {},
+        customQuestion: "",
+      };
+      return accumulator;
+    },
+    {},
+  );
 }
 
 function mergePersistedAngleProgress(
@@ -48,34 +54,48 @@ function mergePersistedAngleProgress(
 ) {
   const initialState = createInitialAngleProgress(topic);
 
-  return topic.learningAngles.reduce<Record<string, TopicAngleProgressState>>((accumulator, angle) => {
-    const fallbackState = initialState[angle.id];
-    const persistedAngleState = persistedState?.[angle.id];
+  return topic.learningAngles.reduce<Record<string, TopicAngleProgressState>>(
+    (accumulator, angle) => {
+      const fallbackState = initialState[angle.id];
+      const persistedAngleState = persistedState?.[angle.id];
 
-    accumulator[angle.id] = {
-      ...fallbackState,
-      unlockedStepCount:
-        typeof persistedAngleState?.unlockedStepCount === "number"
-          ? Math.max(fallbackState.unlockedStepCount, persistedAngleState.unlockedStepCount)
-          : fallbackState.unlockedStepCount,
-      answerStateByQuestionId: persistedAngleState?.answerStateByQuestionId ?? {},
-      attemptRecordsByQuestionId: persistedAngleState?.attemptRecordsByQuestionId ?? {},
-      customQuestion:
-        typeof persistedAngleState?.customQuestion === "string"
-          ? persistedAngleState.customQuestion
-          : fallbackState.customQuestion,
-    };
+      accumulator[angle.id] = {
+        ...fallbackState,
+        unlockedStepCount:
+          typeof persistedAngleState?.unlockedStepCount === "number"
+            ? Math.max(
+                fallbackState.unlockedStepCount,
+                persistedAngleState.unlockedStepCount,
+              )
+            : fallbackState.unlockedStepCount,
+        answerStateByQuestionId:
+          persistedAngleState?.answerStateByQuestionId ?? {},
+        attemptRecordsByQuestionId:
+          persistedAngleState?.attemptRecordsByQuestionId ?? {},
+        customQuestion:
+          typeof persistedAngleState?.customQuestion === "string"
+            ? persistedAngleState.customQuestion
+            : fallbackState.customQuestion,
+      };
 
-    return accumulator;
-  }, {});
+      return accumulator;
+    },
+    {},
+  );
 }
 
-function filterValidReferenceIds(topic: TopicSession, referenceIds: string[] = []) {
-  const validReferenceIds = new Set(topic.sourceReferences.map((reference) => reference.id));
+function filterValidReferenceIds(
+  topic: TopicSession,
+  referenceIds: string[] = [],
+) {
+  const validReferenceIds = new Set(
+    topic.sourceReferences.map((reference) => reference.id),
+  );
 
   return referenceIds.filter(
     (referenceId, index, sourceIds) =>
-      validReferenceIds.has(referenceId) && sourceIds.indexOf(referenceId) === index,
+      validReferenceIds.has(referenceId) &&
+      sourceIds.indexOf(referenceId) === index,
   );
 }
 
@@ -99,7 +119,8 @@ function normalizePinnedSourcesByAngle(
     }
   }
 
-  const hasPinnedSourcesByAngle = Object.keys(nextPinnedSourcesByAngleId).length > 0;
+  const hasPinnedSourcesByAngle =
+    Object.keys(nextPinnedSourcesByAngleId).length > 0;
 
   if (!hasPinnedSourcesByAngle) {
     const legacySources = filterValidReferenceIds(
@@ -136,41 +157,64 @@ export function LearningTopicPage() {
     [generatedQuestionTitle, id, knownTopic, search.sourceId],
   );
   const defaultAngleId =
-    topic.learningAngles.find((angle) => !angle.isCustom)?.id ?? topic.learningAngles[0]?.id ?? "";
+    topic.learningAngles.find((angle) => !angle.isCustom)?.id ??
+    topic.learningAngles[0]?.id ??
+    "";
 
   const [selectedAngleId, setSelectedAngleId] = useState(
-    topic.learningAngles.some((angle) => angle.id === search.angle) ? search.angle ?? defaultAngleId : defaultAngleId,
+    topic.learningAngles.some((angle) => angle.id === search.angle)
+      ? (search.angle ?? defaultAngleId)
+      : defaultAngleId,
   );
-  const [angleStateById, setAngleStateById] = useState<Record<string, TopicAngleProgressState>>(
-    createInitialAngleProgress(topic),
-  );
+  const [angleStateById, setAngleStateById] = useState<
+    Record<string, TopicAngleProgressState>
+  >(createInitialAngleProgress(topic));
   const [isAngleMenuOpen, setIsAngleMenuOpen] = useState(false);
   const [restoredTopicId, setRestoredTopicId] = useState<string | null>(null);
   const [previewSource, setPreviewSource] = useState<string | null>(null);
-  const [pinnedSourcesByAngleId, setPinnedSourcesByAngleId] = useState<Record<string, string[]>>({});
-  const [floatingFeedback, setFloatingFeedback] = useState<FeedbackCardState | null>(null);
-  const [draftAnswersByQuestionId, setDraftAnswersByQuestionId] = useState<Record<string, string>>({});
-  const [customQuestionDraftsByAngleId, setCustomQuestionDraftsByAngleId] = useState<Record<string, string>>({});
-  const [revealedQuestionIds, setRevealedQuestionIds] = useState<Record<string, boolean>>({});
-  const [highlightedBlockId, setHighlightedBlockId] = useState<string | null>(null);
+  const [pinnedSourcesByAngleId, setPinnedSourcesByAngleId] = useState<
+    Record<string, string[]>
+  >({});
+  const [floatingFeedback, setFloatingFeedback] =
+    useState<FeedbackCardState | null>(null);
+  const [draftAnswersByQuestionId, setDraftAnswersByQuestionId] = useState<
+    Record<string, string>
+  >({});
+  const [customQuestionDraftsByAngleId, setCustomQuestionDraftsByAngleId] =
+    useState<Record<string, string>>({});
+  const [revealedQuestionIds, setRevealedQuestionIds] = useState<
+    Record<string, boolean>
+  >({});
+  const [highlightedBlockId, setHighlightedBlockId] = useState<string | null>(
+    null,
+  );
   const [showReturnToCurrent, setShowReturnToCurrent] = useState(false);
   const highlightTimeoutRef = useRef<number | null>(null);
 
   useEffect(() => {
-    const routeAngleId =
-      topic.learningAngles.some((angle) => angle.id === search.angle)
-        ? search.angle ?? defaultAngleId
-        : defaultAngleId;
+    const routeAngleId = topic.learningAngles.some(
+      (angle) => angle.id === search.angle,
+    )
+      ? (search.angle ?? defaultAngleId)
+      : defaultAngleId;
     const persistedState = loadPersistedTopicSessionState(topic.id);
-    const initialProgress = mergePersistedAngleProgress(topic, persistedState?.angleStateById);
+    const initialProgress = mergePersistedAngleProgress(
+      topic,
+      persistedState?.angleStateById,
+    );
     const persistedAngleId = persistedState?.selectedAngleId;
-    const initialAngleId = topic.learningAngles.some((angle) => angle.id === search.angle)
+    const initialAngleId = topic.learningAngles.some(
+      (angle) => angle.id === search.angle,
+    )
       ? routeAngleId
       : topic.learningAngles.some((angle) => angle.id === persistedAngleId)
-        ? persistedAngleId ?? defaultAngleId
+        ? (persistedAngleId ?? defaultAngleId)
         : defaultAngleId;
 
-    if (initialAngleId === "angle-custom-followup" && search.customQuestion?.trim()) {
+    if (
+      initialAngleId === "angle-custom-followup" &&
+      search.customQuestion?.trim()
+    ) {
       initialProgress["angle-custom-followup"] = {
         ...initialProgress["angle-custom-followup"],
         answerStateByQuestionId: {},
@@ -195,10 +239,14 @@ export function LearningTopicPage() {
     setDraftAnswersByQuestionId(persistedState?.draftAnswersByQuestionId ?? {});
     setCustomQuestionDraftsByAngleId(
       persistedState?.customQuestionDraftsByAngleId ??
-        topic.learningAngles.reduce<Record<string, string>>((accumulator, angle) => {
-          accumulator[angle.id] = initialProgress[angle.id]?.customQuestion ?? "";
-          return accumulator;
-        }, {}),
+        topic.learningAngles.reduce<Record<string, string>>(
+          (accumulator, angle) => {
+            accumulator[angle.id] =
+              initialProgress[angle.id]?.customQuestion ?? "";
+            return accumulator;
+          },
+          {},
+        ),
     );
     setRevealedQuestionIds(persistedState?.revealedQuestionIds ?? {});
     setHighlightedBlockId(null);
@@ -232,24 +280,41 @@ export function LearningTopicPage() {
   ]);
 
   const activeAngle =
-    topic.learningAngles.find((angle) => angle.id === selectedAngleId) ?? topic.learningAngles[0];
+    topic.learningAngles.find((angle) => angle.id === selectedAngleId) ??
+    topic.learningAngles[0];
   const activeAngleState =
-    angleStateById[selectedAngleId] ?? createInitialAngleProgress(topic)[selectedAngleId];
+    angleStateById[selectedAngleId] ??
+    createInitialAngleProgress(topic)[selectedAngleId];
   const pinnedSources = pinnedSourcesByAngleId[selectedAngleId] ?? [];
 
   const discussionSteps = useMemo(
-    () => buildDiscussionSteps(topic, selectedAngleId, activeAngleState?.customQuestion),
+    () =>
+      buildDiscussionSteps(
+        topic,
+        selectedAngleId,
+        activeAngleState?.customQuestion,
+      ),
     [activeAngleState?.customQuestion, selectedAngleId, topic],
   );
 
   const visibleStepCount =
-    selectedAngleId === "angle-custom-followup" && !activeAngleState?.customQuestion
+    selectedAngleId === "angle-custom-followup" &&
+    !activeAngleState?.customQuestion
       ? 0
-      : Math.min(activeAngleState?.unlockedStepCount ?? 1, discussionSteps.length);
+      : Math.min(
+          activeAngleState?.unlockedStepCount ?? 1,
+          discussionSteps.length,
+        );
 
-  const currentStepIndex = visibleStepCount > 0 ? Math.min(visibleStepCount - 1, discussionSteps.length - 1) : -1;
-  const currentStep = currentStepIndex >= 0 ? discussionSteps[currentStepIndex] : null;
-  const currentDraftAnswer = currentStep ? draftAnswersByQuestionId[currentStep.question.id] : "";
+  const currentStepIndex =
+    visibleStepCount > 0
+      ? Math.min(visibleStepCount - 1, discussionSteps.length - 1)
+      : -1;
+  const currentStep =
+    currentStepIndex >= 0 ? discussionSteps[currentStepIndex] : null;
+  const currentDraftAnswer = currentStep
+    ? draftAnswersByQuestionId[currentStep.question.id]
+    : "";
 
   const completedAngleIds = useMemo(
     () =>
@@ -266,8 +331,9 @@ export function LearningTopicPage() {
             steps.length > 0 &&
             steps.every(
               (step) =>
-                angleStateById[angle.id]?.answerStateByQuestionId[step.question.id]?.status ===
-                "passed",
+                angleStateById[angle.id]?.answerStateByQuestionId[
+                  step.question.id
+                ]?.status === "passed",
             )
           );
         })
@@ -278,16 +344,21 @@ export function LearningTopicPage() {
   const showCompletionCard =
     discussionSteps.length > 0 &&
     discussionSteps.every(
-      (step) => activeAngleState?.answerStateByQuestionId[step.question.id]?.status === "passed",
+      (step) =>
+        activeAngleState?.answerStateByQuestionId[step.question.id]?.status ===
+        "passed",
     );
 
   const nextAngleId = getFirstIncompleteAngleId(topic, completedAngleIds);
-  const canExploreAnotherAngle = Boolean(nextAngleId && nextAngleId !== selectedAngleId);
+  const canExploreAnotherAngle = Boolean(
+    nextAngleId && nextAngleId !== selectedAngleId,
+  );
 
   const constellationNodes = useMemo(
     () =>
       discussionSteps.map((step, index) => {
-        const answerState = activeAngleState?.answerStateByQuestionId[step.question.id];
+        const answerState =
+          activeAngleState?.answerStateByQuestionId[step.question.id];
         let visualState: TopicNodeVisualState = "dim";
 
         if (answerState?.status === "passed") {
@@ -301,7 +372,12 @@ export function LearningTopicPage() {
           visualState,
         };
       }),
-    [activeAngleState?.answerStateByQuestionId, currentStepIndex, discussionSteps, showCompletionCard],
+    [
+      activeAngleState?.answerStateByQuestionId,
+      currentStepIndex,
+      discussionSteps,
+      showCompletionCard,
+    ],
   );
 
   const constellationEdges = useMemo(
@@ -319,7 +395,9 @@ export function LearningTopicPage() {
       return;
     }
 
-    const target = document.getElementById(`question-${currentStep.question.id}`);
+    const target = document.getElementById(
+      `question-${currentStep.question.id}`,
+    );
     if (!target) {
       return;
     }
@@ -361,7 +439,7 @@ export function LearningTopicPage() {
 
     highlightTimeoutRef.current = window.setTimeout(() => {
       setHighlightedBlockId(null);
-    }, 2000);
+    }, 1120);
   };
 
   const scrollToQuestion = (questionId: string) => {
@@ -406,7 +484,10 @@ export function LearningTopicPage() {
     (updater: (currentPinnedSources: string[]) => string[]) => {
       setPinnedSourcesByAngleId((previous) => {
         const currentPinnedSources = previous[selectedAngleId] ?? [];
-        const nextPinnedSources = filterValidReferenceIds(topic, updater(currentPinnedSources));
+        const nextPinnedSources = filterValidReferenceIds(
+          topic,
+          updater(currentPinnedSources),
+        );
 
         if (!nextPinnedSources.length) {
           const remainingPinnedSources = { ...previous };
@@ -435,13 +516,17 @@ export function LearningTopicPage() {
 
   const handlePinSource = (referenceId: string) => {
     updatePinnedSourcesForCurrentAngle((previous) =>
-      previous.includes(referenceId) ? previous.filter((id) => id !== referenceId) : [...previous, referenceId],
+      previous.includes(referenceId)
+        ? previous.filter((id) => id !== referenceId)
+        : [...previous, referenceId],
     );
     setPreviewSource(null);
   };
 
   const handleUnpinSource = (referenceId: string) => {
-    updatePinnedSourcesForCurrentAngle((previous) => previous.filter((id) => id !== referenceId));
+    updatePinnedSourcesForCurrentAngle((previous) =>
+      previous.filter((id) => id !== referenceId),
+    );
   };
 
   const handleClearAllSources = () => {
@@ -449,31 +534,37 @@ export function LearningTopicPage() {
     setPreviewSource(null);
   };
 
-  const handleDraftAnswerChange = useCallback((questionId: string, draft: string) => {
-    setDraftAnswersByQuestionId((previous) => {
-      if (previous[questionId] === draft) {
-        return previous;
-      }
+  const handleDraftAnswerChange = useCallback(
+    (questionId: string, draft: string) => {
+      setDraftAnswersByQuestionId((previous) => {
+        if (previous[questionId] === draft) {
+          return previous;
+        }
 
-      return {
-        ...previous,
-        [questionId]: draft,
-      };
-    });
-  }, []);
+        return {
+          ...previous,
+          [questionId]: draft,
+        };
+      });
+    },
+    [],
+  );
 
-  const handleCustomQuestionDraftChange = useCallback((draft: string) => {
-    setCustomQuestionDraftsByAngleId((previous) => {
-      if (previous[selectedAngleId] === draft) {
-        return previous;
-      }
+  const handleCustomQuestionDraftChange = useCallback(
+    (draft: string) => {
+      setCustomQuestionDraftsByAngleId((previous) => {
+        if (previous[selectedAngleId] === draft) {
+          return previous;
+        }
 
-      return {
-        ...previous,
-        [selectedAngleId]: draft,
-      };
-    });
-  }, [selectedAngleId]);
+        return {
+          ...previous,
+          [selectedAngleId]: draft,
+        };
+      });
+    },
+    [selectedAngleId],
+  );
 
   const handleCheckCurrent = (answer: string) => {
     if (!currentStep) {
@@ -509,7 +600,10 @@ export function LearningTopicPage() {
       }
 
       const nextUnlocked = passed
-        ? Math.min(Math.max(angleState.unlockedStepCount, currentStepIndex + 2), discussionSteps.length)
+        ? Math.min(
+            Math.max(angleState.unlockedStepCount, currentStepIndex + 2),
+            discussionSteps.length,
+          )
         : angleState.unlockedStepCount;
       const nextAttempt = {
         id: `${floatingFeedback.questionId}-${Date.now()}`,
@@ -529,7 +623,9 @@ export function LearningTopicPage() {
           attemptRecordsByQuestionId: {
             ...angleState.attemptRecordsByQuestionId,
             [floatingFeedback.questionId]: [
-              ...(angleState.attemptRecordsByQuestionId[floatingFeedback.questionId] ?? []),
+              ...(angleState.attemptRecordsByQuestionId[
+                floatingFeedback.questionId
+              ] ?? []),
               nextAttempt,
             ],
           },
@@ -681,7 +777,9 @@ export function LearningTopicPage() {
   };
 
   const activeReferenceIds = useMemo(
-    () => [...new Set([...pinnedSources, ...(previewSource ? [previewSource] : [])])],
+    () => [
+      ...new Set([...pinnedSources, ...(previewSource ? [previewSource] : [])]),
+    ],
     [pinnedSources, previewSource],
   );
 
@@ -697,7 +795,8 @@ export function LearningTopicPage() {
                 <button
                   type="button"
                   onClick={() => setIsAngleMenuOpen((previous) => !previous)}
-                  className="whitespace-nowrap text-left text-[9px] font-mono uppercase tracking-[0.16em] text-slate-500 transition-colors hover:text-cyan-600 dark:text-slate-400 dark:hover:text-cyan-400"
+                  className="block w-full max-w-[9.75rem] truncate whitespace-nowrap text-left text-[9px] font-mono uppercase tracking-[0.12em] text-slate-500 transition-colors hover:text-cyan-600 dark:text-slate-400 dark:hover:text-cyan-400"
+                  title={`Angle: ${activeAngleLabel}`}
                 >
                   Angle: {activeAngleLabel} ▼
                 </button>
@@ -746,11 +845,16 @@ export function LearningTopicPage() {
               steps={discussionSteps}
               currentStepIndex={currentStepIndex}
               visibleStepCount={visibleStepCount}
-              answerStateByQuestionId={activeAngleState?.answerStateByQuestionId ?? {}}
+              answerStateByQuestionId={
+                activeAngleState?.answerStateByQuestionId ?? {}
+              }
               activeReferenceIds={activeReferenceIds}
               highlightedBlockId={highlightedBlockId}
               prefilledAnswer={currentDraftAnswer}
-              showCustomComposer={selectedAngleId === "angle-custom-followup" && discussionSteps.length === 0}
+              showCustomComposer={
+                selectedAngleId === "angle-custom-followup" &&
+                discussionSteps.length === 0
+              }
               customQuestionDraft={
                 customQuestionDraftsByAngleId[selectedAngleId] ??
                 activeAngleState?.customQuestion ??
@@ -801,7 +905,6 @@ export function LearningTopicPage() {
           onFocusBlock={handleFocusReferenceBlock}
         />
       </div>
-
     </section>
   );
 }

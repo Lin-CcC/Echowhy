@@ -452,9 +452,9 @@ export function LearningPanel({
               <div
                 id={`block-${step.block.id}`}
                 className={cn(
-                  "rounded-xl transition-colors duration-300",
+                  "-mx-4 px-4 py-2 transition-colors duration-300",
                   highlightedBlockId === step.block.id &&
-                    "bg-cyan-500/[0.05] dark:bg-cyan-400/[0.06]",
+                    "block-focus-flash",
                 )}
               >
                 <h3 className="mb-2 text-sm font-bold uppercase tracking-widest text-slate-900 dark:text-slate-200 dark:tracking-[0.1em]">

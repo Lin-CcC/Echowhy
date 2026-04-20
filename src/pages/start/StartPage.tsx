@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type PointerEvent } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { useNavigate } from "@tanstack/react-router";
 import { QuestionEntry } from "@/features/start-entry/components/question-entry";
@@ -85,16 +85,16 @@ function saveImportedSources(sources: StartSource[]) {
   }
 }
 
-function createImportedSource(files: FileList | File[]) {
+function createImportedSource(files: FileList | File[], existingId?: string) {
   const fileArray = Array.from(files);
   const firstFile = fileArray[0];
-  const label =
-    firstFile?.webkitRelativePath?.split("/")?.[0] ??
-    firstFile?.name?.replace(/\.[^/.]+$/, "") ??
-    "Imported source";
+  const folderName = firstFile?.webkitRelativePath?.split("/")?.[0]?.trim();
+  const fileName = firstFile?.name?.replace(/\.[^/.]+$/, "").trim();
+  const baseLabel = folderName || fileName || "Imported source";
+  const label = fileArray.length > 1 ? `${baseLabel} + ${fileArray.length - 1}` : baseLabel;
 
   return {
-    id: `source-local-${Date.now().toString(36)}`,
+    id: existingId ?? `source-local-${Date.now().toString(36)}`,
     label,
     caption: `${fileArray.length || 1} local file${fileArray.length === 1 ? "" : "s"}`,
     kind: fileArray.length > 1 ? "folder" : "file",
@@ -160,6 +160,312 @@ function TypewriterHeading({
   );
 }
 
+function formatFileSize(size: number) {
+  if (size < 1024) {
+    return `${size} B`;
+  }
+
+  if (size < 1024 * 1024) {
+    return `${(size / 1024).toFixed(1)} KB`;
+  }
+
+  return `${(size / 1024 / 1024).toFixed(1)} MB`;
+}
+
+function canPreviewAsText(file: File) {
+  const textExtensions = [
+    ".css",
+    ".csv",
+    ".html",
+    ".java",
+    ".js",
+    ".json",
+    ".jsx",
+    ".md",
+    ".py",
+    ".sql",
+    ".svg",
+    ".ts",
+    ".tsx",
+    ".txt",
+    ".xml",
+    ".yaml",
+    ".yml",
+  ];
+  const lowerName = file.name.toLowerCase();
+
+  return (
+    file.type.startsWith("text/") ||
+    file.type.includes("json") ||
+    file.type.includes("xml") ||
+    textExtensions.some((extension) => lowerName.endsWith(extension))
+  );
+}
+
+function SourcePreviewLens({
+  files,
+  activeIndex,
+  onActiveIndexChange,
+  onClose,
+  theme,
+}: {
+  files: File[];
+  activeIndex: number;
+  onActiveIndexChange: (index: number) => void;
+  onClose: () => void;
+  theme: "light" | "dark";
+}) {
+  const activeFile = files[activeIndex] ?? files[0];
+  const [imageUrl, setImageUrl] = useState<string | null>(null);
+  const [textPreview, setTextPreview] = useState<string | null>(null);
+  const [previewError, setPreviewError] = useState<string | null>(null);
+  const [panelOffset, setPanelOffset] = useState({ x: 0, y: 0 });
+  const dragCleanupRef = useRef<(() => void) | null>(null);
+  const isImage = activeFile?.type.startsWith("image/");
+  const isText = activeFile ? canPreviewAsText(activeFile) : false;
+
+  const handleDragStart = (event: PointerEvent<HTMLDivElement>) => {
+    if ((event.target as HTMLElement).closest("button")) {
+      return;
+    }
+
+    event.preventDefault();
+    dragCleanupRef.current?.();
+
+    const startPointerX = event.clientX;
+    const startPointerY = event.clientY;
+    const startPanelX = panelOffset.x;
+    const startPanelY = panelOffset.y;
+
+    document.body.style.cursor = "move";
+    document.body.style.userSelect = "none";
+
+    const handlePointerMove = (pointerEvent: globalThis.PointerEvent) => {
+      setPanelOffset({
+        x: startPanelX + pointerEvent.clientX - startPointerX,
+        y: startPanelY + pointerEvent.clientY - startPointerY,
+      });
+    };
+
+    const cleanupDrag = () => {
+      window.removeEventListener("pointermove", handlePointerMove);
+      window.removeEventListener("pointerup", cleanupDrag);
+      window.removeEventListener("pointercancel", cleanupDrag);
+      document.body.style.cursor = "";
+      document.body.style.userSelect = "";
+      dragCleanupRef.current = null;
+    };
+
+    dragCleanupRef.current = cleanupDrag;
+    window.addEventListener("pointermove", handlePointerMove);
+    window.addEventListener("pointerup", cleanupDrag);
+    window.addEventListener("pointercancel", cleanupDrag);
+  };
+
+  useEffect(() => {
+    if (!activeFile) {
+      return;
+    }
+
+    let isDisposed = false;
+    let objectUrl: string | null = null;
+    setImageUrl(null);
+    setTextPreview(null);
+    setPreviewError(null);
+
+    if (activeFile.type.startsWith("image/")) {
+      objectUrl = URL.createObjectURL(activeFile);
+      setImageUrl(objectUrl);
+    } else if (canPreviewAsText(activeFile)) {
+      void activeFile
+        .text()
+        .then((content) => {
+          if (!isDisposed) {
+            setTextPreview(content);
+          }
+        })
+        .catch(() => {
+          if (!isDisposed) {
+            setPreviewError("This file cannot be previewed as text.");
+          }
+        });
+    }
+
+    return () => {
+      isDisposed = true;
+
+      if (objectUrl) {
+        URL.revokeObjectURL(objectUrl);
+      }
+    };
+  }, [activeFile]);
+
+  useEffect(() => () => dragCleanupRef.current?.(), []);
+
+  if (!activeFile) {
+    return null;
+  }
+
+  const canGoPrevious = activeIndex > 0;
+  const canGoNext = activeIndex < files.length - 1;
+
+  return (
+    <motion.div
+      key="source-preview-lens"
+      initial={{ opacity: 0, scale: 0.985, filter: "blur(10px)" }}
+      animate={{
+        opacity: 1,
+        scale: 1,
+        filter: "blur(0px)",
+      }}
+      exit={{ opacity: 0, scale: 0.985, filter: "blur(10px)" }}
+      transition={{
+        opacity: { duration: 0.24, ease: [0.22, 1, 0.36, 1] },
+        scale: { duration: 0.24, ease: [0.22, 1, 0.36, 1] },
+        filter: { duration: 0.24, ease: [0.22, 1, 0.36, 1] },
+      }}
+      className={cn(
+        "fixed right-[5.8vw] top-[18vh] z-50 flex h-[min(30rem,58vh)] min-h-[18rem] w-[min(27rem,28vw)] min-w-[21rem] resize overflow-hidden rounded-none border px-4 py-3 text-left backdrop-blur-xl max-lg:left-1/2 max-lg:right-auto max-lg:top-[62%] max-lg:h-[min(28rem,48vh)] max-lg:w-[min(34rem,86vw)] max-lg:-translate-x-1/2",
+        theme === "dark"
+          ? "border-white/[0.025] bg-slate-950/12 text-slate-300 shadow-[0_18px_64px_-62px_rgba(0,0,0,0.74)]"
+          : "border-white/20 bg-white/[0.18] text-slate-600 shadow-[0_18px_68px_-66px_rgba(15,23,42,0.22)]",
+      )}
+      style={{
+        maxHeight: "76vh",
+        maxWidth: "90vw",
+        x: panelOffset.x,
+        y: panelOffset.y,
+      }}
+    >
+      <motion.div
+        aria-hidden="true"
+        className={cn(
+          "pointer-events-none absolute inset-0",
+          theme === "dark" ? "bg-slate-800/10" : "bg-white/12",
+        )}
+        animate={{ opacity: [0.24, 0.42, 0.24] }}
+        transition={{ duration: 7, repeat: Infinity, ease: "easeInOut" }}
+      />
+      <div className="relative flex min-h-0 flex-1 flex-col">
+      <div
+        className="mb-2 flex cursor-move touch-none select-none items-start justify-between gap-4"
+        onPointerDown={handleDragStart}
+      >
+        <div className="min-w-0">
+          <p
+            className={cn(
+              "truncate text-[12px] font-semibold tracking-wide",
+              theme === "dark" ? "text-slate-100/95" : "text-slate-800/95",
+            )}
+          >
+            {activeFile.name}
+          </p>
+          <p className="mt-1 text-[9px] uppercase tracking-[0.24em] text-slate-500/80">
+            {formatFileSize(activeFile.size)}
+            {activeFile.type ? ` - ${activeFile.type}` : ""}
+          </p>
+        </div>
+
+        <button
+          type="button"
+          onClick={onClose}
+          className={cn(
+            "shrink-0 text-[11px] tracking-widest transition-colors",
+            theme === "dark"
+              ? "text-slate-500 hover:text-slate-200"
+              : "text-slate-400 hover:text-slate-700",
+          )}
+        >
+          [ x ]
+        </button>
+      </div>
+
+      <div className="relative min-h-0 flex-1 overflow-hidden rounded-none">
+        {isImage && imageUrl ? (
+          <div
+            className={cn(
+              "flex h-full min-h-0 items-center justify-center rounded-none",
+              theme === "dark" ? "bg-white/[0.025]" : "bg-white/24",
+            )}
+          >
+            <img
+              src={imageUrl}
+              alt={activeFile.name}
+              className="h-full w-full rounded-none object-contain"
+            />
+          </div>
+        ) : null}
+
+        {isText ? (
+          <div className="relative h-full min-h-0">
+            <pre
+              className={cn(
+                "h-full min-h-0 overflow-auto whitespace-pre-wrap px-0.5 py-1 text-[12px] font-medium leading-6 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden",
+                theme === "dark" ? "text-slate-200/88" : "text-slate-800/86",
+              )}
+            >
+              {textPreview ?? previewError ?? "Reading preview..."}
+            </pre>
+          </div>
+        ) : null}
+
+        {!isImage && !isText ? (
+          <div
+            className={cn(
+              "px-4 py-8 text-center text-sm",
+              theme === "dark" ? "text-slate-400" : "text-slate-500",
+            )}
+          >
+            Preview is not available for this file type.
+          </div>
+        ) : null}
+      </div>
+
+      {files.length > 1 ? (
+        <div className="mt-2 flex items-center justify-center gap-3 text-[11px]">
+          <button
+            type="button"
+            disabled={!canGoPrevious}
+            onClick={() => onActiveIndexChange(activeIndex - 1)}
+            className={cn(
+              "transition-colors disabled:opacity-30",
+              theme === "dark"
+                ? "text-slate-500 hover:text-slate-200"
+                : "text-slate-400 hover:text-slate-700",
+            )}
+          >
+            prev
+          </button>
+          <span
+            className={cn(
+              "rounded-full px-2 py-0.5 text-[9px] tracking-[0.18em]",
+              theme === "dark"
+                ? "bg-white/[0.025] text-slate-600"
+                : "bg-slate-200/26 text-slate-500/80",
+            )}
+          >
+            {activeIndex + 1}/{files.length}
+          </span>
+          <button
+            type="button"
+            disabled={!canGoNext}
+            onClick={() => onActiveIndexChange(activeIndex + 1)}
+            className={cn(
+              "transition-colors disabled:opacity-30",
+              theme === "dark"
+                ? "text-slate-500 hover:text-slate-200"
+                : "text-slate-400 hover:text-slate-700",
+            )}
+          >
+            next
+          </button>
+        </div>
+      ) : null}
+      </div>
+    </motion.div>
+  );
+}
+
 export function StartPage() {
   const { theme, mode } = useThemeMode();
   const navigate = useNavigate();
@@ -170,6 +476,9 @@ export function StartPage() {
   const [textVisible, setTextVisible] = useState(true);
   const [startMode, setStartMode] = useState<StartMode>("ask");
   const [selectedSource, setSelectedSource] = useState<StartSource | null>(null);
+  const [attachedFiles, setAttachedFiles] = useState<File[]>([]);
+  const [isSourceLensOpen, setIsSourceLensOpen] = useState(false);
+  const [sourceLensIndex, setSourceLensIndex] = useState(0);
   const [importedSources, setImportedSources] = useState<StartSource[]>([]);
   const [hoveredSourceId, setHoveredSourceId] = useState<string | null>(null);
   const [selectingSourceId, setSelectingSourceId] = useState<string | null>(null);
@@ -277,6 +586,13 @@ export function StartPage() {
     );
   };
 
+  const clearSelectedSource = () => {
+    setSelectedSource(null);
+    setAttachedFiles([]);
+    setSourceLensIndex(0);
+    setIsSourceLensOpen(false);
+  };
+
   const handleFilesSelected = (files: FileList | File[]) => {
     const fileArray = Array.from(files);
 
@@ -284,14 +600,34 @@ export function StartPage() {
       return;
     }
 
-    const nextSource = createImportedSource(fileArray);
+    const isExtendingLocalSource = selectedSource?.id.startsWith("source-local-");
+    const mergedFiles = [
+      ...(isExtendingLocalSource ? attachedFiles : []),
+      ...fileArray,
+    ].filter(
+      (file, index, allFiles) =>
+        allFiles.findIndex(
+          (candidate) =>
+            candidate.name === file.name &&
+            candidate.size === file.size &&
+            candidate.lastModified === file.lastModified,
+        ) === index,
+    );
+    const nextSource = createImportedSource(
+      mergedFiles,
+      isExtendingLocalSource ? selectedSource?.id : undefined,
+    );
     const nextImportedSources = [
       nextSource,
-      ...importedSources.filter((source) => source.label !== nextSource.label),
+      ...importedSources.filter(
+        (source) => source.id !== nextSource.id && source.label !== nextSource.label,
+      ),
     ].slice(0, 8);
 
     persistImportedSources(nextImportedSources);
     setSelectedSource(nextSource);
+    setAttachedFiles(mergedFiles);
+    setSourceLensIndex(Math.max(0, mergedFiles.length - fileArray.length));
     setStartMode("ask");
   };
 
@@ -306,6 +642,9 @@ export function StartPage() {
 
     sourceSelectionTimerRef.current = window.setTimeout(() => {
       setSelectedSource(source);
+      setAttachedFiles([]);
+      setSourceLensIndex(0);
+      setIsSourceLensOpen(false);
       setSelectingSourceId(null);
       setStartMode("ask");
     }, 780);
@@ -488,10 +827,18 @@ export function StartPage() {
                         onSubmit={createWhyFromQuestion}
                         onAttachSource={() => fileInputRef.current?.click()}
                         onFilesSelected={handleFilesSelected}
-                        onShowRecentSources={() => setStartMode("recent")}
+                        onShowRecentSources={() => {
+                          setIsSourceLensOpen(false);
+                          setStartMode("recent");
+                        }}
                         selectedSourceLabel={selectedSource?.label}
-                        onClearSelectedSource={() => setSelectedSource(null)}
+                        selectedSourceCaption={selectedSource?.caption}
+                        sourcePreviewAvailable={attachedFiles.length > 0}
+                        isSourcePreviewOpen={isSourceLensOpen}
+                        onPreviewSource={() => setIsSourceLensOpen((isOpen) => !isOpen)}
+                        onClearSelectedSource={clearSelectedSource}
                       />
+
                     </motion.div>
                   ) : null}
 
@@ -517,11 +864,11 @@ export function StartPage() {
                             strokeLinecap="round"
                             strokeLinejoin="round"
                             strokeWidth="0.35"
-                            strokeDasharray={theme === "dark" ? "1.2 3.4" : "1 4"}
+                            strokeDasharray={theme === "dark" ? "1.2 3.4" : "1.4 3.2"}
                             className={cn(
                               theme === "dark"
                                 ? "stroke-cyan-300/24"
-                                : "stroke-slate-400/45",
+                                : "stroke-slate-500/52",
                             )}
                           />
 
@@ -578,7 +925,7 @@ export function StartPage() {
                                 "absolute h-7 w-7 rounded-full transition-opacity",
                                 theme === "dark"
                                   ? "bg-cyan-300/8 group-hover:bg-cyan-300/12"
-                                  : "bg-cyan-300/10 group-hover:bg-cyan-300/16",
+                                  : "bg-slate-400/10 group-hover:bg-cyan-400/14",
                               )}
                               animate={
                                 isTrackPulseActive
@@ -596,7 +943,7 @@ export function StartPage() {
                                 "relative h-3 w-3 rounded-full transition-colors",
                                 theme === "dark"
                                   ? "bg-cyan-300/78 shadow-[0_0_18px_rgba(103,232,249,0.32)] group-hover:bg-cyan-200"
-                                  : "border border-cyan-500/70 bg-cyan-100 shadow-[0_0_0_5px_rgba(6,182,212,0.08)]",
+                                  : "border border-cyan-600/75 bg-cyan-400 shadow-[0_0_0_4px_rgba(255,255,255,0.86),0_0_0_7px_rgba(6,182,212,0.1)] group-hover:bg-cyan-500",
                               )}
                               animate={
                                 isTrackPulseActive
@@ -620,13 +967,6 @@ export function StartPage() {
                             selectingSourceIndex >= 0 && index <= selectingSourceIndex;
                           const isLitByTrackPulse = isTrackPulseActive;
                           const isSelectingTarget = selectingSourceId === source.id;
-                          const tooltipBelow = point.y < 50;
-                          const tooltipAlignment =
-                            point.x < 24
-                              ? "left-0 translate-x-0"
-                              : point.x > 76
-                                ? "right-0 translate-x-0"
-                                : "left-1/2 -translate-x-1/2";
 
                           return (
                             <div
@@ -651,11 +991,11 @@ export function StartPage() {
                                     "relative h-3 w-3 rounded-full transition-colors",
                                     theme === "dark"
                                       ? "bg-cyan-300/80 shadow-[0_0_18px_rgba(103,232,249,0.38)] group-hover:bg-cyan-200"
-                                      : "border border-slate-400/70 bg-slate-100 shadow-[0_0_0_5px_rgba(148,163,184,0.08)] group-hover:border-cyan-500",
+                                      : "border border-slate-500/80 bg-slate-500 shadow-[0_0_0_4px_rgba(255,255,255,0.84),0_0_0_7px_rgba(100,116,139,0.1)] group-hover:border-cyan-600 group-hover:bg-cyan-400",
                                     (isInSelectingPath || isLitByTrackPulse) &&
                                       (theme === "dark"
                                         ? "bg-cyan-100 shadow-[0_0_26px_rgba(165,243,252,0.58)]"
-                                        : "border-cyan-500 bg-cyan-100 shadow-[0_0_0_7px_rgba(6,182,212,0.12)]"),
+                                        : "border-cyan-600 bg-cyan-400 shadow-[0_0_0_4px_rgba(255,255,255,0.88),0_0_0_8px_rgba(6,182,212,0.14)]"),
                                   )}
                                   animate={
                                     isSelectingTarget
@@ -690,41 +1030,57 @@ export function StartPage() {
                                     exit={{ opacity: 0, y: 8, filter: "blur(8px)" }}
                                     transition={{ duration: 0.2 }}
                                     className={cn(
-                                      "absolute z-30 w-72 rounded-2xl border p-3 text-left backdrop-blur-xl",
-                                      tooltipBelow ? "top-16" : "bottom-16",
-                                      tooltipAlignment,
+                                      "absolute z-30 w-72 overflow-hidden rounded-none border p-3 text-left backdrop-blur-xl",
+                                      "left-1/2 top-12 -translate-x-1/2",
                                       theme === "dark"
-                                        ? "border-white/10 bg-slate-950/72 text-slate-300 shadow-[0_18px_50px_-32px_rgba(8,145,178,0.28)]"
-                                        : "border-slate-200/70 bg-white/86 text-slate-600 shadow-[0_20px_60px_-44px_rgba(15,23,42,0.35)]",
+                                        ? "border-white/[0.025] bg-slate-950/12 text-slate-300 shadow-[0_18px_64px_-62px_rgba(0,0,0,0.74)]"
+                                        : "border-white/20 bg-white/[0.18] text-slate-600 shadow-[0_18px_68px_-66px_rgba(15,23,42,0.22)]",
                                     )}
                                   >
-                                    <p className="mb-2 text-[10px] uppercase tracking-[0.22em] text-slate-400">
-                                      {source.caption}
-                                    </p>
+                                    <motion.div
+                                      aria-hidden="true"
+                                      className={cn(
+                                        "pointer-events-none absolute inset-0",
+                                        theme === "dark" ? "bg-slate-800/10" : "bg-white/12",
+                                      )}
+                                      animate={{ opacity: [0.24, 0.42, 0.24] }}
+                                      transition={{ duration: 7, repeat: Infinity, ease: "easeInOut" }}
+                                    />
 
-                                    <div className="space-y-1">
-                                      {source.children.slice(0, 4).map((child) => (
-                                        <button
-                                          key={child.id}
-                                          type="button"
-                                          onClick={() =>
-                                            goToTopic(
-                                              child.topicId,
-                                              child.angleId,
-                                              child.customQuestion,
-                                              source.id,
-                                            )
-                                          }
-                                          className={cn(
-                                            "block w-full truncate border-l px-2 py-1 text-left text-xs transition-colors",
-                                            theme === "dark"
-                                              ? "border-cyan-400/20 text-slate-400 hover:border-cyan-400 hover:text-cyan-300"
-                                              : "border-slate-300 text-slate-500 hover:border-cyan-500 hover:text-cyan-700",
-                                          )}
-                                        >
-                                          {child.label}
-                                        </button>
-                                      ))}
+                                    <div className="relative">
+                                      <p
+                                        className={cn(
+                                          "mb-2 text-[10px] uppercase tracking-[0.22em]",
+                                          theme === "dark" ? "text-slate-400" : "text-slate-500",
+                                        )}
+                                      >
+                                        {source.caption}
+                                      </p>
+
+                                      <div className="space-y-1">
+                                        {source.children.slice(0, 4).map((child) => (
+                                          <button
+                                            key={child.id}
+                                            type="button"
+                                            onClick={() =>
+                                              goToTopic(
+                                                child.topicId,
+                                                child.angleId,
+                                                child.customQuestion,
+                                                source.id,
+                                              )
+                                            }
+                                            className={cn(
+                                              "block w-full truncate border-l px-2 py-1 text-left text-xs transition-colors",
+                                              theme === "dark"
+                                                ? "border-cyan-400/16 text-slate-300/82 hover:border-cyan-400/70 hover:text-slate-100"
+                                                : "border-slate-300/70 text-slate-600 hover:border-cyan-500/70 hover:text-slate-900",
+                                            )}
+                                          >
+                                            {child.label}
+                                          </button>
+                                        ))}
+                                      </div>
                                     </div>
                                   </motion.div>
                                 ) : null}
@@ -768,6 +1124,18 @@ export function StartPage() {
           </div>
         </div>
       </motion.div>
+
+      <AnimatePresence>
+        {isSourceLensOpen && attachedFiles.length > 0 ? (
+          <SourcePreviewLens
+            files={attachedFiles}
+            activeIndex={sourceLensIndex}
+            onActiveIndexChange={setSourceLensIndex}
+            onClose={() => setIsSourceLensOpen(false)}
+            theme={theme}
+          />
+        ) : null}
+      </AnimatePresence>
     </section>
   );
 }

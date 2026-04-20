@@ -238,6 +238,25 @@ textarea {
     caret-blink 1s step-end 1.5s infinite;
 }
 
+@keyframes block-focus-flash {
+  0% {
+    opacity: 1;
+    box-shadow: inset 2px 0 0 rgba(6, 182, 212, 0.58);
+  }
+  18% {
+    opacity: 0.92;
+    box-shadow: inset 2px 0 0 rgba(6, 182, 212, 0.46);
+  }
+  55% {
+    opacity: 0.52;
+    box-shadow: inset 2px 0 0 rgba(6, 182, 212, 0.22);
+  }
+  100% {
+    opacity: 0;
+    box-shadow: inset 2px 0 0 rgba(6, 182, 212, 0);
+  }
+}
+
 @layer utilities {
   .stealth-scrollbar {
     scrollbar-width: none;
@@ -284,6 +303,26 @@ textarea {
     box-shadow:
       0 0 0 0.08em rgba(248, 250, 252, 0.64),
       0 0 8px 2px rgba(248, 250, 252, 0.28);
+  }
+
+  .block-focus-flash {
+    position: relative;
+    isolation: isolate;
+  }
+
+  .block-focus-flash::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    background: linear-gradient(
+      90deg,
+      rgba(6, 182, 212, 0.22) 0%,
+      rgba(6, 182, 212, 0.082) 44%,
+      rgba(6, 182, 212, 0) 100%
+    );
+    animation: block-focus-flash 1100ms linear both;
+    will-change: opacity, box-shadow;
   }
 
   :root.dark .reading-line-shield,
