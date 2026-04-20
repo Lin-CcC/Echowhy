@@ -53,11 +53,20 @@ export function ThemedAmbientBackground({
   const isLightDynamic = theme === "light" && mode === "dynamic";
 
   return (
-    <div className={cn("pointer-events-none absolute inset-0 z-0 overflow-hidden", className)}>
+    <div className={cn("pointer-events-none fixed inset-0 z-0 overflow-hidden bg-fixed", className)}>
       <div
         className={cn(
           "absolute inset-0",
           theme === "dark" ? "bg-[#020308]" : "bg-slate-50",
+        )}
+      />
+
+      <div
+        className={cn(
+          "absolute inset-0",
+          theme === "dark"
+            ? "bg-[radial-gradient(circle_at_22%_16%,rgba(99,102,241,0.1)_0%,transparent_24%),radial-gradient(circle_at_80%_12%,rgba(34,211,238,0.06)_0%,transparent_26%),radial-gradient(circle_at_50%_72%,rgba(59,130,246,0.035)_0%,transparent_34%)]"
+            : "bg-[radial-gradient(ellipse_at_center,_rgba(8,145,178,0.08)_0%,_transparent_62%)]",
         )}
       />
 
@@ -83,26 +92,26 @@ export function ThemedAmbientBackground({
             </>
           ) : null}
           <motion.div
-            className={cn("absolute -inset-full", quiet ? "opacity-18" : "opacity-30")}
+            className={cn("absolute -inset-full", quiet ? "opacity-22" : "opacity-30")}
             style={{
               backgroundImage:
                 "radial-gradient(1px 1px at 10% 10%, #fff, transparent), radial-gradient(1px 1px at 40% 60%, #fff, transparent), radial-gradient(1px 1px at 80% 30%, #fff, transparent)",
               backgroundSize: "150px 150px",
             }}
-            animate={{ y: ["0%", "-30%"], opacity: quiet ? [0.12, 0.28, 0.12] : [0.2, 0.5, 0.2] }}
+            animate={{ y: ["0%", "-30%"], opacity: quiet ? [0.16, 0.34, 0.16] : [0.2, 0.5, 0.2] }}
             transition={{
               y: { duration: 150, repeat: Infinity, ease: "linear" },
               opacity: { duration: 5, repeat: Infinity, ease: "easeInOut" },
             }}
           />
           <motion.div
-            className={cn("absolute -inset-full", quiet ? "opacity-24" : "opacity-40")}
+            className={cn("absolute -inset-full", quiet ? "opacity-28" : "opacity-40")}
             style={{
               backgroundImage:
                 "radial-gradient(1.5px 1.5px at 20% 80%, #cbd5e1, transparent), radial-gradient(1.5px 1.5px at 70% 20%, #fff, transparent)",
               backgroundSize: "250px 250px",
             }}
-            animate={{ y: ["0%", "-40%"], opacity: quiet ? [0.08, 0.32, 0.08] : [0.1, 0.8, 0.1] }}
+            animate={{ y: ["0%", "-40%"], opacity: quiet ? [0.12, 0.38, 0.12] : [0.1, 0.8, 0.1] }}
             transition={{
               y: { duration: 100, repeat: Infinity, ease: "linear" },
               opacity: {
@@ -114,13 +123,13 @@ export function ThemedAmbientBackground({
             }}
           />
           <motion.div
-            className={cn("absolute -inset-full", quiet ? "opacity-22" : "opacity-45")}
+            className={cn("absolute -inset-full", quiet ? "opacity-26" : "opacity-45")}
             style={{
               backgroundImage:
                 "radial-gradient(2px 2px at 15% 35%, #ffffff, transparent), radial-gradient(2px 2px at 55% 75%, #dbeafe, transparent)",
               backgroundSize: "360px 360px",
             }}
-            animate={{ y: ["0%", "-52%"], opacity: quiet ? [0.08, 0.28, 0.08] : [0.12, 0.7, 0.12] }}
+            animate={{ y: ["0%", "-52%"], opacity: quiet ? [0.1, 0.32, 0.1] : [0.12, 0.7, 0.12] }}
             transition={{
               y: { duration: 72, repeat: Infinity, ease: "linear" },
               opacity: {

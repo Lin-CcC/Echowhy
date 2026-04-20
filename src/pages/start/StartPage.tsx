@@ -17,7 +17,6 @@ const bubblePlacements = [
 export function StartPage() {
   const { theme, mode } = useThemeMode();
   const navigate = useNavigate();
-  const [sourceId, setSourceId] = useState<string | null>(null);
   const [isAwake, setIsAwake] = useState(false);
   const [textVisible, setTextVisible] = useState(true);
 
@@ -38,11 +37,18 @@ export function StartPage() {
     };
   }, []);
 
-  const goToTopic = (topicId: string) => {
-    void navigate({ to: "/topic/$id", params: { id: topicId } });
+  const goToTopic = (topicId: string, angleId?: string, customQuestion?: string) => {
+    void navigate({
+      to: "/topic/$id",
+      params: { id: topicId },
+      search: {
+        angle: angleId,
+        customQuestion,
+      },
+    });
   };
 
-  const showGuidedPaths = isAwake && Boolean(sourceId) && mode === "dynamic";
+  const showGuidedPaths = false;
 
   const questionBubbleVariants = useMemo(
     () => ({
@@ -211,8 +217,15 @@ export function StartPage() {
               <div className="relative z-10">
                 <QuestionEntry
                   theme={theme}
-                  onSubmit={() => goToTopic("topic-login-jwt")}
-                  onAttachSource={!sourceId ? () => setSourceId("source-rbac") : undefined}
+                  onSubmit={(question) =>
+                    goToTopic("topic-login-jwt", "angle-custom-followup", question)
+                  }
+                  onAttachSource={() =>
+                    void navigate({
+                      to: "/ladder/$sourceId",
+                      params: { sourceId: "source-rbac" },
+                    })
+                  }
                 />
               </div>
             </div>

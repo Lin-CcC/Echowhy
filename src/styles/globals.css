@@ -24,8 +24,8 @@
 :root.dark {
   color-scheme: dark;
   --background: #02040f;
-  --background-deep: #05081a;
-  --background-indigo: #101530;
+  --background-deep: #040712;
+  --background-indigo: #0b1021;
   --surface: rgba(9, 12, 28, 0.42);
   --surface-strong: rgba(8, 11, 24, 0.72);
   --border: rgba(148, 163, 184, 0.14);
@@ -48,6 +48,13 @@ html,
 body {
   min-height: 100%;
   width: 100%;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+html::-webkit-scrollbar,
+body::-webkit-scrollbar {
+  display: none;
 }
 
 #root {
@@ -95,18 +102,18 @@ body {
   background:
     radial-gradient(
       circle at 20% 18%,
-      rgba(99, 102, 241, 0.18),
-      transparent 26%
+      rgba(99, 102, 241, 0.1),
+      transparent 24%
     ),
     radial-gradient(
       circle at 78% 10%,
-      rgba(56, 189, 248, 0.16),
-      transparent 28%
+      rgba(56, 189, 248, 0.07),
+      transparent 24%
     ),
     radial-gradient(
       circle at 50% 70%,
-      rgba(14, 165, 233, 0.08),
-      transparent 40%
+      rgba(14, 165, 233, 0.04),
+      transparent 34%
     ),
     linear-gradient(
       180deg,
@@ -232,6 +239,15 @@ textarea {
 }
 
 @layer utilities {
+  .stealth-scrollbar {
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+
+  .stealth-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+
   .text-halo-light {
     text-shadow:
       0 0 8px rgba(248, 250, 252, 0.96),
@@ -249,6 +265,13 @@ textarea {
     text-shadow:
       0 0 1px rgba(2, 3, 8, 0.55),
       0 0 3px rgba(2, 3, 8, 0.42);
+  }
+
+  .text-halo-deep-dark {
+    text-shadow:
+      0 0 10px #0a0f1a,
+      0 0 18px #0a0f1a,
+      0 0 28px #0a0f1a;
   }
 
   .reading-line-shield {

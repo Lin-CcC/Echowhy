@@ -4,9 +4,11 @@ import { indexRoute } from '@/app/routes'
 import { topicRoute } from '@/app/routes/topic.$id'
 import { libraryRoute } from '@/app/routes/library'
 import { reviewRoute } from '@/app/routes/review'
+import { ladderRoute } from '@/app/routes/ladder.$sourceId'
 
 const routeTree = rootRoute.addChildren([
   indexRoute,
+  ladderRoute,
   topicRoute,
   libraryRoute,
   reviewRoute,

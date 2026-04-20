@@ -16,6 +16,8 @@ export function PageShell() {
     select: (state) => state.location.pathname,
   });
   const isStartPage = pathname === "/";
+  const isStartFlowPage =
+    pathname === "/" || pathname.startsWith("/topic/") || pathname.startsWith("/ladder/");
   const [headerVisible, setHeaderVisible] = useState(pathname !== "/");
   const { theme, mode, toggleTheme, toggleMode } = useThemeMode();
 
@@ -56,7 +58,7 @@ export function PageShell() {
             <span className="text-[10px] uppercase tracking-[0.32em] text-slate-500 dark:text-slate-400">
               Echowhy
             </span>
-            <h1 className="mt-1 text-sm font-semibold text-slate-800 dark:text-slate-100 sm:text-base">
+            <h1 className="mt-1 text-sm font-semibold text-slate-800 dark:text-slate-200 sm:text-base">
               Question-driven learning
             </h1>
           </div>
@@ -111,7 +113,7 @@ export function PageShell() {
               {navItems.map((item) => {
                 const active =
                   item.to === "/"
-                    ? pathname === item.to
+                    ? isStartFlowPage
                     : pathname.startsWith(item.to);
 
                 return (
@@ -119,8 +121,9 @@ export function PageShell() {
                     key={item.to}
                     to={item.to}
                     className={cn(
-                      "rounded-full px-3 py-2 text-sm text-slate-500 transition-colors hover:text-slate-800 dark:text-slate-300 dark:hover:text-slate-100",
-                      active && "text-slate-800 dark:text-slate-100",
+                      "rounded-full border border-transparent px-3 py-2 text-sm text-slate-500 transition-colors hover:text-slate-800 dark:text-slate-300 dark:hover:text-slate-100",
+                      active &&
+                        "border-white/70 text-slate-800 dark:border-white/22 dark:text-slate-100",
                     )}
                   >
                     {item.label}
