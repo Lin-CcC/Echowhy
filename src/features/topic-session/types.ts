@@ -77,6 +77,17 @@ export type AttemptRecord = {
   revealedAnswerUsed: boolean;
 };
 
+export type InsertedQuestionRecord = {
+  id: string;
+  angleId: string;
+  targetId: string;
+  prompt: string;
+  createdAt: string;
+  visualState: TopicNodeVisualState;
+  answerDraft?: string;
+  answerState?: TopicAnswerState;
+};
+
 export type TopicDiscussionStep = {
   id: string;
   angleId: string;

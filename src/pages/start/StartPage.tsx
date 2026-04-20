@@ -17,6 +17,8 @@ import {
 
 const wakeLine = "Echowhy, emm?";
 const importedSourcesStorageKey = "echowhy:start-imported-sources";
+const pendingStartSourceStorageKey = "echowhy:start-pending-source";
+const startWakeSessionKey = "echowhy:start-wake-played";
 const bubblePlacements = [
   "left-1/2 top-[12%] -translate-x-1/2",
   "right-[8%] top-[42%]",
@@ -43,6 +45,7 @@ type StartSource = {
   moduleTopicId?: string;
   sourceId?: string;
   sourceLabel?: string;
+  sourceFiles?: string[];
 };
 
 const seedRecentSources: StartSource[] = [
@@ -109,6 +112,7 @@ function createRecentSourceFromModule(module: LearningModuleRecord): StartSource
     moduleTopicId: module.id,
     sourceId: module.sourceId,
     sourceLabel: module.sourceLabel,
+    sourceFiles: module.sourceFiles,
     children,
   };
 }
@@ -137,6 +141,94 @@ function readImportedSources() {
   }
 }
 
+function hasPlayedStartWake() {
+  if (typeof window === "undefined") {
+    return false;
+  }
+
+  try {
+    return window.sessionStorage.getItem(startWakeSessionKey) === "true";
+  } catch {
+    return false;
+  }
+}
+
+function markStartWakePlayed() {
+  if (typeof window === "undefined") {
+    return;
+  }
+
+  try {
+    window.sessionStorage.setItem(startWakeSessionKey, "true");
+  } catch {
+    // The animation is decorative; storage failure should not block the page.
+  }
+}
+
+function readPendingStartSource() {
+  if (typeof window === "undefined") {
+    return null;
+  }
+
+  try {
+    const rawValue = window.localStorage.getItem(pendingStartSourceStorageKey);
+
+    if (!rawValue) {
+      return null;
+    }
+
+    const parsedValue = JSON.parse(rawValue) as Partial<StartSource>;
+    window.localStorage.removeItem(pendingStartSourceStorageKey);
+
+    if (
+      typeof parsedValue.id !== "string" ||
+      typeof parsedValue.label !== "string" ||
+      typeof parsedValue.caption !== "string"
+    ) {
+      return null;
+    }
+
+    return {
+      id: parsedValue.id,
+      label: parsedValue.label,
+      caption: parsedValue.caption,
+      kind:
+        parsedValue.kind === "folder" ||
+        parsedValue.kind === "file" ||
+        parsedValue.kind === "conceptual"
+          ? parsedValue.kind
+          : "project",
+      children: Array.isArray(parsedValue.children)
+        ? parsedValue.children.filter(
+            (child): child is StartSourceChild =>
+              Boolean(child) &&
+              typeof child.id === "string" &&
+              typeof child.label === "string" &&
+              typeof child.topicId === "string",
+          )
+        : [],
+      moduleTopicId:
+        typeof parsedValue.moduleTopicId === "string"
+          ? parsedValue.moduleTopicId
+          : undefined,
+      sourceId:
+        typeof parsedValue.sourceId === "string" ? parsedValue.sourceId : undefined,
+      sourceLabel:
+        typeof parsedValue.sourceLabel === "string"
+          ? parsedValue.sourceLabel
+          : undefined,
+      sourceFiles: Array.isArray(parsedValue.sourceFiles)
+        ? parsedValue.sourceFiles.filter(
+            (sourceFile): sourceFile is string =>
+              typeof sourceFile === "string" && Boolean(sourceFile.trim()),
+          )
+        : undefined,
+    };
+  } catch {
+    return null;
+  }
+}
+
 function saveImportedSources(sources: StartSource[]) {
   if (typeof window === "undefined") {
     return;
@@ -162,6 +254,7 @@ function createImportedSource(files: FileList | File[], existingId?: string) {
     label,
     caption: `${fileArray.length || 1} local file${fileArray.length === 1 ? "" : "s"}`,
     kind: fileArray.length > 1 ? "folder" : "file",
+    sourceFiles: fileArray.map((file) => file.name),
     children: [] as StartSourceChild[],
   } satisfies StartSource;
 }
@@ -536,8 +629,8 @@ export function StartPage() {
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const sourceSelectionTimerRef = useRef<number | null>(null);
   const trackPulseTimerRef = useRef<number | null>(null);
-  const [isAwake, setIsAwake] = useState(false);
-  const [textVisible, setTextVisible] = useState(true);
+  const [isAwake, setIsAwake] = useState(() => hasPlayedStartWake());
+  const [textVisible, setTextVisible] = useState(() => !hasPlayedStartWake());
   const [startMode, setStartMode] = useState<StartMode>("ask");
   const [selectedSource, setSelectedSource] = useState<StartSource | null>(null);
   const [attachedFiles, setAttachedFiles] = useState<File[]>([]);
@@ -599,12 +692,19 @@ export function StartPage() {
       : "";
 
   useEffect(() => {
+    if (hasPlayedStartWake()) {
+      setTextVisible(false);
+      setIsAwake(true);
+      return;
+    }
+
     const textTimer = window.setTimeout(() => {
       setTextVisible(false);
     }, 2800);
 
     const awakeTimer = window.setTimeout(() => {
       setIsAwake(true);
+      markStartWakePlayed();
     }, 2850);
 
     return () => {
@@ -616,6 +716,13 @@ export function StartPage() {
   useEffect(() => {
     setImportedSources(readImportedSources());
     setLearningModules(loadLearningModules());
+
+    const pendingSource = readPendingStartSource();
+
+    if (pendingSource) {
+      setSelectedSource(pendingSource);
+      setStartMode("ask");
+    }
   }, []);
 
   useEffect(
@@ -681,6 +788,7 @@ export function StartPage() {
     const sourceLabel = parentModuleId
       ? selectedSource?.label
       : selectedSource?.sourceLabel ?? selectedSource?.label;
+    const sourceFiles = selectedSource?.sourceFiles;
     const moduleTitle = trimmedQuestion || sourceLabel || "New learning module";
 
     if (parentModuleId && trimmedQuestion) {
@@ -704,6 +812,7 @@ export function StartPage() {
         seedQuestion: trimmedQuestion,
         sourceId,
         sourceLabel,
+        sourceFiles,
         parentModuleId,
         kind: "source-backed",
         children: createDefaultModuleChildren(topicId, trimmedQuestion),
@@ -731,6 +840,7 @@ export function StartPage() {
       seedQuestion: trimmedQuestion || undefined,
       sourceId,
       sourceLabel,
+      sourceFiles,
       kind: selectedSource ? "source-backed" : "conceptual",
       children: createDefaultModuleChildren(topicId, trimmedQuestion),
     });
@@ -803,18 +913,6 @@ export function StartPage() {
     }
 
     sourceSelectionTimerRef.current = window.setTimeout(() => {
-      if (source.moduleTopicId) {
-        setSelectingSourceId(null);
-        goToTopic(
-          source.moduleTopicId,
-          undefined,
-          undefined,
-          source.sourceId,
-          source.sourceLabel,
-        );
-        return;
-      }
-
       setSelectedSource(source);
       setAttachedFiles([]);
       setSourceLensIndex(0);
@@ -1266,7 +1364,14 @@ export function StartPage() {
                         })}
                       </div>
 
-                      <div className="mt-2 flex justify-center gap-8">
+                      <div
+                        className={cn(
+                          "mt-2 flex justify-center gap-8 transition-all duration-300 ease-out",
+                          hoveredSourceId
+                            ? "pointer-events-none translate-y-2 opacity-0 blur-[3px]"
+                            : "translate-y-0 opacity-100 blur-0",
+                        )}
+                      >
                         <button
                           type="button"
                           onClick={() => setStartMode("ask")}

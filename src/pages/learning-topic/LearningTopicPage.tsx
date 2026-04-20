@@ -4,6 +4,8 @@ import { ConstellationView } from "@/features/constellation-view";
 import { LearningPanel } from "@/features/learning-panel";
 import { SourceReferencePanel } from "@/features/source-reference";
 import type {
+  InsertedQuestionRecord,
+  TopicAnswerState,
   TopicAngleProgressState,
   TopicFeedbackPreview,
   TopicNodeVisualState,
@@ -268,6 +270,9 @@ export function LearningTopicPage() {
   const [highlightedBlockId, setHighlightedBlockId] = useState<string | null>(
     null,
   );
+  const [insertedQuestionsByAngleId, setInsertedQuestionsByAngleId] = useState<
+    Record<string, InsertedQuestionRecord[]>
+  >({});
   const highlightTimeoutRef = useRef<number | null>(null);
 
   useEffect(() => {
@@ -348,6 +353,9 @@ export function LearningTopicPage() {
         ),
     );
     setRevealedQuestionIds(persistedState?.revealedQuestionIds ?? {});
+    setInsertedQuestionsByAngleId(
+      persistedState?.insertedQuestionsByAngleId ?? {},
+    );
     setHighlightedBlockId(null);
     setRestoredTopicId(topic.id);
   }, [defaultAngleId, search.angle, search.customQuestion, topic]);
@@ -365,11 +373,13 @@ export function LearningTopicPage() {
       draftAnswersByQuestionId,
       customQuestionDraftsByAngleId,
       revealedQuestionIds,
+      insertedQuestionsByAngleId,
     });
   }, [
     angleStateById,
     customQuestionDraftsByAngleId,
     draftAnswersByQuestionId,
+    insertedQuestionsByAngleId,
     pinnedSourcesByAngleId,
     revealedQuestionIds,
     restoredTopicId,
@@ -384,6 +394,7 @@ export function LearningTopicPage() {
     angleStateById[selectedAngleId] ??
     createInitialAngleProgress(topic)[selectedAngleId];
   const pinnedSources = pinnedSourcesByAngleId[selectedAngleId] ?? [];
+  const insertedQuestions = insertedQuestionsByAngleId[selectedAngleId] ?? [];
 
   const discussionSteps = useMemo(
     () =>
@@ -452,9 +463,21 @@ export function LearningTopicPage() {
     nextAngleId && nextAngleId !== selectedAngleId,
   );
 
-  const constellationNodes = useMemo(
-    () =>
-      discussionSteps.map((step, index) => {
+  const insertedQuestionsByTarget = useMemo(() => {
+    return insertedQuestions.reduce<Record<string, InsertedQuestionRecord[]>>(
+      (accumulator, question) => {
+        accumulator[question.targetId] = [
+          ...(accumulator[question.targetId] ?? []),
+          question,
+        ];
+        return accumulator;
+      },
+      {},
+    );
+  }, [insertedQuestions]);
+
+  const constellationNodes = useMemo(() => {
+    const baseNodes = discussionSteps.map((step, index) => {
         const answerState =
           activeAngleState?.answerStateByQuestionId[step.question.id];
         let visualState: TopicNodeVisualState = "dim";
@@ -469,22 +492,61 @@ export function LearningTopicPage() {
           ...step.question,
           visualState,
         };
-      }),
-    [
-      activeAngleState?.answerStateByQuestionId,
-      currentStepIndex,
-      discussionSteps,
-      showCompletionCard,
-    ],
-  );
+      });
+
+    function mapInsertedQuestion(question: InsertedQuestionRecord) {
+      return {
+        id: question.id,
+        angleId: question.angleId,
+        label: "My question",
+        prompt: question.prompt,
+        x: 0,
+        y: 0,
+        visualState: question.answerState?.status === "passed" ? "lit" : question.visualState,
+      };
+    }
+
+    const orderedNodes = [
+      ...(insertedQuestionsByTarget["after-root"] ?? []).map(mapInsertedQuestion),
+    ];
+
+    for (const [index, node] of baseNodes.entries()) {
+      const step = discussionSteps[index];
+      const insertedAfterStep =
+        insertedQuestionsByTarget[`after-step:${step?.id}`] ?? [];
+      const answerState = step
+        ? activeAngleState?.answerStateByQuestionId[step.question.id]
+        : undefined;
+      const shouldInsertBeforeNode =
+        !answerState || answerState.status === "failed";
+
+      if (shouldInsertBeforeNode) {
+        orderedNodes.push(...insertedAfterStep.map(mapInsertedQuestion));
+      }
+
+      orderedNodes.push(node);
+
+      if (!shouldInsertBeforeNode) {
+        orderedNodes.push(...insertedAfterStep.map(mapInsertedQuestion));
+      }
+    }
+
+    return orderedNodes;
+  }, [
+    activeAngleState?.answerStateByQuestionId,
+    currentStepIndex,
+    discussionSteps,
+    insertedQuestionsByTarget,
+    showCompletionCard,
+  ]);
 
   const constellationEdges = useMemo(
     () =>
-      discussionSteps.slice(0, -1).map((step, index) => ({
-        from: step.question.id,
-        to: discussionSteps[index + 1]!.question.id,
+      constellationNodes.slice(0, -1).map((node, index) => ({
+        from: node.id,
+        to: constellationNodes[index + 1]!.id,
       })),
-    [discussionSteps],
+    [constellationNodes],
   );
 
   useEffect(
@@ -550,6 +612,118 @@ export function LearningTopicPage() {
       };
     });
   };
+
+  const handleInsertQuestion = useCallback(
+    (targetId: string, prompt: string) => {
+      const trimmedPrompt = prompt.trim();
+
+      if (!trimmedPrompt) {
+        return;
+      }
+
+      const createdAt = new Date().toISOString();
+
+      setInsertedQuestionsByAngleId((previous) => ({
+        ...previous,
+        [selectedAngleId]: [
+          ...(previous[selectedAngleId] ?? []),
+          {
+            id: `inserted-question-${Date.now()}`,
+            angleId: selectedAngleId,
+            targetId,
+            prompt: trimmedPrompt,
+            createdAt,
+            visualState: "pulsing",
+          },
+        ],
+      }));
+    },
+    [selectedAngleId],
+  );
+
+  const handleDeleteInsertedQuestion = useCallback(
+    (questionId: string) => {
+      setInsertedQuestionsByAngleId((previous) => ({
+        ...previous,
+        [selectedAngleId]: (previous[selectedAngleId] ?? []).filter(
+          (question) => question.id !== questionId,
+        ),
+      }));
+    },
+    [selectedAngleId],
+  );
+
+  const updateInsertedQuestionForCurrentAngle = useCallback(
+    (
+      questionId: string,
+      updater: (question: InsertedQuestionRecord) => InsertedQuestionRecord,
+    ) => {
+      setInsertedQuestionsByAngleId((previous) => ({
+        ...previous,
+        [selectedAngleId]: (previous[selectedAngleId] ?? []).map((question) =>
+          question.id === questionId ? updater(question) : question,
+        ),
+      }));
+    },
+    [selectedAngleId],
+  );
+
+  const handleInsertedQuestionDraftChange = useCallback(
+    (questionId: string, draft: string) => {
+      updateInsertedQuestionForCurrentAngle(questionId, (question) => ({
+        ...question,
+        answerDraft: draft,
+      }));
+    },
+    [updateInsertedQuestionForCurrentAngle],
+  );
+
+  const handleCheckInsertedQuestion = useCallback(
+    (questionId: string, answer: string) => {
+      const currentQuestion = insertedQuestions.find(
+        (question) => question.id === questionId,
+      );
+
+      if (!currentQuestion) {
+        return;
+      }
+
+      const feedback = evaluateTopicAnswer(
+        {
+          id: currentQuestion.id,
+          angleId: selectedAngleId,
+          label: "My question",
+          prompt: currentQuestion.prompt,
+          x: 0,
+          y: 0,
+          visualState: currentQuestion.visualState,
+          keywordGroups: [
+            ["why", "because", "understand", "rule", "flow"],
+            ["auth", "jwt", "controller", "service", "token"],
+          ],
+          bonusKeywords: ["specific", "responsibility", "validation", "source"],
+        },
+        answer,
+      );
+      const passed = feedback.score >= 60;
+      const answerState: TopicAnswerState = {
+        questionId,
+        answer,
+        status: passed ? "passed" : "failed",
+        feedback,
+        summary: passed ? feedback.nextSuggestion : null,
+        isCollapsed: passed,
+      };
+
+      updateInsertedQuestionForCurrentAngle(questionId, (question) => ({
+        ...question,
+        answerDraft: answer,
+        answerState,
+        visualState: passed ? "lit" : "pulsing",
+      }));
+    },
+    [insertedQuestions, selectedAngleId, updateInsertedQuestionForCurrentAngle],
+  );
 
   const updatePinnedSourcesForCurrentAngle = useCallback(
     (updater: (currentPinnedSources: string[]) => string[]) => {
@@ -897,7 +1071,7 @@ export function LearningTopicPage() {
               </div>
             </div>
 
-            <div className="relative flex-1">
+            <div className="stealth-scrollbar relative flex-1 overflow-y-auto overflow-x-hidden">
               <ConstellationView
                 nodes={constellationNodes}
                 edges={constellationEdges}
@@ -934,9 +1108,14 @@ export function LearningTopicPage() {
               showCompletionCard={showCompletionCard}
               activeAngleTitle={activeAngleLabel}
               canExploreAnotherAngle={canExploreAnotherAngle}
+              insertedQuestions={insertedQuestions}
               onDraftAnswerChange={handleDraftAnswerChange}
               onCustomQuestionDraftChange={handleCustomQuestionDraftChange}
               onToggleHistory={handleToggleHistory}
+              onInsertQuestion={handleInsertQuestion}
+              onDeleteInsertedQuestion={handleDeleteInsertedQuestion}
+              onInsertedQuestionDraftChange={handleInsertedQuestionDraftChange}
+              onCheckInsertedQuestion={handleCheckInsertedQuestion}
               onCheckCurrent={handleCheckCurrent}
               onSkipCurrent={handleSkipCurrent}
               onTryAgain={handleTryAgain}

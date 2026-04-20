@@ -17,6 +17,7 @@ export type LearningModuleRecord = {
   title: string;
   sourceId?: string;
   sourceLabel?: string;
+  sourceFiles?: string[];
   seedQuestion?: string;
   parentModuleId?: string;
   children: LearningModuleChildRecord[];
@@ -71,6 +72,12 @@ function normalizeLearningModuleRecord(
     sourceId: typeof value.sourceId === "string" ? value.sourceId : undefined,
     sourceLabel:
       typeof value.sourceLabel === "string" ? value.sourceLabel : undefined,
+    sourceFiles: Array.isArray(value.sourceFiles)
+      ? value.sourceFiles.filter(
+          (sourceFile): sourceFile is string =>
+            typeof sourceFile === "string" && Boolean(sourceFile.trim()),
+        )
+      : undefined,
     seedQuestion:
       typeof value.seedQuestion === "string" && value.seedQuestion.trim()
         ? value.seedQuestion.trim()

@@ -1,10 +1,20 @@
-import { useEffect, useRef, type ReactNode } from "react";
+import {
+  useEffect,
+  useRef,
+  useState,
+  type PointerEvent as ReactPointerEvent,
+  type ReactNode,
+} from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { useThemeMode } from "@/app/theme/theme-provider";
 import { cn } from "@/lib/utils";
-import type { TopicAnswerState, TopicDiscussionStep } from "@/features/topic-session";
+import type {
+  InsertedQuestionRecord,
+  TopicAnswerState,
+  TopicDiscussionStep,
+} from "@/features/topic-session";
 
 const answerSchema = z.object({
   answer: z.string().trim().min(8, "Try answering in a complete thought."),
@@ -42,9 +52,14 @@ type LearningPanelProps = {
   showCompletionCard: boolean;
   activeAngleTitle: string;
   canExploreAnotherAngle: boolean;
+  insertedQuestions: InsertedQuestionRecord[];
   onDraftAnswerChange: (questionId: string, draft: string) => void;
   onCustomQuestionDraftChange: (draft: string) => void;
   onToggleHistory: (questionId: string) => void;
+  onInsertQuestion: (targetId: string, question: string) => void;
+  onDeleteInsertedQuestion: (questionId: string) => void;
+  onInsertedQuestionDraftChange: (questionId: string, draft: string) => void;
+  onCheckInsertedQuestion: (questionId: string, answer: string) => void;
   onCheckCurrent: (answer: string) => void;
   onSkipCurrent: () => void;
   onTryAgain: () => void;
@@ -269,9 +284,14 @@ export function LearningPanel({
   showCompletionCard,
   activeAngleTitle,
   canExploreAnotherAngle,
+  insertedQuestions,
   onDraftAnswerChange,
   onCustomQuestionDraftChange,
   onToggleHistory,
+  onInsertQuestion,
+  onDeleteInsertedQuestion,
+  onInsertedQuestionDraftChange,
+  onCheckInsertedQuestion,
   onCheckCurrent,
   onSkipCurrent,
   onTryAgain,
@@ -304,6 +324,17 @@ export function LearningPanel({
 
   const lastQuestionIdRef = useRef<string | null>(null);
   const lastCustomComposerVisibleRef = useRef(false);
+  const activeInsertTargetIdRef = useRef<string | null>(null);
+  const [isInsertDragging, setIsInsertDragging] = useState(false);
+  const [activeInsertTargetId, setActiveInsertTargetId] = useState<string | null>(null);
+  const [insertComposerTargetId, setInsertComposerTargetId] = useState<string | null>(
+    null,
+  );
+  const [insertQuestionDraft, setInsertQuestionDraft] = useState("");
+  const [insertButtonPosition, setInsertButtonPosition] = useState<{
+    x: number;
+    y: number;
+  } | null>(null);
 
   useEffect(() => {
     const nextQuestionId = currentStep?.question.id ?? null;
@@ -351,9 +382,251 @@ export function LearningPanel({
 
   const visibleSteps = steps.slice(0, visibleStepCount);
   const failedCurrentAttempt = currentAnswerState?.status === "failed";
+  const insertedQuestionsByTargetId = insertedQuestions.reduce<
+    Record<string, InsertedQuestionRecord[]>
+  >((accumulator, question) => {
+    accumulator[question.targetId] = [
+      ...(accumulator[question.targetId] ?? []),
+      question,
+    ];
+    return accumulator;
+  }, {});
+
+  useEffect(() => {
+    if (!isInsertDragging) {
+      return;
+    }
+
+    function getTargetIdFromPoint(clientX: number, clientY: number) {
+      const element = document.elementFromPoint(clientX, clientY);
+      const target = element?.closest<HTMLElement>("[data-insert-target-id]");
+      return target?.dataset.insertTargetId ?? null;
+    }
+
+    function handlePointerMove(event: PointerEvent) {
+      const nextTargetId = getTargetIdFromPoint(event.clientX, event.clientY);
+
+      setInsertButtonPosition({ x: event.clientX, y: event.clientY });
+      setActiveInsertTargetId(nextTargetId);
+      activeInsertTargetIdRef.current = nextTargetId;
+    }
+
+    function handlePointerUp() {
+      if (activeInsertTargetIdRef.current) {
+        setInsertComposerTargetId(activeInsertTargetIdRef.current);
+        setInsertQuestionDraft("");
+      }
+
+      setIsInsertDragging(false);
+      setActiveInsertTargetId(null);
+      activeInsertTargetIdRef.current = null;
+      setInsertButtonPosition(null);
+    }
+
+    window.addEventListener("pointermove", handlePointerMove);
+    window.addEventListener("pointerup", handlePointerUp, { once: true });
+
+    return () => {
+      window.removeEventListener("pointermove", handlePointerMove);
+      window.removeEventListener("pointerup", handlePointerUp);
+    };
+  }, [isInsertDragging]);
+
+  function handleInsertDragStart(event: ReactPointerEvent<HTMLButtonElement>) {
+    event.preventDefault();
+    setIsInsertDragging(true);
+    setInsertButtonPosition({ x: event.clientX, y: event.clientY });
+  }
+
+  function handleSubmitInsertedQuestion(targetId: string) {
+    const nextQuestion = insertQuestionDraft.trim();
+
+    if (!nextQuestion) {
+      return;
+    }
+
+    onInsertQuestion(targetId, nextQuestion);
+    setInsertQuestionDraft("");
+    setInsertComposerTargetId(null);
+  }
+
+  function renderInsertedQuestionCards(targetId: string) {
+    return (
+      <>
+        {(insertedQuestionsByTargetId[targetId] ?? []).map((question) => (
+          <div
+            key={question.id}
+            id={`question-${question.id}`}
+            className={cn(
+              "my-6 border-l-[2px] py-2 pl-6 transition-colors",
+              question.answerState?.status === "passed"
+                ? "border-cyan-400/55"
+                : "border-cyan-500/40",
+            )}
+          >
+            <div className="mb-2 flex items-center justify-between gap-4">
+              <p className="text-[10px] font-mono uppercase tracking-[0.2em] text-cyan-600 dark:text-cyan-400">
+                <ReadingLine shield={useLightShield}>My question</ReadingLine>
+              </p>
+              <button
+                type="button"
+                onClick={() => onDeleteInsertedQuestion(question.id)}
+                className="font-mono text-[10px] tracking-widest text-slate-400 transition-colors hover:text-rose-500 dark:text-slate-500 dark:hover:text-rose-300"
+                aria-label="Delete inserted question"
+              >
+                [x]
+              </button>
+            </div>
+            <p className="text-base leading-relaxed text-slate-700 dark:text-slate-200">
+              <ReadingLine shield={useLightShield}>{question.prompt}</ReadingLine>
+            </p>
+
+            <textarea
+              rows={1}
+              value={question.answerDraft ?? question.answerState?.answer ?? ""}
+              onChange={(event) =>
+                onInsertedQuestionDraftChange(question.id, event.target.value)
+              }
+              placeholder="Type your thought..."
+              className={cn(
+                "mt-5 w-full min-h-[2.15rem] resize-none border-b bg-transparent pb-1 leading-7 transition-colors [field-sizing:content] placeholder:italic focus:outline-none",
+                isDark
+                  ? "border-cyan-700/45 text-slate-200 placeholder:text-slate-400 focus:border-cyan-400"
+                  : "border-slate-300 text-slate-800 placeholder:text-slate-400 focus:border-cyan-500",
+              )}
+            />
+
+            {question.answerState?.feedback ? (
+              <div className="mt-3 space-y-2 text-sm text-slate-500 dark:text-slate-300">
+                <p>
+                  <ReadingLine shield={useLightShield}>
+                    <span className="font-bold text-cyan-600 dark:text-cyan-400">
+                      AI:
+                    </span>{" "}
+                    {question.answerState.feedback.nextSuggestion}
+                  </ReadingLine>
+                </p>
+                <p className="text-xs uppercase tracking-[0.16em] text-slate-400 dark:text-slate-400">
+                  <ReadingLine shield={useLightShield}>
+                    {question.answerState.feedback.label} /{" "}
+                    {question.answerState.feedback.score}/100
+                  </ReadingLine>
+                </p>
+              </div>
+            ) : null}
+
+            <div className="mt-6 flex items-center justify-end">
+              <button
+                type="button"
+                onClick={() =>
+                  onCheckInsertedQuestion(
+                    question.id,
+                    question.answerDraft ?? question.answerState?.answer ?? "",
+                  )
+                }
+                className="border border-cyan-600/45 px-5 py-2 text-xs uppercase tracking-widest text-cyan-700 transition-colors hover:bg-cyan-500 hover:text-white dark:border-cyan-400/45 dark:text-cyan-400 dark:hover:bg-cyan-400/12"
+              >
+                [ Check ]
+              </button>
+            </div>
+          </div>
+        ))}
+      </>
+    );
+  }
+
+  function renderInsertSlot(targetId: string) {
+    const isActive = activeInsertTargetId === targetId;
+    const isComposing = insertComposerTargetId === targetId;
+
+    return (
+      <div data-insert-target-id={targetId} className="relative my-2 min-h-5">
+        <div
+          className={cn(
+            "pointer-events-none absolute left-0 right-0 top-1/2 z-10 h-px -translate-y-1/2 transition-all duration-200",
+            isActive
+              ? "bg-cyan-300/90 shadow-[0_0_18px_rgba(34,211,238,0.32)]"
+              : "bg-transparent",
+          )}
+        />
+
+        {isComposing ? (
+          <form
+            className="my-4 border-l-[2px] border-cyan-500/40 py-2 pl-6"
+            onSubmit={(event) => {
+              event.preventDefault();
+              handleSubmitInsertedQuestion(targetId);
+            }}
+          >
+            <p className="mb-3 text-[10px] font-mono uppercase tracking-[0.2em] text-cyan-600 dark:text-cyan-400">
+              <ReadingLine shield={useLightShield}>My question</ReadingLine>
+            </p>
+            <textarea
+              autoFocus
+              rows={1}
+              value={insertQuestionDraft}
+              onChange={(event) => setInsertQuestionDraft(event.target.value)}
+              placeholder="Drop one sharp why here..."
+              className={cn(
+                "w-full min-h-[2.15rem] resize-none border-b bg-transparent pb-1 leading-7 transition-colors [field-sizing:content] placeholder:italic focus:outline-none",
+                isDark
+                  ? "border-cyan-700/45 text-slate-200 placeholder:text-slate-500 focus:border-cyan-400"
+                  : "border-slate-300 text-slate-800 placeholder:text-slate-400 focus:border-cyan-500",
+              )}
+            />
+            <div className="mt-4 flex items-center justify-end gap-4">
+              <button
+                type="button"
+                onClick={() => {
+                  setInsertComposerTargetId(null);
+                  setInsertQuestionDraft("");
+                }}
+                className="text-[10px] font-mono uppercase tracking-widest text-slate-400 transition-colors hover:text-slate-600 dark:text-slate-500 dark:hover:text-slate-300"
+              >
+                [ cancel ]
+              </button>
+              <button
+                type="submit"
+                className="border border-cyan-600/45 px-4 py-1.5 text-[10px] uppercase tracking-widest text-cyan-700 transition-colors hover:bg-cyan-500 hover:text-white dark:border-cyan-400/45 dark:text-cyan-400 dark:hover:bg-cyan-400/12"
+              >
+                [ insert ]
+              </button>
+            </div>
+          </form>
+        ) : null}
+
+        {renderInsertedQuestionCards(targetId)}
+      </div>
+    );
+  }
 
   return (
     <div className="mx-auto w-full max-w-3xl px-8 py-8 pb-24">
+      <button
+        type="button"
+        onPointerDown={handleInsertDragStart}
+        style={
+          insertButtonPosition
+            ? {
+                left: insertButtonPosition.x,
+                top: insertButtonPosition.y,
+                transform: "translate(-50%, -50%)",
+              }
+            : undefined
+        }
+        className={cn(
+          "fixed z-40 select-none border border-cyan-500/35 bg-slate-950/25 px-4 py-2 font-mono text-[10px] uppercase tracking-[0.2em] text-cyan-500/80 backdrop-blur-md hover:border-cyan-400/60 hover:text-cyan-300",
+          isInsertDragging
+            ? "pointer-events-none cursor-grabbing transition-none"
+            : "cursor-grab transition-colors",
+          insertButtonPosition
+            ? ""
+            : "bottom-8 left-1/2 -translate-x-[25rem]",
+        )}
+      >
+        [ + why ]
+      </button>
+
       <div className="mb-12">
         <p className="mb-4 text-[10px] font-mono uppercase tracking-[0.2em] text-slate-400 dark:text-slate-500">
           <ReadingLine shield={useLightShield}>Learning Topic</ReadingLine>
@@ -369,7 +642,10 @@ export function LearningPanel({
         </h1>
       </div>
 
-      <div className="mb-12 border-l-[3px] border-slate-300 pl-6 dark:border-cyan-800/42">
+      <div
+        data-insert-target-id="after-root"
+        className="mb-12 border-l-[3px] border-slate-300 pl-6 dark:border-cyan-800/42"
+      >
         <p className="mb-2 text-[10px] font-bold uppercase tracking-widest text-slate-400 dark:text-slate-400">
           <ReadingLine shield={useLightShield}>Root Why</ReadingLine>
         </p>
@@ -384,6 +660,8 @@ export function LearningPanel({
         </p>
       </div>
 
+      {renderInsertSlot("after-root")}
+
       <div className="space-y-8 text-[15px] font-normal leading-relaxed text-slate-700 dark:text-slate-300 dark:[text-shadow:0_0_8px_#0a0f1a,_0_0_16px_#0a0f1a]">
         {visibleSteps.map((step, index) => {
           const answerState = answerStateByQuestionId[step.question.id];
@@ -392,7 +670,7 @@ export function LearningPanel({
           const showHistoryCard = Boolean(answerState && answerState.status !== "failed");
 
           return (
-            <div key={step.id}>
+            <div key={step.id} data-insert-target-id={`after-step:${step.id}`}>
               {showHistoryCard ? (
                 <div
                   id={`question-${step.question.id}`}
@@ -473,6 +751,8 @@ export function LearningPanel({
                 )}
               </div>
 
+              {renderInsertSlot(`after-step:${step.id}`)}
+
               {isCurrent ? (
                 <div
                   id={`question-${step.question.id}`}
@@ -501,10 +781,10 @@ export function LearningPanel({
                           onDraftAnswerChange(currentStep.question.id, event.target.value);
                         }
                       }}
-                      rows={2}
+                      rows={1}
                       placeholder={step.question.inputPlaceholder ?? "Type your thought..."}
                       className={cn(
-                        "w-full resize-none border-b bg-transparent pb-2 transition-colors placeholder:italic focus:outline-none",
+                        "w-full min-h-[2.15rem] resize-none border-b bg-transparent pb-1 leading-7 transition-colors [field-sizing:content] placeholder:italic focus:outline-none",
                         isDark
                           ? "border-cyan-700/45 text-slate-200 placeholder:text-slate-400 focus:border-cyan-400"
                           : "border-slate-300 text-slate-800 placeholder:text-slate-400 focus:border-cyan-500",
@@ -577,10 +857,10 @@ export function LearningPanel({
                   customQuestionField.onChange(event);
                   onCustomQuestionDraftChange(event.target.value);
                 }}
-                rows={2}
+                rows={1}
                 placeholder="Or ask any follow-up you want to understand next..."
                 className={cn(
-                  "w-full resize-none border-b bg-transparent pb-2 transition-colors placeholder:italic focus:outline-none",
+                  "w-full min-h-[2.15rem] resize-none border-b bg-transparent pb-1 leading-7 transition-colors [field-sizing:content] placeholder:italic focus:outline-none",
                   isDark
                     ? "border-cyan-700/45 text-slate-200 placeholder:text-slate-500 focus:border-cyan-400"
                     : "border-slate-300 text-slate-800 placeholder:text-slate-400 focus:border-cyan-500",

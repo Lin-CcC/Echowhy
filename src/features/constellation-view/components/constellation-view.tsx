@@ -7,11 +7,7 @@ type ConstellationViewProps = {
   onSelectNode: (nodeId: string) => void;
 };
 
-const sidebarNodeLayout = [
-  { x: 108, y: 72 },
-  { x: 150, y: 222 },
-  { x: 90, y: 380 },
-] as const;
+const sidebarNodeXPattern = [108, 150, 90, 136, 104, 158, 96] as const;
 
 function buildPolylinePath(from: { x: number; y: number }, to: { x: number; y: number }) {
   return `M ${from.x} ${from.y} L ${to.x} ${to.y}`;
@@ -23,15 +19,24 @@ export function ConstellationView({
   activeNodeId,
   onSelectNode,
 }: ConstellationViewProps) {
-  const orderedNodes = nodes.slice(0, 3).map((node, index) => ({
+  const orderedNodes = nodes.map((node, index) => ({
     ...node,
-    ...sidebarNodeLayout[index],
+    x: sidebarNodeXPattern[index % sidebarNodeXPattern.length] ?? 108,
+    y: 72 + index * (nodes.length > 4 ? 116 : 150),
   }));
   const nodeMap = new Map(orderedNodes.map((node) => [node.id, node]));
+  const canvasHeight =
+    orderedNodes.length > 0
+      ? Math.max(560, orderedNodes[orderedNodes.length - 1]!.y + 160)
+      : 560;
 
   return (
-    <svg className="absolute inset-0 h-full w-full" overflow="hidden">
-      {edges.slice(0, 2).map((edge) => {
+    <svg
+      className="min-h-full w-full"
+      style={{ height: `${canvasHeight}px` }}
+      overflow="hidden"
+    >
+      {edges.map((edge) => {
         const from = nodeMap.get(edge.from);
         const to = nodeMap.get(edge.to);
 
@@ -61,7 +66,8 @@ export function ConstellationView({
       })}
 
       {orderedNodes.map((node) => {
-        const isCurrent = node.id === activeNodeId;
+        const isCurrent =
+          node.id === activeNodeId || node.visualState === "pulsing";
         const isLit = node.visualState === "lit";
 
         return (

@@ -11,6 +11,20 @@ const navItems = [
   { to: "/review", label: "Review" },
 ] as const;
 
+const startWakeSessionKey = "echowhy:start-wake-played";
+
+function hasPlayedStartWake() {
+  if (typeof window === "undefined") {
+    return false;
+  }
+
+  try {
+    return window.sessionStorage.getItem(startWakeSessionKey) === "true";
+  } catch {
+    return false;
+  }
+}
+
 export function PageShell() {
   const pathname = useRouterState({
     select: (state) => state.location.pathname,
@@ -18,11 +32,18 @@ export function PageShell() {
   const isStartPage = pathname === "/";
   const isStartFlowPage =
     pathname === "/" || pathname.startsWith("/topic/") || pathname.startsWith("/ladder/");
-  const [headerVisible, setHeaderVisible] = useState(pathname !== "/");
+  const [headerVisible, setHeaderVisible] = useState(
+    () => pathname !== "/" || hasPlayedStartWake(),
+  );
   const { theme, mode, toggleTheme, toggleMode } = useThemeMode();
 
   useEffect(() => {
     if (pathname !== "/") {
+      setHeaderVisible(true);
+      return;
+    }
+
+    if (hasPlayedStartWake()) {
       setHeaderVisible(true);
       return;
     }

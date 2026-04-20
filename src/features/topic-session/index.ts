@@ -1,6 +1,7 @@
 export type {
   AttemptRecord,
   AttemptRecordStatus,
+  InsertedQuestionRecord,
   TopicAnswerState,
   TopicAngle,
   TopicAngleProgressState,

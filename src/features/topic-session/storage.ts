@@ -1,4 +1,4 @@
-import type { TopicAngleProgressState } from "./types";
+import type { InsertedQuestionRecord, TopicAngleProgressState } from "./types";
 
 export type PersistedTopicSessionState = {
   version: 1;
@@ -9,6 +9,7 @@ export type PersistedTopicSessionState = {
   draftAnswersByQuestionId: Record<string, string>;
   customQuestionDraftsByAngleId: Record<string, string>;
   revealedQuestionIds: Record<string, boolean>;
+  insertedQuestionsByAngleId?: Record<string, InsertedQuestionRecord[]>;
 };
 
 const STORAGE_PREFIX = "echowhy:topic-session";
