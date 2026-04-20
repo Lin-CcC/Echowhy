@@ -25,3 +25,15 @@ export {
   savePersistedTopicSessionState,
   type PersistedTopicSessionState,
 } from "./storage";
+
+export {
+  appendLearningModuleChild,
+  getLearningModuleById,
+  loadLearningModules,
+  saveLearningModules,
+  upsertLearningModule,
+  type LearningModuleChildKind,
+  type LearningModuleChildRecord,
+  type LearningModuleKind,
+  type LearningModuleRecord,
+} from "./module-storage";

@@ -7,6 +7,13 @@ import { constellationTopic } from "@/mock/data/constellation-topic";
 import { cn } from "@/lib/utils";
 import { useThemeMode } from "@/app/theme/theme-provider";
 import { ThemedAmbientBackground } from "@/components/ui/themed-ambient-background";
+import {
+  appendLearningModuleChild,
+  loadLearningModules,
+  upsertLearningModule,
+  type LearningModuleChildRecord,
+  type LearningModuleRecord,
+} from "@/features/topic-session/module-storage";
 
 const wakeLine = "Echowhy, emm?";
 const importedSourcesStorageKey = "echowhy:start-imported-sources";
@@ -24,6 +31,7 @@ type StartSourceChild = {
   topicId: string;
   angleId?: string;
   customQuestion?: string;
+  kind?: "angle" | "my-own-why";
 };
 
 type StartSource = {
@@ -32,6 +40,9 @@ type StartSource = {
   caption: string;
   kind: "project" | "folder" | "file" | "conceptual";
   children: StartSourceChild[];
+  moduleTopicId?: string;
+  sourceId?: string;
+  sourceLabel?: string;
 };
 
 const seedRecentSources: StartSource[] = [
@@ -48,6 +59,59 @@ const seedRecentSources: StartSource[] = [
     })),
   },
 ];
+
+function createDefaultModuleChildren(
+  moduleId: string,
+  seedQuestion?: string,
+): LearningModuleChildRecord[] {
+  const now = new Date().toISOString();
+  const angleChildren = constellationTopic.learningAngles
+    .filter((angle) => !angle.isCustom)
+    .map((angle) => ({
+      id: `${moduleId}-${angle.id}`,
+      label: angle.title,
+      topicId: moduleId,
+      angleId: angle.id,
+      kind: "angle" as const,
+      createdAt: now,
+    }));
+
+  if (!seedQuestion?.trim()) {
+    return angleChildren;
+  }
+
+  return [
+    ...angleChildren,
+    {
+      id: `${moduleId}-my-own-why-root`,
+      label: seedQuestion.trim(),
+      topicId: moduleId,
+      angleId: "angle-custom-followup",
+      customQuestion: seedQuestion.trim(),
+      kind: "my-own-why",
+      createdAt: now,
+    },
+  ];
+}
+
+function createRecentSourceFromModule(module: LearningModuleRecord): StartSource {
+  const children = module.children.length
+    ? module.children
+    : createDefaultModuleChildren(module.id, module.seedQuestion);
+
+  return {
+    id: `module-${module.id}`,
+    label: module.title,
+    caption: module.sourceLabel
+      ? `Learning module - ${module.sourceLabel}`
+      : "Learning module",
+    kind: module.kind === "conceptual" ? "conceptual" : "project",
+    moduleTopicId: module.id,
+    sourceId: module.sourceId,
+    sourceLabel: module.sourceLabel,
+    children,
+  };
+}
 
 function createGeneratedWhyId(sourceId?: string) {
   const suffix = `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`;
@@ -107,10 +171,10 @@ function getRecentSourcePoint(index: number, total: number) {
     return { x: 82, y: 39 };
   }
 
-  const yOffsets = [48, 37, 52, 34, 45];
+  const yOffsets = [38, 56, 34, 53, 40];
 
   return {
-    x: 35 + (index * 50) / Math.max(total - 1, 1),
+    x: 30 + (index * 56) / Math.max(total - 1, 1),
     y: yOffsets[index % yOffsets.length],
   };
 }
@@ -480,22 +544,33 @@ export function StartPage() {
   const [isSourceLensOpen, setIsSourceLensOpen] = useState(false);
   const [sourceLensIndex, setSourceLensIndex] = useState(0);
   const [importedSources, setImportedSources] = useState<StartSource[]>([]);
+  const [learningModules, setLearningModules] = useState<LearningModuleRecord[]>([]);
   const [hoveredSourceId, setHoveredSourceId] = useState<string | null>(null);
   const [selectingSourceId, setSelectingSourceId] = useState<string | null>(null);
   const [trackPulseKey, setTrackPulseKey] = useState(0);
   const [isTrackPulseActive, setIsTrackPulseActive] = useState(false);
 
   const isDarkDynamic = theme === "dark" && mode === "dynamic";
+  const recentModuleSources = useMemo(
+    () =>
+      learningModules
+        .filter((module) => !module.parentModuleId)
+        .slice(0, 5)
+        .map(createRecentSourceFromModule),
+    [learningModules],
+  );
   const recentSources = useMemo(
     () => [
+      ...recentModuleSources,
       ...importedSources,
       ...seedRecentSources.filter(
-        (source) => !importedSources.some((importedSource) => importedSource.id === source.id),
+        (source) =>
+          !importedSources.some((importedSource) => importedSource.id === source.id) &&
+          !recentModuleSources.some((moduleSource) => moduleSource.sourceId === source.id),
       ),
     ]
-      .filter((source) => source.children.length > 0)
       .slice(0, 5),
-    [importedSources],
+    [importedSources, recentModuleSources],
   );
   const activeHeading =
     startMode === "recent"
@@ -540,6 +615,7 @@ export function StartPage() {
 
   useEffect(() => {
     setImportedSources(readImportedSources());
+    setLearningModules(loadLearningModules());
   }, []);
 
   useEffect(
@@ -565,24 +641,110 @@ export function StartPage() {
     angleId?: string,
     customQuestion?: string,
     sourceId?: string,
+    sourceLabel?: string,
   ) => {
+    const search: {
+      angle?: string;
+      customQuestion?: string;
+      sourceId?: string;
+      sourceLabel?: string;
+    } = {};
+
+    if (angleId) {
+      search.angle = angleId;
+    }
+
+    if (customQuestion?.trim()) {
+      search.customQuestion = customQuestion.trim();
+    }
+
+    if (sourceId) {
+      search.sourceId = sourceId;
+    }
+
+    if (sourceLabel?.trim()) {
+      search.sourceLabel = sourceLabel.trim();
+    }
+
     void navigate({
       to: "/topic/$id",
       params: { id: topicId },
-      search: {
-        angle: angleId,
-        customQuestion,
-        sourceId,
-      },
+      search,
     });
   };
 
   const createWhyFromQuestion = (question: string) => {
+    const trimmedQuestion = question.trim();
+    const parentModuleId = selectedSource?.moduleTopicId;
+    const topicId = createGeneratedWhyId(parentModuleId ?? selectedSource?.id);
+    const sourceId = selectedSource?.sourceId ?? selectedSource?.id;
+    const sourceLabel = parentModuleId
+      ? selectedSource?.label
+      : selectedSource?.sourceLabel ?? selectedSource?.label;
+    const moduleTitle = trimmedQuestion || sourceLabel || "New learning module";
+
+    if (parentModuleId && trimmedQuestion) {
+      const existingParentModule =
+        learningModules.find((module) => module.id === parentModuleId) ??
+        loadLearningModules().find((module) => module.id === parentModuleId);
+
+      if (existingParentModule && !existingParentModule.children.length) {
+        upsertLearningModule({
+          ...existingParentModule,
+          children: createDefaultModuleChildren(
+            existingParentModule.id,
+            existingParentModule.seedQuestion,
+          ),
+        });
+      }
+
+      const savedChildModule = upsertLearningModule({
+        id: topicId,
+        title: trimmedQuestion,
+        seedQuestion: trimmedQuestion,
+        sourceId,
+        sourceLabel,
+        parentModuleId,
+        kind: "source-backed",
+        children: createDefaultModuleChildren(topicId, trimmedQuestion),
+      });
+
+      appendLearningModuleChild(parentModuleId, {
+        id: `${parentModuleId}-my-own-why-${topicId}`,
+        label: trimmedQuestion,
+        topicId,
+        customQuestion: trimmedQuestion,
+        kind: "my-own-why",
+      });
+
+      if (savedChildModule) {
+        setLearningModules(loadLearningModules());
+      }
+
+      goToTopic(topicId, undefined, trimmedQuestion, sourceId, sourceLabel);
+      return;
+    }
+
+    const savedModule = upsertLearningModule({
+      id: topicId,
+      title: moduleTitle,
+      seedQuestion: trimmedQuestion || undefined,
+      sourceId,
+      sourceLabel,
+      kind: selectedSource ? "source-backed" : "conceptual",
+      children: createDefaultModuleChildren(topicId, trimmedQuestion),
+    });
+
+    if (savedModule) {
+      setLearningModules(loadLearningModules());
+    }
+
     goToTopic(
-      createGeneratedWhyId(selectedSource?.id),
-      "angle-custom-followup",
-      question,
-      selectedSource?.id,
+      topicId,
+      undefined,
+      trimmedQuestion || undefined,
+      sourceId,
+      sourceLabel,
     );
   };
 
@@ -641,6 +803,18 @@ export function StartPage() {
     }
 
     sourceSelectionTimerRef.current = window.setTimeout(() => {
+      if (source.moduleTopicId) {
+        setSelectingSourceId(null);
+        goToTopic(
+          source.moduleTopicId,
+          undefined,
+          undefined,
+          source.sourceId,
+          source.sourceLabel,
+        );
+        return;
+      }
+
       setSelectedSource(source);
       setAttachedFiles([]);
       setSourceLensIndex(0);
@@ -837,6 +1011,7 @@ export function StartPage() {
                         isSourcePreviewOpen={isSourceLensOpen}
                         onPreviewSource={() => setIsSourceLensOpen((isOpen) => !isOpen)}
                         onClearSelectedSource={clearSelectedSource}
+                        allowEmptyQuestion={Boolean(selectedSource)}
                       />
 
                     </motion.div>
@@ -1067,7 +1242,8 @@ export function StartPage() {
                                                 child.topicId,
                                                 child.angleId,
                                                 child.customQuestion,
-                                                source.id,
+                                                source.sourceId ?? source.id,
+                                                source.sourceLabel ?? source.label,
                                               )
                                             }
                                             className={cn(

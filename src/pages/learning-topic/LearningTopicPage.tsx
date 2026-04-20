@@ -20,8 +20,13 @@ import {
   savePersistedTopicSessionState,
 } from "@/features/topic-session";
 import {
+  getLearningModuleById,
+  upsertLearningModule,
+} from "@/features/topic-session/module-storage";
+import {
   constellationTopic,
   getConstellationTopicById,
+  getSourceImportById,
 } from "@/mock/data/constellation-topic";
 import { cn } from "@/lib/utils";
 
@@ -32,6 +37,79 @@ type FeedbackCardState = {
   feedback: TopicFeedbackPreview;
   revealedAnswerUsed: boolean;
 };
+
+function createGeneratedTopicSession({
+  topicId,
+  seedQuestion,
+  sourceId,
+  sourceLabel,
+}: {
+  topicId: string;
+  seedQuestion?: string;
+  sourceId?: string;
+  sourceLabel?: string;
+}): TopicSession {
+  const sourceImport = sourceId ? getSourceImportById(sourceId) : undefined;
+  const sourceName =
+    sourceImport?.projectName ??
+    sourceLabel?.trim() ??
+    (sourceId ? "Imported source" : "Conceptual source");
+  const moduleTitle = seedQuestion || sourceName;
+  const moduleRootQuestion =
+    seedQuestion || `What is worth understanding first in ${sourceName}?`;
+
+  return {
+    ...constellationTopic,
+    id: topicId,
+    title: moduleTitle,
+    rootQuestion: moduleRootQuestion,
+    goal: seedQuestion
+      ? `Build a grounded learning path around "${seedQuestion}".`
+      : `Build a grounded learning path from ${sourceName}.`,
+    overview: seedQuestion
+      ? `This generated module starts from the learner's question, then asks Echowhy to organize useful angles from the available source material.`
+      : `This generated module starts from the selected source material and lets Echowhy propose useful learning angles before the learner adds their own why.`,
+    learningAngles: constellationTopic.learningAngles.map((angle) => {
+      if (angle.isCustom) {
+        return { ...angle };
+      }
+
+      if (angle.id === "angle-request-flow") {
+        return {
+          ...angle,
+          rootQuestion: seedQuestion
+            ? `What source flow is most useful for answering: ${seedQuestion}`
+            : `What is the first useful flow to understand in ${sourceName}?`,
+        };
+      }
+
+      if (angle.id === "angle-responsibility") {
+        return {
+          ...angle,
+          rootQuestion: seedQuestion
+            ? `Which responsibility boundary matters most for: ${seedQuestion}`
+            : `Which responsibility boundary in ${sourceName} is easiest to misunderstand?`,
+        };
+      }
+
+      if (angle.id === "angle-jwt-timing") {
+        return {
+          ...angle,
+          rootQuestion: seedQuestion
+            ? `What timing or sequence detail changes the answer to: ${seedQuestion}`
+            : `What sequence or timing detail should be learned from ${sourceName}?`,
+        };
+      }
+
+      return { ...angle };
+    }),
+    sourceImport: {
+      ...(sourceImport ?? constellationTopic.sourceImport),
+      id: sourceId ?? "source-conceptual-search",
+      projectName: sourceName,
+    },
+  };
+}
 
 function createInitialAngleProgress(topic: TopicSession) {
   return topic.learningAngles.reduce<Record<string, TopicAngleProgressState>>(
@@ -141,20 +219,22 @@ export function LearningTopicPage() {
   const search = useSearch({ from: "/topic/$id" });
   const navigate = useNavigate();
   const knownTopic = getConstellationTopicById(id);
-  const generatedQuestionTitle = search.customQuestion?.trim();
+  const storedModule = knownTopic ? null : getLearningModuleById(id);
+  const generatedQuestionTitle =
+    search.customQuestion?.trim() || storedModule?.seedQuestion;
+  const generatedSourceId = search.sourceId ?? storedModule?.sourceId;
+  const generatedSourceLabel =
+    search.sourceLabel ?? storedModule?.sourceLabel ?? storedModule?.title;
   const topic = useMemo(
     () =>
-      knownTopic ?? {
-        ...constellationTopic,
-        id,
-        title: generatedQuestionTitle || constellationTopic.title,
-        rootQuestion: generatedQuestionTitle || constellationTopic.rootQuestion,
-        sourceImport: {
-          ...constellationTopic.sourceImport,
-          id: search.sourceId ?? constellationTopic.sourceImport.id,
-        },
-      },
-    [generatedQuestionTitle, id, knownTopic, search.sourceId],
+      knownTopic ??
+      createGeneratedTopicSession({
+        topicId: id,
+        seedQuestion: generatedQuestionTitle,
+        sourceId: generatedSourceId,
+        sourceLabel: generatedSourceLabel,
+      }),
+    [generatedQuestionTitle, generatedSourceId, generatedSourceLabel, id, knownTopic],
   );
   const defaultAngleId =
     topic.learningAngles.find((angle) => !angle.isCustom)?.id ??
@@ -188,33 +268,52 @@ export function LearningTopicPage() {
   const [highlightedBlockId, setHighlightedBlockId] = useState<string | null>(
     null,
   );
-  const [showReturnToCurrent, setShowReturnToCurrent] = useState(false);
   const highlightTimeoutRef = useRef<number | null>(null);
 
   useEffect(() => {
-    const routeAngleId = topic.learningAngles.some(
+    if (knownTopic) {
+      return;
+    }
+
+    upsertLearningModule({
+      id: topic.id,
+      title: topic.title,
+      seedQuestion: generatedQuestionTitle,
+      sourceId: generatedSourceId,
+      sourceLabel: topic.sourceImport.projectName,
+      kind: generatedSourceId ? "source-backed" : "conceptual",
+    });
+  }, [
+    generatedQuestionTitle,
+    generatedSourceId,
+    knownTopic,
+    topic.id,
+    topic.sourceImport.projectName,
+    topic.title,
+  ]);
+
+  useEffect(() => {
+    const hasRouteAngle = topic.learningAngles.some(
       (angle) => angle.id === search.angle,
-    )
-      ? (search.angle ?? defaultAngleId)
-      : defaultAngleId;
+    );
+    const routeAngleId = hasRouteAngle ? (search.angle ?? defaultAngleId) : defaultAngleId;
     const persistedState = loadPersistedTopicSessionState(topic.id);
     const initialProgress = mergePersistedAngleProgress(
       topic,
       persistedState?.angleStateById,
     );
     const persistedAngleId = persistedState?.selectedAngleId;
-    const initialAngleId = topic.learningAngles.some(
-      (angle) => angle.id === search.angle,
-    )
+    const shouldStartFromGeneratedAngles =
+      Boolean(search.customQuestion?.trim()) && !search.angle && !knownTopic;
+    const initialAngleId = hasRouteAngle
       ? routeAngleId
-      : topic.learningAngles.some((angle) => angle.id === persistedAngleId)
-        ? (persistedAngleId ?? defaultAngleId)
-        : defaultAngleId;
+      : shouldStartFromGeneratedAngles
+        ? defaultAngleId
+        : topic.learningAngles.some((angle) => angle.id === persistedAngleId)
+          ? (persistedAngleId ?? defaultAngleId)
+          : defaultAngleId;
 
-    if (
-      initialAngleId === "angle-custom-followup" &&
-      search.customQuestion?.trim()
-    ) {
+    if (search.customQuestion?.trim()) {
       initialProgress["angle-custom-followup"] = {
         ...initialProgress["angle-custom-followup"],
         answerStateByQuestionId: {},
@@ -250,7 +349,6 @@ export function LearningTopicPage() {
     );
     setRevealedQuestionIds(persistedState?.revealedQuestionIds ?? {});
     setHighlightedBlockId(null);
-    setShowReturnToCurrent(false);
     setRestoredTopicId(topic.id);
   }, [defaultAngleId, search.angle, search.customQuestion, topic]);
 
@@ -388,33 +486,6 @@ export function LearningTopicPage() {
       })),
     [discussionSteps],
   );
-
-  useEffect(() => {
-    if (!currentStep) {
-      setShowReturnToCurrent(false);
-      return;
-    }
-
-    const target = document.getElementById(
-      `question-${currentStep.question.id}`,
-    );
-    if (!target) {
-      return;
-    }
-
-    const observer = new IntersectionObserver(
-      ([entry]) => {
-        setShowReturnToCurrent(!entry.isIntersecting);
-      },
-      { threshold: 0.35 },
-    );
-
-    observer.observe(target);
-
-    return () => {
-      observer.disconnect();
-    };
-  }, [currentStep?.question.id]);
 
   useEffect(
     () => () => {
@@ -880,18 +951,6 @@ export function LearningTopicPage() {
             />
           </div>
 
-          {showReturnToCurrent && currentStep ? (
-            <button
-              type="button"
-              onClick={() => scrollToQuestion(currentStep.question.id)}
-              className={cn(
-                "absolute bottom-6 right-8 z-20 rounded-full border px-3 py-1.5 text-[11px] uppercase tracking-[0.16em] backdrop-blur-xl transition-colors",
-                "border-slate-200/60 bg-white/46 text-slate-600 hover:text-cyan-600 dark:border-cyan-800/30 dark:bg-slate-950/34 dark:text-slate-300 dark:hover:text-cyan-400",
-              )}
-            >
-              Return to current question
-            </button>
-          ) : null}
         </main>
 
         <SourceReferencePanel

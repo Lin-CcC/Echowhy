@@ -7,10 +7,7 @@ import type { Theme } from "@/app/theme/theme-provider";
 import { cn } from "@/lib/utils";
 
 const questionEntrySchema = z.object({
-  question: z
-    .string()
-    .trim()
-    .min(4, "A question needs at least a little more shape."),
+  question: z.string(),
 });
 
 type QuestionEntryValues = z.infer<typeof questionEntrySchema>;
@@ -27,6 +24,7 @@ type QuestionEntryProps = {
   isSourcePreviewOpen?: boolean;
   onPreviewSource?: () => void;
   onClearSelectedSource?: () => void;
+  allowEmptyQuestion?: boolean;
 };
 
 export function QuestionEntry({
@@ -41,6 +39,7 @@ export function QuestionEntry({
   isSourcePreviewOpen,
   onPreviewSource,
   onClearSelectedSource,
+  allowEmptyQuestion,
 }: QuestionEntryProps) {
   const form = useForm<QuestionEntryValues>({
     resolver: zodResolver(questionEntrySchema),
@@ -50,7 +49,27 @@ export function QuestionEntry({
   });
   const [isDraggingSource, setIsDraggingSource] = useState(false);
 
-  const handleSubmit = form.handleSubmit(({ question }) => onSubmit(question));
+  const handleSubmit = form.handleSubmit(({ question }) => {
+    const trimmedQuestion = question.trim();
+
+    if (!trimmedQuestion && !allowEmptyQuestion) {
+      form.setError("question", {
+        type: "manual",
+        message: "A question needs at least a little more shape.",
+      });
+      return;
+    }
+
+    if (trimmedQuestion && trimmedQuestion.length < 4) {
+      form.setError("question", {
+        type: "manual",
+        message: "A question needs at least a little more shape.",
+      });
+      return;
+    }
+
+    onSubmit(trimmedQuestion);
+  });
 
   return (
     <form className="space-y-3" onSubmit={handleSubmit}>

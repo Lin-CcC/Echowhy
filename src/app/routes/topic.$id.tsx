@@ -10,6 +10,7 @@ export const topicRoute = createRoute({
     angle: z.string().optional(),
     customQuestion: z.string().optional(),
     sourceId: z.string().optional(),
+    sourceLabel: z.string().optional(),
   }),
   component: LearningTopicPage,
 })
