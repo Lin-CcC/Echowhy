@@ -33,6 +33,7 @@ import {
 import { cn } from "@/lib/utils";
 
 type FeedbackCardState = {
+  id: string;
   angleId: string;
   questionId: string;
   answer: string;
@@ -257,8 +258,10 @@ export function LearningTopicPage() {
   const [pinnedSourcesByAngleId, setPinnedSourcesByAngleId] = useState<
     Record<string, string[]>
   >({});
-  const [floatingFeedback, setFloatingFeedback] =
-    useState<FeedbackCardState | null>(null);
+  const [floatingFeedbacks, setFloatingFeedbacks] = useState<FeedbackCardState[]>(
+    [],
+  );
+  const [activeFeedbackId, setActiveFeedbackId] = useState<string | null>(null);
   const [draftAnswersByQuestionId, setDraftAnswersByQuestionId] = useState<
     Record<string, string>
   >({});
@@ -339,7 +342,8 @@ export function LearningTopicPage() {
         initialAngleId,
       ),
     );
-    setFloatingFeedback(null);
+    setFloatingFeedbacks([]);
+    setActiveFeedbackId(null);
     setDraftAnswersByQuestionId(persistedState?.draftAnswersByQuestionId ?? {});
     setCustomQuestionDraftsByAngleId(
       persistedState?.customQuestionDraftsByAngleId ??
@@ -560,7 +564,8 @@ export function LearningTopicPage() {
 
   useEffect(() => {
     setPreviewSource(null);
-    setFloatingFeedback(null);
+    setFloatingFeedbacks([]);
+    setActiveFeedbackId(null);
   }, [selectedAngleId]);
 
   const triggerBlockHighlight = (blockId: string) => {
@@ -821,24 +826,37 @@ export function LearningTopicPage() {
       ...previous,
       [currentStep.question.id]: answer,
     }));
-    setFloatingFeedback({
-      angleId: selectedAngleId,
-      questionId: currentStep.question.id,
-      answer,
-      feedback,
-      revealedAnswerUsed: Boolean(revealedQuestionIds[currentStep.question.id]),
-    });
+    const feedbackCardId = `${currentStep.question.id}-${Date.now()}`;
+    setFloatingFeedbacks((previous) => [
+      ...previous,
+      {
+        id: feedbackCardId,
+        angleId: selectedAngleId,
+        questionId: currentStep.question.id,
+        answer,
+        feedback,
+        revealedAnswerUsed: Boolean(revealedQuestionIds[currentStep.question.id]),
+      },
+    ]);
+    setActiveFeedbackId(feedbackCardId);
   };
 
-  const dismissFloatingFeedback = () => {
-    if (!floatingFeedback) {
+  const dismissFloatingFeedback = (feedbackId: string) => {
+    const feedbackCard = floatingFeedbacks.find(
+      (feedback) => feedback.id === feedbackId,
+    );
+
+    if (!feedbackCard) {
       return;
     }
 
-    const passed = floatingFeedback.feedback.score >= 60;
+    const passed = feedbackCard.feedback.score >= 60;
+    const feedbackStepIndex = discussionSteps.findIndex(
+      (step) => step.question.id === feedbackCard.questionId,
+    );
 
     setAngleStateById((previous) => {
-      const angleState = previous[floatingFeedback.angleId];
+      const angleState = previous[feedbackCard.angleId];
 
       if (!angleState) {
         return previous;
@@ -846,61 +864,130 @@ export function LearningTopicPage() {
 
       const nextUnlocked = passed
         ? Math.min(
-            Math.max(angleState.unlockedStepCount, currentStepIndex + 2),
+            Math.max(
+              angleState.unlockedStepCount,
+              (feedbackStepIndex >= 0 ? feedbackStepIndex : currentStepIndex) + 2,
+            ),
             discussionSteps.length,
           )
         : angleState.unlockedStepCount;
       const nextAttempt = {
-        id: `${floatingFeedback.questionId}-${Date.now()}`,
+        id: `${feedbackCard.questionId}-${Date.now()}`,
         createdAt: new Date().toISOString(),
-        userAnswer: floatingFeedback.answer,
-        aiFeedback: floatingFeedback.feedback,
-        score: floatingFeedback.feedback.score,
-        status: getAttemptRecordStatus(floatingFeedback.feedback.score),
-        revealedAnswerUsed: floatingFeedback.revealedAnswerUsed,
+        userAnswer: feedbackCard.answer,
+        aiFeedback: feedbackCard.feedback,
+        score: feedbackCard.feedback.score,
+        status: getAttemptRecordStatus(feedbackCard.feedback.score),
+        revealedAnswerUsed: feedbackCard.revealedAnswerUsed,
       };
 
       return {
         ...previous,
-        [floatingFeedback.angleId]: {
+        [feedbackCard.angleId]: {
           ...angleState,
           unlockedStepCount: nextUnlocked,
           attemptRecordsByQuestionId: {
             ...angleState.attemptRecordsByQuestionId,
-            [floatingFeedback.questionId]: [
+            [feedbackCard.questionId]: [
               ...(angleState.attemptRecordsByQuestionId[
-                floatingFeedback.questionId
+                feedbackCard.questionId
               ] ?? []),
               nextAttempt,
             ],
           },
           answerStateByQuestionId: {
             ...angleState.answerStateByQuestionId,
-            [floatingFeedback.questionId]: {
-              questionId: floatingFeedback.questionId,
-              answer: floatingFeedback.answer,
+            [feedbackCard.questionId]: {
+              questionId: feedbackCard.questionId,
+              answer: feedbackCard.answer,
               status: passed ? "passed" : "failed",
-              feedback: floatingFeedback.feedback,
-              summary: passed ? floatingFeedback.feedback.nextSuggestion : null,
+              feedback: feedbackCard.feedback,
+              summary: passed ? feedbackCard.feedback.nextSuggestion : null,
               isCollapsed: passed,
-              revealedAnswerUsed: floatingFeedback.revealedAnswerUsed,
+              revealedAnswerUsed: feedbackCard.revealedAnswerUsed,
             },
           },
         },
       };
     });
 
-    setFloatingFeedback(null);
+    setFloatingFeedbacks((previous) => {
+      const nextFeedbacks = previous.filter(
+        (feedback) => feedback.id !== feedbackId,
+      );
+      setActiveFeedbackId((current) => {
+        if (current !== feedbackId) {
+          return current;
+        }
+
+        return nextFeedbacks[nextFeedbacks.length - 1]?.id ?? null;
+      });
+      return nextFeedbacks;
+    });
 
     if (passed) {
       setPreviewSource(null);
       setRevealedQuestionIds((previous) => {
         const next = { ...previous };
-        delete next[currentStep?.question.id ?? ""];
+        delete next[feedbackCard.questionId];
         return next;
       });
     }
   };
+
+  const handleSelectFeedback = (feedbackId: string) => {
+    setActiveFeedbackId(feedbackId);
+  };
+
+  const handleCycleFeedback = (direction: "previous" | "next") => {
+    if (!floatingFeedbacks.length) {
+      return;
+    }
+
+    const currentIndex = Math.max(
+      floatingFeedbacks.findIndex((feedback) => feedback.id === activeFeedbackId),
+      0,
+    );
+    const nextIndex =
+      direction === "previous"
+        ? (currentIndex - 1 + floatingFeedbacks.length) % floatingFeedbacks.length
+        : (currentIndex + 1) % floatingFeedbacks.length;
+
+    setActiveFeedbackId(floatingFeedbacks[nextIndex]?.id ?? null);
+  };
+
+  const handleReorderPinnedSources = (nextPinnedSources: string[]) => {
+    updatePinnedSourcesForCurrentAngle(() => nextPinnedSources);
+  };
+
+  const handleReorderFeedbacks = (draggedFeedbackId: string, targetFeedbackId: string) => {
+    setFloatingFeedbacks((previous) => {
+      const draggedIndex = previous.findIndex(
+        (feedback) => feedback.id === draggedFeedbackId,
+      );
+      const targetIndex = previous.findIndex(
+        (feedback) => feedback.id === targetFeedbackId,
+      );
+
+      if (draggedIndex < 0 || targetIndex < 0 || draggedIndex === targetIndex) {
+        return previous;
+      }
+
+      const nextFeedbacks = [...previous];
+      const [draggedFeedback] = nextFeedbacks.splice(draggedIndex, 1);
+      nextFeedbacks.splice(targetIndex, 0, draggedFeedback!);
+      return nextFeedbacks;
+    });
+  };
+
+  const handleWorkbenchCardInserted = useCallback(
+    (payload: { kind?: "feedback" | "source"; id?: string }) => {
+      if (payload.kind === "feedback" && payload.id) {
+        dismissFloatingFeedback(payload.id);
+      }
+    },
+    [dismissFloatingFeedback],
+  );
 
   const handleSkipCurrent = () => {
     if (!currentStep) {
@@ -1027,6 +1114,10 @@ export function LearningTopicPage() {
     ],
     [pinnedSources, previewSource],
   );
+  const activeFloatingFeedback =
+    floatingFeedbacks.find((feedback) => feedback.id === activeFeedbackId) ??
+    floatingFeedbacks[0] ??
+    null;
 
   const activeAngleLabel = activeAngle?.title ?? "Request flow";
 
@@ -1082,7 +1173,10 @@ export function LearningTopicPage() {
           </div>
         </aside>
 
-        <main className="stealth-scrollbar relative flex-1 overflow-y-auto overflow-x-hidden bg-transparent pb-40">
+        <main
+          data-auto-scroll-container
+          className="stealth-scrollbar relative flex-1 overflow-y-auto overflow-x-hidden bg-transparent pb-40"
+        >
           <div className="w-full">
             <LearningPanel
               title={topic.title}
@@ -1116,6 +1210,7 @@ export function LearningTopicPage() {
               onDeleteInsertedQuestion={handleDeleteInsertedQuestion}
               onInsertedQuestionDraftChange={handleInsertedQuestionDraftChange}
               onCheckInsertedQuestion={handleCheckInsertedQuestion}
+              onWorkbenchCardInserted={handleWorkbenchCardInserted}
               onCheckCurrent={handleCheckCurrent}
               onSkipCurrent={handleSkipCurrent}
               onTryAgain={handleTryAgain}
@@ -1136,11 +1231,17 @@ export function LearningTopicPage() {
           references={topic.sourceReferences}
           pinnedReferenceIds={pinnedSources}
           previewReferenceId={previewSource}
-          floatingFeedback={floatingFeedback}
+          feedbackCards={floatingFeedbacks}
+          activeFeedbackId={activeFloatingFeedback?.id ?? null}
           onDismissFeedback={dismissFloatingFeedback}
+          onSelectFeedback={handleSelectFeedback}
+          onCycleFeedback={handleCycleFeedback}
+          onReorderFeedbacks={handleReorderFeedbacks}
+          onReorderSources={handleReorderPinnedSources}
           onUnpinSource={handleUnpinSource}
           onClearAllSources={handleClearAllSources}
           onFocusBlock={handleFocusReferenceBlock}
+          onFocusQuestion={scrollToQuestion}
         />
       </div>
     </section>

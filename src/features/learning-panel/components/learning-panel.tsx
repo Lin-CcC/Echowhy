@@ -2,6 +2,7 @@ import {
   useEffect,
   useRef,
   useState,
+  type DragEvent as ReactDragEvent,
   type PointerEvent as ReactPointerEvent,
   type ReactNode,
 } from "react";
@@ -36,6 +37,29 @@ function ReadingLine({
 
 type AnswerValues = z.infer<typeof answerSchema>;
 type CustomQuestionValues = z.infer<typeof customQuestionSchema>;
+const WORKBENCH_INSERT_MIME = "application/echowhy-workbench-card";
+
+type WorkbenchInsertPayload = {
+  kind?: "feedback" | "source";
+  id?: string;
+  label?: string;
+  title?: string;
+  subtitle?: string;
+  body?: string;
+  code?: string;
+  meta?: string;
+  insertPrompt?: string;
+};
+
+type InsertedWorkbenchBlock = {
+  id: string;
+  kind: "feedback" | "source";
+  title: string;
+  subtitle?: string;
+  body?: string;
+  code?: string;
+  meta?: string;
+};
 
 type LearningPanelProps = {
   title: string;
@@ -60,6 +84,10 @@ type LearningPanelProps = {
   onDeleteInsertedQuestion: (questionId: string) => void;
   onInsertedQuestionDraftChange: (questionId: string, draft: string) => void;
   onCheckInsertedQuestion: (questionId: string, answer: string) => void;
+  onWorkbenchCardInserted: (payload: {
+    kind?: "feedback" | "source";
+    id?: string;
+  }) => void;
   onCheckCurrent: (answer: string) => void;
   onSkipCurrent: () => void;
   onTryAgain: () => void;
@@ -292,6 +320,7 @@ export function LearningPanel({
   onDeleteInsertedQuestion,
   onInsertedQuestionDraftChange,
   onCheckInsertedQuestion,
+  onWorkbenchCardInserted,
   onCheckCurrent,
   onSkipCurrent,
   onTryAgain,
@@ -325,6 +354,14 @@ export function LearningPanel({
   const lastQuestionIdRef = useRef<string | null>(null);
   const lastCustomComposerVisibleRef = useRef(false);
   const activeInsertTargetIdRef = useRef<string | null>(null);
+  const readingAutoScrollFrameRef = useRef<number | null>(null);
+  const readingAutoScrollStateRef = useRef<{
+    container: HTMLElement;
+    clientY: number;
+    lastSeenAt: number;
+    currentVelocity: number;
+    lastFrameAt: number;
+  } | null>(null);
   const [isInsertDragging, setIsInsertDragging] = useState(false);
   const [activeInsertTargetId, setActiveInsertTargetId] = useState<string | null>(null);
   const [insertComposerTargetId, setInsertComposerTargetId] = useState<string | null>(
@@ -335,6 +372,8 @@ export function LearningPanel({
     x: number;
     y: number;
   } | null>(null);
+  const [insertedWorkbenchBlocksByTargetId, setInsertedWorkbenchBlocksByTargetId] =
+    useState<Record<string, InsertedWorkbenchBlock[]>>({});
 
   useEffect(() => {
     const nextQuestionId = currentStep?.question.id ?? null;
@@ -432,6 +471,8 @@ export function LearningPanel({
     };
   }, [isInsertDragging]);
 
+  useEffect(() => stopReadingAutoScroll, []);
+
   function handleInsertDragStart(event: ReactPointerEvent<HTMLButtonElement>) {
     event.preventDefault();
     setIsInsertDragging(true);
@@ -448,6 +489,202 @@ export function LearningPanel({
     onInsertQuestion(targetId, nextQuestion);
     setInsertQuestionDraft("");
     setInsertComposerTargetId(null);
+  }
+
+  function stopReadingAutoScroll() {
+    if (readingAutoScrollFrameRef.current !== null) {
+      window.cancelAnimationFrame(readingAutoScrollFrameRef.current);
+      readingAutoScrollFrameRef.current = null;
+    }
+
+    readingAutoScrollStateRef.current = null;
+  }
+
+  function autoScrollNearestReadingArea(event: ReactDragEvent<HTMLElement>) {
+    const scrollContainer = event.currentTarget.closest<HTMLElement>(
+      "[data-auto-scroll-container]",
+    );
+
+    if (!scrollContainer) {
+      return;
+    }
+
+    readingAutoScrollStateRef.current = {
+      container: scrollContainer,
+      clientY: event.clientY,
+      lastSeenAt: performance.now(),
+      currentVelocity: readingAutoScrollStateRef.current?.currentVelocity ?? 0,
+      lastFrameAt: performance.now(),
+    };
+
+    if (readingAutoScrollFrameRef.current !== null) {
+      return;
+    }
+
+    const tick = () => {
+      const state = readingAutoScrollStateRef.current;
+
+      if (!state) {
+        readingAutoScrollFrameRef.current = null;
+        return;
+      }
+
+      const now = performance.now();
+      const frameDelta = Math.min((now - state.lastFrameAt) / 16.6667, 2.2);
+      state.lastFrameAt = now;
+
+      const bounds = state.container.getBoundingClientRect();
+      const edgeSize = 176;
+      const maxSpeed = 52;
+      const topDistance = state.clientY - bounds.top;
+      const bottomDistance = bounds.bottom - state.clientY;
+      let targetVelocity = 0;
+
+      if (topDistance < edgeSize) {
+        const intensity = 1 - Math.max(topDistance, 0) / edgeSize;
+        targetVelocity = -(maxSpeed * intensity * intensity * intensity);
+      } else if (bottomDistance < edgeSize) {
+        const intensity = 1 - Math.max(bottomDistance, 0) / edgeSize;
+        targetVelocity = maxSpeed * intensity * intensity * intensity;
+      }
+
+      if (now - state.lastSeenAt > 380) {
+        targetVelocity = 0;
+      }
+
+      const ease = Math.min(0.26 * frameDelta, 0.42);
+      state.currentVelocity += (targetVelocity - state.currentVelocity) * ease;
+
+      if (Math.abs(state.currentVelocity) > 0.08) {
+        state.container.scrollTop += state.currentVelocity * frameDelta;
+      }
+
+      if (targetVelocity === 0 && Math.abs(state.currentVelocity) <= 0.08 && now - state.lastSeenAt > 520) {
+        stopReadingAutoScroll();
+        return;
+      }
+
+      readingAutoScrollFrameRef.current = window.requestAnimationFrame(tick);
+    };
+
+    readingAutoScrollFrameRef.current = window.requestAnimationFrame(tick);
+  }
+
+  function readWorkbenchInsertPayload(event: ReactDragEvent<HTMLElement>) {
+    const rawPayload = event.dataTransfer.getData(WORKBENCH_INSERT_MIME);
+
+    if (!rawPayload) {
+      return null;
+    }
+
+    try {
+      return JSON.parse(rawPayload) as WorkbenchInsertPayload;
+    } catch {
+      return null;
+    }
+  }
+
+  function removeInsertedWorkbenchBlock(targetId: string, blockId: string) {
+    setInsertedWorkbenchBlocksByTargetId((previous) => ({
+      ...previous,
+      [targetId]: (previous[targetId] ?? []).filter((block) => block.id !== blockId),
+    }));
+  }
+
+  function handleWorkbenchCardDrop(
+    event: ReactDragEvent<HTMLDivElement>,
+    targetId: string,
+  ) {
+    const payload = readWorkbenchInsertPayload(event);
+
+    if (!payload) {
+      return;
+    }
+
+    event.preventDefault();
+    const nextBlock: InsertedWorkbenchBlock = {
+      id: `${payload.kind ?? "feedback"}-${payload.id ?? "card"}-${Date.now()}`,
+      kind: payload.kind === "source" ? "source" : "feedback",
+      title:
+        payload.title ??
+        payload.label ??
+        (payload.kind === "source" ? "Source reference" : "Answer feedback"),
+      subtitle: payload.subtitle,
+      body: payload.body ?? payload.insertPrompt,
+      code: payload.code,
+      meta: payload.meta,
+    };
+
+    setInsertedWorkbenchBlocksByTargetId((previous) => ({
+      ...previous,
+      [targetId]: [...(previous[targetId] ?? []), nextBlock],
+    }));
+    onWorkbenchCardInserted({ kind: payload.kind, id: payload.id });
+    setActiveInsertTargetId(null);
+    activeInsertTargetIdRef.current = null;
+    stopReadingAutoScroll();
+  }
+
+  function renderInsertedWorkbenchBlocks(targetId: string) {
+    return (
+      <>
+        {(insertedWorkbenchBlocksByTargetId[targetId] ?? []).map((block) => (
+          <article
+            key={block.id}
+            className={cn(
+              "my-5 w-full max-w-full overflow-hidden border-l-[2px] py-3 pl-5 transition-colors",
+              block.kind === "source"
+                ? "border-cyan-500/35"
+                : "border-amber-400/35 dark:border-amber-300/35",
+            )}
+          >
+            <div className="mb-2 flex items-start justify-between gap-4">
+              <div className="min-w-0">
+                <p className="mb-1 text-[10px] font-mono uppercase tracking-[0.2em] text-cyan-600 dark:text-cyan-400">
+                  <ReadingLine shield={useLightShield}>
+                    {block.kind === "source" ? "Source insert" : "Feedback insert"}
+                  </ReadingLine>
+                </p>
+                <h4 className="break-words text-sm font-semibold text-slate-700 dark:text-slate-100">
+                  <ReadingLine shield={useLightShield}>{block.title}</ReadingLine>
+                </h4>
+                {block.subtitle ? (
+                  <p className="mt-1 break-all text-xs text-slate-500 dark:text-slate-400">
+                    <ReadingLine shield={useLightShield}>{block.subtitle}</ReadingLine>
+                  </p>
+                ) : null}
+              </div>
+              <button
+                type="button"
+                onClick={() => removeInsertedWorkbenchBlock(targetId, block.id)}
+                className="shrink-0 font-mono text-[10px] tracking-widest text-slate-400 transition-colors hover:text-rose-500 dark:text-slate-500 dark:hover:text-rose-300"
+                aria-label="Remove inserted content"
+              >
+                [x]
+              </button>
+            </div>
+
+            {block.body ? (
+              <p className="whitespace-pre-wrap break-words text-sm leading-relaxed text-slate-600 dark:text-slate-300">
+                <ReadingLine shield={useLightShield}>{block.body}</ReadingLine>
+              </p>
+            ) : null}
+
+            {block.code ? (
+              <pre className="source-workbench-scrollbar mt-3 max-h-72 w-full overflow-auto border-l border-cyan-500/25 bg-cyan-500/[0.025] p-3 text-[12px] leading-relaxed text-cyan-700 dark:bg-cyan-400/[0.035] dark:text-cyan-300">
+                <code className="whitespace-pre-wrap break-words">{block.code}</code>
+              </pre>
+            ) : null}
+
+            {block.meta ? (
+              <p className="mt-2 text-[10px] font-mono uppercase tracking-[0.16em] text-slate-400 dark:text-slate-500">
+                <ReadingLine shield={useLightShield}>{block.meta}</ReadingLine>
+              </p>
+            ) : null}
+          </article>
+        ))}
+      </>
+    );
   }
 
   function renderInsertedQuestionCards(targetId: string) {
@@ -540,7 +777,21 @@ export function LearningPanel({
     const isComposing = insertComposerTargetId === targetId;
 
     return (
-      <div data-insert-target-id={targetId} className="relative my-2 min-h-5">
+      <div
+        data-insert-target-id={targetId}
+        className="relative my-2 min-h-5"
+        onDragOver={(event) => {
+          if (Array.from(event.dataTransfer.types).includes(WORKBENCH_INSERT_MIME)) {
+            event.preventDefault();
+            autoScrollNearestReadingArea(event);
+            setActiveInsertTargetId(targetId);
+          }
+        }}
+        onDragLeave={() => {
+          setActiveInsertTargetId((current) => (current === targetId ? null : current));
+        }}
+        onDrop={(event) => handleWorkbenchCardDrop(event, targetId)}
+      >
         <div
           className={cn(
             "pointer-events-none absolute left-0 right-0 top-1/2 z-10 h-px -translate-y-1/2 transition-all duration-200",
@@ -595,13 +846,22 @@ export function LearningPanel({
           </form>
         ) : null}
 
+        {renderInsertedWorkbenchBlocks(targetId)}
         {renderInsertedQuestionCards(targetId)}
       </div>
     );
   }
 
   return (
-    <div className="mx-auto w-full max-w-3xl px-8 py-8 pb-24">
+    <div
+      className="mx-auto w-full max-w-3xl px-8 py-8 pb-24"
+      onDragOver={(event) => {
+        if (Array.from(event.dataTransfer.types).includes(WORKBENCH_INSERT_MIME)) {
+          autoScrollNearestReadingArea(event);
+        }
+      }}
+      onDrop={stopReadingAutoScroll}
+    >
       <button
         type="button"
         onPointerDown={handleInsertDragStart}

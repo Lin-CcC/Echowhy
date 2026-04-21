@@ -1,9 +1,10 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type DragEvent } from "react";
 import { useThemeMode } from "@/app/theme/theme-provider";
 import { cn } from "@/lib/utils";
 import type { TopicFeedbackPreview, TopicSourceReference } from "@/features/topic-session";
 
 type FeedbackCardState = {
+  id: string;
   angleId: string;
   questionId: string;
   answer: string;
@@ -11,16 +12,30 @@ type FeedbackCardState = {
   revealedAnswerUsed: boolean;
 };
 
+type SourceDropTarget = {
+  referenceId: string;
+  position: "before" | "after";
+} | null;
+
 type SourceReferencePanelProps = {
   references: TopicSourceReference[];
   pinnedReferenceIds: string[];
   previewReferenceId: string | null;
-  floatingFeedback: FeedbackCardState | null;
-  onDismissFeedback: () => void;
+  feedbackCards: FeedbackCardState[];
+  activeFeedbackId: string | null;
+  onDismissFeedback: (feedbackId: string) => void;
+  onSelectFeedback: (feedbackId: string) => void;
+  onCycleFeedback: (direction: "previous" | "next") => void;
+  onReorderFeedbacks: (draggedFeedbackId: string, targetFeedbackId: string) => void;
+  onReorderSources: (referenceIds: string[]) => void;
   onUnpinSource: (referenceId: string) => void;
   onClearAllSources: () => void;
   onFocusBlock: (blockId: string, questionId?: string) => void;
+  onFocusQuestion: (questionId: string) => void;
 };
+
+const WORKBENCH_INSERT_MIME = "application/echowhy-workbench-card";
+const WORKBENCH_ORDER_MIME = "application/echowhy-workbench-order";
 
 const feedbackToneClasses: Record<
   TopicFeedbackPreview["level"],
@@ -52,14 +67,28 @@ export function SourceReferencePanel({
   references,
   pinnedReferenceIds,
   previewReferenceId,
-  floatingFeedback,
+  feedbackCards,
+  activeFeedbackId,
   onDismissFeedback,
+  onSelectFeedback,
+  onCycleFeedback,
+  onReorderFeedbacks,
+  onReorderSources,
   onUnpinSource,
   onClearAllSources,
   onFocusBlock,
+  onFocusQuestion,
 }: SourceReferencePanelProps) {
   const { theme } = useThemeMode();
   const isDark = theme === "dark";
+  const workbenchPanelRef = useRef<HTMLElement | null>(null);
+  const workbenchAutoScrollFrameRef = useRef<number | null>(null);
+  const workbenchAutoScrollStateRef = useRef<{
+    clientY: number;
+    lastSeenAt: number;
+    currentVelocity: number;
+    lastFrameAt: number;
+  } | null>(null);
   const itemRefs = useRef<Record<string, HTMLDivElement | null>>({});
   const scrollerRefs = useRef<Record<string, HTMLDivElement | null>>({});
   const lineRefs = useRef<Record<string, HTMLButtonElement | null>>({});
@@ -67,6 +96,21 @@ export function SourceReferencePanel({
   const [loadingById, setLoadingById] = useState<Record<string, boolean>>({});
   const [flashReferenceId, setFlashReferenceId] = useState<string | null>(null);
   const [focusReferenceId, setFocusReferenceId] = useState<string | null>(null);
+  const [sourceDropTarget, setSourceDropTarget] =
+    useState<SourceDropTarget>(null);
+  const [draggingWorkbenchKind, setDraggingWorkbenchKind] = useState<
+    "feedback" | "source" | null
+  >(null);
+  const activeFeedback =
+    feedbackCards.find((feedback) => feedback.id === activeFeedbackId) ??
+    feedbackCards[0] ??
+    null;
+  const activeFeedbackIndex = activeFeedback
+    ? Math.max(
+        feedbackCards.findIndex((feedback) => feedback.id === activeFeedback.id),
+        0,
+      )
+    : -1;
 
   const pinnedReferences = pinnedReferenceIds
     .map((referenceId) => references.find((reference) => reference.id === referenceId))
@@ -84,6 +128,130 @@ export function SourceReferencePanel({
     ],
     [pinnedReferences, previewReference],
   );
+
+  const stopWorkbenchAutoScroll = () => {
+    if (workbenchAutoScrollFrameRef.current !== null) {
+      window.cancelAnimationFrame(workbenchAutoScrollFrameRef.current);
+      workbenchAutoScrollFrameRef.current = null;
+    }
+
+    workbenchAutoScrollStateRef.current = null;
+  };
+
+  const primeWorkbenchAutoScroll = (clientY: number) => {
+    const panel = workbenchPanelRef.current;
+
+    if (!panel) {
+      stopWorkbenchAutoScroll();
+      return;
+    }
+
+    workbenchAutoScrollStateRef.current = {
+      clientY,
+      lastSeenAt: performance.now(),
+      currentVelocity: workbenchAutoScrollStateRef.current?.currentVelocity ?? 0,
+      lastFrameAt: performance.now(),
+    };
+
+    if (workbenchAutoScrollFrameRef.current !== null) {
+      return;
+    }
+
+    const tick = () => {
+      const activePanel = workbenchPanelRef.current;
+      const state = workbenchAutoScrollStateRef.current;
+
+      if (!activePanel || !state) {
+        workbenchAutoScrollFrameRef.current = null;
+        return;
+      }
+
+      const now = performance.now();
+      const frameDelta = Math.min((now - state.lastFrameAt) / 16.6667, 2.2);
+      state.lastFrameAt = now;
+
+      const bounds = activePanel.getBoundingClientRect();
+      const edgeSize = 176;
+      const maxSpeed = 52;
+      const topDistance = state.clientY - bounds.top;
+      const bottomDistance = bounds.bottom - state.clientY;
+      let targetVelocity = 0;
+
+      if (topDistance < edgeSize) {
+        const intensity = 1 - Math.max(topDistance, 0) / edgeSize;
+        targetVelocity = -(maxSpeed * intensity * intensity * intensity);
+      } else if (bottomDistance < edgeSize) {
+        const intensity = 1 - Math.max(bottomDistance, 0) / edgeSize;
+        targetVelocity = maxSpeed * intensity * intensity * intensity;
+      }
+
+      if (now - state.lastSeenAt > 380) {
+        targetVelocity = 0;
+      }
+
+      const ease = Math.min(0.26 * frameDelta, 0.42);
+      state.currentVelocity += (targetVelocity - state.currentVelocity) * ease;
+
+      if (Math.abs(state.currentVelocity) > 0.08) {
+        activePanel.scrollTop += state.currentVelocity * frameDelta;
+      }
+
+      if (targetVelocity === 0 && Math.abs(state.currentVelocity) <= 0.08 && now - state.lastSeenAt > 520) {
+        stopWorkbenchAutoScroll();
+        return;
+      }
+
+      workbenchAutoScrollFrameRef.current = window.requestAnimationFrame(tick);
+    };
+
+    workbenchAutoScrollFrameRef.current = window.requestAnimationFrame(tick);
+  };
+
+  const autoScrollWorkbenchPanel = (event: DragEvent<HTMLElement>) => {
+    if (!draggingWorkbenchKind) {
+      stopWorkbenchAutoScroll();
+      return;
+    }
+
+    primeWorkbenchAutoScroll(event.clientY);
+    event.preventDefault();
+  };
+
+  useEffect(() => stopWorkbenchAutoScroll, []);
+
+  useEffect(() => {
+    if (!draggingWorkbenchKind) {
+      return;
+    }
+
+    const handleWindowDragOver = (event: globalThis.DragEvent) => {
+      const panel = workbenchPanelRef.current;
+
+      if (!panel) {
+        return;
+      }
+
+      const bounds = panel.getBoundingClientRect();
+      const withinHorizontalRange =
+        event.clientX >= bounds.left - 24 && event.clientX <= bounds.right + 24;
+      const withinVerticalRange =
+        event.clientY >= bounds.top - 64 && event.clientY <= bounds.bottom + 64;
+
+      if (!withinHorizontalRange || !withinVerticalRange) {
+        stopWorkbenchAutoScroll();
+        return;
+      }
+
+      event.preventDefault();
+      primeWorkbenchAutoScroll(event.clientY);
+    };
+
+    window.addEventListener("dragover", handleWindowDragOver);
+
+    return () => {
+      window.removeEventListener("dragover", handleWindowDragOver);
+    };
+  }, [draggingWorkbenchKind]);
 
   useEffect(() => {
     if (!pinnedReferenceIds.length) {
@@ -148,13 +316,191 @@ export function SourceReferencePanel({
     }, 220);
   };
 
+  const startWorkbenchDrag = (
+    event: DragEvent<HTMLElement>,
+    payload: {
+      kind: "feedback" | "source";
+      id: string;
+      label: string;
+      insertPrompt: string;
+      title?: string;
+      subtitle?: string;
+      body?: string;
+      code?: string;
+      meta?: string;
+    },
+  ) => {
+    setDraggingWorkbenchKind(payload.kind);
+    event.dataTransfer.effectAllowed = "copyMove";
+    event.dataTransfer.setData("text/plain", payload.insertPrompt);
+    event.dataTransfer.setData(WORKBENCH_INSERT_MIME, JSON.stringify(payload));
+    event.dataTransfer.setData(
+      WORKBENCH_ORDER_MIME,
+      JSON.stringify({ kind: payload.kind, id: payload.id }),
+    );
+  };
+
+  const readOrderPayload = (event: DragEvent<HTMLElement>) => {
+    const rawPayload = event.dataTransfer.getData(WORKBENCH_ORDER_MIME);
+
+    if (!rawPayload) {
+      return null;
+    }
+
+    try {
+      return JSON.parse(rawPayload) as { kind?: "feedback" | "source"; id?: string };
+    } catch {
+      return null;
+    }
+  };
+
+  const handleSourceCardDrop = (
+    event: DragEvent<HTMLDivElement>,
+    targetReferenceId: string,
+    position: "before" | "after",
+  ) => {
+    const payload = readOrderPayload(event);
+
+    if (payload?.kind !== "source" || !payload.id || payload.id === targetReferenceId) {
+      setSourceDropTarget(null);
+      return;
+    }
+
+    event.preventDefault();
+    const nextPinnedReferences = pinnedReferenceIds.filter(
+      (referenceId) => referenceId !== payload.id,
+    );
+    const targetIndex = nextPinnedReferences.indexOf(targetReferenceId);
+
+    if (targetIndex < 0) {
+      setSourceDropTarget(null);
+      return;
+    }
+
+    const insertIndex = position === "after" ? targetIndex + 1 : targetIndex;
+    nextPinnedReferences.splice(insertIndex, 0, payload.id);
+    setSourceDropTarget(null);
+    onReorderSources(nextPinnedReferences);
+  };
+
+  const handleSourceCardDragOver = (
+    event: DragEvent<HTMLDivElement>,
+    targetReferenceId: string,
+    kind: "pinned" | "preview",
+  ) => {
+    autoScrollWorkbenchPanel(event);
+
+    if (kind !== "pinned" || draggingWorkbenchKind !== "source") {
+      return;
+    }
+
+    const hasSourcePayload = Array.from(event.dataTransfer.types).includes(
+      WORKBENCH_ORDER_MIME,
+    );
+
+    if (!hasSourcePayload) {
+      return;
+    }
+
+    event.preventDefault();
+    const bounds = event.currentTarget.getBoundingClientRect();
+    const position =
+      event.clientY - bounds.top > bounds.height / 2 ? "after" : "before";
+
+    setSourceDropTarget((current) => {
+      if (
+        current?.referenceId === targetReferenceId &&
+        current.position === position
+      ) {
+        return current;
+      }
+
+      return { referenceId: targetReferenceId, position };
+    });
+  };
+
+  const clearSourceDropTarget = (targetReferenceId: string) => {
+    setSourceDropTarget((current) =>
+      current?.referenceId === targetReferenceId ? null : current,
+    );
+  };
+
+  const handleFeedbackDrop = (event: DragEvent<HTMLDivElement>, targetFeedbackId: string) => {
+    const payload = readOrderPayload(event);
+
+    if (payload?.kind !== "feedback" || !payload.id || payload.id === targetFeedbackId) {
+      return;
+    }
+
+    event.preventDefault();
+    onReorderFeedbacks(payload.id, targetFeedbackId);
+  };
+
   return (
-    <aside className="source-workbench-scrollbar relative hidden h-full w-[min(32rem,36vw)] min-w-[24rem] shrink-0 overflow-y-auto border-l border-slate-200/50 bg-transparent p-8 scroll-smooth xl:block dark:border-cyan-800/30">
-      {floatingFeedback ? (
+    <aside
+      ref={workbenchPanelRef}
+      onDragOver={autoScrollWorkbenchPanel}
+      onDrop={stopWorkbenchAutoScroll}
+      className="source-workbench-scrollbar relative hidden h-full w-[min(32rem,36vw)] min-w-[24rem] shrink-0 overflow-y-auto border-l border-slate-200/50 bg-transparent p-8 xl:block dark:border-cyan-800/30"
+    >
+      {activeFeedback ? (
         <div className="relative z-20 mb-8">
           <div
+            draggable
+            onDragEnd={() => {
+              setDraggingWorkbenchKind(null);
+              setSourceDropTarget(null);
+              stopWorkbenchAutoScroll();
+            }}
+            onWheel={(event) => {
+              if (feedbackCards.length <= 1 || Math.abs(event.deltaX) < 16) {
+                return;
+              }
+
+              event.preventDefault();
+              onCycleFeedback(event.deltaX > 0 ? "next" : "previous");
+            }}
+            onDragStart={(event) =>
+              startWorkbenchDrag(event, {
+                kind: "feedback",
+                id: activeFeedback.id,
+                label: activeFeedback.feedback.label,
+                title: `${activeFeedback.feedback.label} 路 ${activeFeedback.feedback.score}`,
+                subtitle: "Answer feedback",
+                body: [
+                  activeFeedback.feedback.correctPoints.length
+                    ? `What landed well:\n${activeFeedback.feedback.correctPoints
+                        .map((point) => `- ${point}`)
+                        .join("\n")}`
+                    : "",
+                  activeFeedback.feedback.vaguePoints.length
+                    ? `What feels unclear:\n${activeFeedback.feedback.vaguePoints
+                        .map((point) => `- ${point}`)
+                        .join("\n")}`
+                    : "",
+                  activeFeedback.feedback.missingPoints.length
+                    ? `What's still missing:\n${activeFeedback.feedback.missingPoints
+                        .map((point) => `- ${point}`)
+                        .join("\n")}`
+                    : "",
+                  `A good next step:\n${activeFeedback.feedback.nextSuggestion}`,
+                ]
+                  .filter(Boolean)
+                  .join("\n\n"),
+                meta: `Question answer · ${activeFeedback.feedback.score}/100`,
+                insertPrompt: `Review this feedback: ${activeFeedback.feedback.nextSuggestion}`,
+              })
+            }
+            onDragOver={(event) => {
+              autoScrollWorkbenchPanel(event);
+
+              if (feedbackCards.length > 1) {
+                event.preventDefault();
+              }
+            }}
+            onDrop={(event) => handleFeedbackDrop(event, activeFeedback.id)}
             className={cn(
-              "rounded-2xl border p-5",
+              "cursor-grab rounded-2xl border p-5 active:cursor-grabbing",
               isDark
                 ? "border-cyan-500/18 bg-transparent"
                 : "border-slate-200/46 bg-white/[0.025] backdrop-blur-[2px]",
@@ -165,16 +511,16 @@ export function SourceReferencePanel({
                 <span
                   className={cn(
                     "rounded-full border px-3 py-1 text-[10px] font-mono uppercase tracking-[0.2em]",
-                    feedbackToneClasses[floatingFeedback.feedback.level].badge,
+                    feedbackToneClasses[activeFeedback.feedback.level].badge,
                   )}
                 >
-                  {floatingFeedback.feedback.label} · {floatingFeedback.feedback.score}
+                  {activeFeedback.feedback.label} · {activeFeedback.feedback.score}
                 </span>
               </div>
 
               <button
                 type="button"
-                onClick={onDismissFeedback}
+                onClick={() => onDismissFeedback(activeFeedback.id)}
                 className="text-xs text-slate-400 transition-colors hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200"
               >
                 [ x ]
@@ -183,36 +529,36 @@ export function SourceReferencePanel({
 
             <div className="space-y-4 text-sm text-slate-600 dark:text-slate-300">
               <div>
-                <p className={cn("mb-2 font-medium", feedbackToneClasses[floatingFeedback.feedback.level].accent)}>
+                <p className={cn("mb-2 font-medium", feedbackToneClasses[activeFeedback.feedback.level].accent)}>
                   👍 What landed well:
                 </p>
                 <ul className="space-y-1">
-                  {floatingFeedback.feedback.correctPoints.map((point) => (
+                  {activeFeedback.feedback.correctPoints.map((point) => (
                     <li key={point}>- {point}</li>
                   ))}
                 </ul>
               </div>
 
-              {floatingFeedback.feedback.vaguePoints.length ? (
+              {activeFeedback.feedback.vaguePoints.length ? (
                 <div>
                   <p className="mb-2 font-medium text-slate-500 dark:text-slate-400">
                     ⚠️ What feels unclear:
                   </p>
                   <ul className="space-y-1">
-                    {floatingFeedback.feedback.vaguePoints.map((point) => (
+                    {activeFeedback.feedback.vaguePoints.map((point) => (
                       <li key={point}>- {point}</li>
                     ))}
                   </ul>
                 </div>
               ) : null}
 
-              {floatingFeedback.feedback.missingPoints.length ? (
+              {activeFeedback.feedback.missingPoints.length ? (
                 <div>
                   <p className="mb-2 font-medium text-slate-500 dark:text-slate-400">
                     ❌ What's still missing:
                   </p>
                   <ul className="space-y-1">
-                    {floatingFeedback.feedback.missingPoints.map((point) => (
+                    {activeFeedback.feedback.missingPoints.map((point) => (
                       <li key={point}>- {point}</li>
                     ))}
                   </ul>
@@ -223,8 +569,55 @@ export function SourceReferencePanel({
                 <p className="mb-2 font-medium text-cyan-600 dark:text-cyan-400">
                   💡 A good next step:
                 </p>
-                <p>{floatingFeedback.feedback.nextSuggestion}</p>
+                <p>{activeFeedback.feedback.nextSuggestion}</p>
               </div>
+            </div>
+
+            <div className="mt-5 flex items-center justify-between border-t border-slate-200/30 pt-3 text-[10px] font-mono uppercase tracking-[0.18em] text-slate-400 dark:border-cyan-900/30">
+              <button
+                type="button"
+                onClick={() => onFocusQuestion(activeFeedback.questionId)}
+                className="transition-colors hover:text-cyan-600 dark:hover:text-cyan-400"
+              >
+                [ locate ]
+              </button>
+              {feedbackCards.length > 1 ? (
+                <div className="flex items-center gap-3">
+                  <button
+                    type="button"
+                    onClick={() => onCycleFeedback("previous")}
+                    className="transition-colors hover:text-cyan-600 dark:hover:text-cyan-400"
+                  >
+                    prev
+                  </button>
+                  <span className="rounded-full bg-slate-500/10 px-2 py-0.5">
+                    {activeFeedbackIndex + 1}/{feedbackCards.length}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => onCycleFeedback("next")}
+                    className="transition-colors hover:text-cyan-600 dark:hover:text-cyan-400"
+                  >
+                    next
+                  </button>
+                  <span className="flex items-center gap-1">
+                    {feedbackCards.map((feedback, index) => (
+                      <button
+                        key={feedback.id}
+                        type="button"
+                        onClick={() => onSelectFeedback(feedback.id)}
+                        className={cn(
+                          "h-1.5 w-1.5 rounded-full transition-colors",
+                          index === activeFeedbackIndex
+                            ? "bg-cyan-500"
+                            : "bg-slate-500/35 hover:bg-cyan-500/70",
+                        )}
+                        aria-label={`Show feedback ${index + 1}`}
+                      />
+                    ))}
+                  </span>
+                </div>
+              ) : null}
             </div>
           </div>
         </div>
@@ -260,6 +653,16 @@ export function SourceReferencePanel({
             const snippetLines = reference.snippet.split("\n");
             const visibleLines = isFullFile ? fileLines : snippetLines;
             const lineNumberOffset = isFullFile ? 1 : reference.startLine ?? 1;
+            const sourceSubtitle = `${reference.referencePath}${
+              reference.startLine
+                ? ` : ${reference.startLine}-${reference.endLine}`
+                : ""
+            }`;
+            const sourceCodePayload = visibleLines.join("\n");
+            const sourceDropPosition =
+              sourceDropTarget?.referenceId === reference.id
+                ? sourceDropTarget.position
+                : null;
 
             return (
               <div
@@ -267,8 +670,46 @@ export function SourceReferencePanel({
                 ref={(element) => {
                   itemRefs.current[reference.id] = element;
                 }}
+                draggable
+                onDragStart={(event) =>
+                  startWorkbenchDrag(event, {
+                    kind: "source",
+                    id: reference.id,
+                    label: reference.label,
+                    title: reference.label,
+                    subtitle: sourceSubtitle,
+                    code: sourceCodePayload,
+                    meta: isFullFile ? "Full file excerpt" : "Source snippet",
+                    insertPrompt: `How does ${reference.label} support this part?`,
+                  })
+                }
+                onDragEnd={() => {
+                  setDraggingWorkbenchKind(null);
+                  setSourceDropTarget(null);
+                  stopWorkbenchAutoScroll();
+                }}
+                onDragOver={(event) =>
+                  handleSourceCardDragOver(event, reference.id, kind)
+                }
+                onDragLeave={(event) => {
+                  if (
+                    event.relatedTarget instanceof Node &&
+                    event.currentTarget.contains(event.relatedTarget)
+                  ) {
+                    return;
+                  }
+
+                  clearSourceDropTarget(reference.id);
+                }}
+                onDrop={(event) =>
+                  handleSourceCardDrop(
+                    event,
+                    reference.id,
+                    sourceDropPosition ?? "before",
+                  )
+                }
                 className={cn(
-                  "relative isolate overflow-hidden rounded-2xl border p-4 transition-all duration-200",
+                  "relative isolate cursor-grab overflow-hidden rounded-2xl border p-4 transition-all duration-200 active:cursor-grabbing",
                   isDark
                     ? "border-cyan-500/18 bg-transparent"
                     : "bg-white/[0.025] backdrop-blur-[2px]",
@@ -284,6 +725,15 @@ export function SourceReferencePanel({
                       kind === "preview"
                         ? "bg-[radial-gradient(ellipse_at_35%_20%,rgba(236,254,255,0.38)_0%,rgba(236,254,255,0.16)_36%,rgba(236,254,255,0.035)_72%,transparent_100%)]"
                         : "bg-[radial-gradient(ellipse_at_35%_20%,rgba(248,250,252,0.5)_0%,rgba(248,250,252,0.18)_42%,rgba(248,250,252,0.04)_76%,transparent_100%)]",
+                    )}
+                  />
+                ) : null}
+
+                {sourceDropPosition ? (
+                  <div
+                    className={cn(
+                      "pointer-events-none absolute left-4 right-4 z-30 h-px bg-cyan-300/85 shadow-[0_0_14px_rgba(34,211,238,0.28)] transition-opacity",
+                      sourceDropPosition === "before" ? "top-0" : "bottom-0",
                     )}
                   />
                 ) : null}
