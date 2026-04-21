@@ -15,6 +15,7 @@ import type {
   InsertedQuestionRecord,
   TopicAnswerState,
   TopicDiscussionStep,
+  TopicFeedbackLevel,
 } from "@/features/topic-session";
 
 const answerSchema = z.object({
@@ -42,6 +43,7 @@ const WORKBENCH_INSERT_MIME = "application/echowhy-workbench-card";
 type WorkbenchInsertPayload = {
   kind?: "feedback" | "source";
   id?: string;
+  feedbackLevel?: TopicFeedbackLevel;
   label?: string;
   title?: string;
   subtitle?: string;
@@ -54,6 +56,7 @@ type WorkbenchInsertPayload = {
 type InsertedWorkbenchBlock = {
   id: string;
   kind: "feedback" | "source";
+  feedbackLevel?: TopicFeedbackLevel;
   title: string;
   subtitle?: string;
   body?: string;
@@ -379,32 +382,30 @@ export function LearningPanel({
     useState<Record<string, InsertedWorkbenchBlock[]>>({});
 
   const floatingWindowShellClass = cn(
-    "overflow-hidden rounded-2xl border backdrop-blur-md transition-all duration-200",
-    isDark
-      ? "border-cyan-900/50 bg-black/60"
-      : "border-blue-200 bg-white/80",
+    "overflow-hidden bg-transparent transition-all duration-200",
+    isDark ? "bg-cyan-500/[0.02]" : "bg-cyan-500/[0.03]",
   );
   const floatingWindowTitleClass = cn(
     "text-[10px] font-mono uppercase tracking-[0.24em]",
-    isDark ? "text-cyan-400" : "text-blue-600",
+    isDark ? "text-cyan-400" : "text-cyan-700",
   );
   const floatingWindowTextareaClass = cn(
-    "w-full min-h-[1.85rem] resize-none border-b bg-transparent pb-0.5 leading-[1.85rem] transition-colors [field-sizing:content] placeholder:italic focus:outline-none",
+    "w-full min-h-[2.15rem] resize-none border-b bg-transparent pb-1 leading-7 transition-colors [field-sizing:content] placeholder:italic focus:outline-none focus:ring-0",
     isDark
-      ? "border-cyan-700/45 text-white placeholder:text-gray-400 focus:border-cyan-400"
-      : "border-slate-300 text-gray-900 placeholder:text-gray-500 focus:border-cyan-500",
+      ? "border-cyan-800/50 text-slate-200 placeholder:text-slate-400 focus:border-cyan-400"
+      : "border-cyan-200 text-slate-800 placeholder:text-slate-400 focus:border-cyan-500",
   );
   const floatingWindowSecondaryActionClass = cn(
-    "text-[10px] font-mono uppercase tracking-widest transition-colors",
+    "text-[11px] font-mono uppercase tracking-[0.16em] transition-colors",
     isDark
-      ? "text-slate-500 hover:text-slate-300"
-      : "text-slate-400 hover:text-slate-600",
+      ? "text-slate-500 hover:text-cyan-400"
+      : "text-slate-400 hover:text-cyan-700",
   );
   const floatingWindowPrimaryActionClass = cn(
-    "border px-4 py-1.5 text-[10px] uppercase tracking-widest transition-colors",
+    "border border-transparent px-0 py-0 text-[11px] font-mono uppercase tracking-[0.16em] transition-colors",
     isDark
-      ? "border-cyan-400/45 text-cyan-400 hover:bg-cyan-400/12"
-      : "border-cyan-600/45 text-cyan-700 hover:bg-cyan-500 hover:text-white",
+      ? "text-cyan-400 hover:text-cyan-300"
+      : "text-cyan-700 hover:text-cyan-600",
   );
 
   useEffect(() => {
@@ -718,6 +719,7 @@ export function LearningPanel({
     const nextBlock: InsertedWorkbenchBlock = {
       id: `${payload.kind ?? "feedback"}-${payload.id ?? "card"}-${Date.now()}`,
       kind: payload.kind === "source" ? "source" : "feedback",
+      feedbackLevel: payload.feedbackLevel,
       title:
         payload.title ??
         payload.label ??
@@ -738,65 +740,194 @@ export function LearningPanel({
     stopReadingAutoScroll();
   }
 
+  function getFeedbackToneVisual(level: TopicFeedbackLevel = "partial") {
+    if (level === "weak") {
+      return {
+        shell: cn(
+          "overflow-hidden bg-transparent transition-colors",
+          isDark ? "bg-rose-400/[0.016]" : "bg-rose-500/[0.026]",
+        ),
+        accent: isDark ? "border-rose-400/72" : "border-rose-700/56",
+        label: "text-rose-700 dark:text-rose-400",
+        emphasis: "text-rose-700 dark:text-rose-400",
+        code: isDark
+          ? "border-rose-400/26 bg-transparent text-rose-200"
+          : "border-rose-700/24 bg-transparent text-rose-700",
+      };
+    }
+
+    if (level === "partial") {
+      return {
+        shell: cn(
+          "overflow-hidden bg-transparent transition-colors",
+          isDark ? "bg-amber-400/[0.014]" : "bg-amber-500/[0.022]",
+        ),
+        accent: isDark ? "border-amber-400/68" : "border-amber-600/52",
+        label: "text-amber-600 dark:text-amber-400",
+        emphasis: "text-amber-600 dark:text-amber-400",
+        code: isDark
+          ? "border-amber-400/24 bg-transparent text-slate-200"
+          : "border-amber-600/22 bg-transparent text-slate-700",
+      };
+    }
+
+    return {
+      shell: cn(
+        "overflow-hidden bg-transparent transition-colors",
+        isDark ? "bg-emerald-400/[0.014]" : "bg-emerald-500/[0.02]",
+      ),
+      accent: isDark ? "border-emerald-400/66" : "border-emerald-700/48",
+      label: "text-emerald-700 dark:text-emerald-400",
+      emphasis: "text-emerald-700 dark:text-emerald-400",
+      code: isDark
+        ? "border-emerald-400/24 bg-transparent text-slate-200"
+        : "border-emerald-700/22 bg-transparent text-slate-700",
+    };
+  }
+
+  function getInsertedCardVisual(
+    kind: "question" | "feedback" | "source",
+    feedbackLevel?: TopicFeedbackLevel,
+  ) {
+    if (kind === "question") {
+      return {
+        shell: cn(
+          "overflow-hidden bg-transparent transition-colors",
+          isDark
+            ? "bg-cyan-400/[0.018]"
+            : "bg-cyan-500/[0.028]",
+        ),
+        accent: isDark ? "border-cyan-400/70" : "border-cyan-500/58",
+        label: "text-cyan-600 dark:text-cyan-400",
+        title: "text-slate-700 dark:text-slate-100",
+        body: "text-slate-700 dark:text-slate-200",
+        meta: "text-slate-400 dark:text-slate-400",
+      };
+    }
+
+    if (kind === "feedback") {
+      const tone = getFeedbackToneVisual(feedbackLevel);
+
+      return {
+        shell: tone.shell,
+        accent: tone.accent,
+        label: tone.label,
+        title: "text-slate-700 dark:text-slate-100",
+        body: "text-slate-600 dark:text-slate-300",
+        meta: "text-slate-400 dark:text-slate-400",
+        emphasis: tone.emphasis,
+        code: tone.code,
+      };
+    }
+
+    return {
+      shell: cn(
+        "overflow-hidden bg-transparent transition-colors",
+        isDark
+          ? "bg-indigo-400/[0.014]"
+          : "bg-indigo-500/[0.02]",
+      ),
+      accent: isDark ? "border-indigo-400/58" : "border-indigo-500/46",
+      label: "text-indigo-600 dark:text-indigo-400",
+      title: "text-slate-700 dark:text-slate-100",
+      body: "text-slate-600 dark:text-slate-300",
+      meta: "text-slate-400 dark:text-slate-500",
+      code: isDark
+        ? "border-indigo-400/24 bg-transparent text-indigo-300"
+        : "border-indigo-700/24 bg-transparent text-indigo-700",
+    };
+  }
+
   function renderInsertedWorkbenchBlocks(targetId: string) {
     return (
       <>
         {(insertedWorkbenchBlocksByTargetId[targetId] ?? []).map((block) => (
           <div key={block.id} className="contents">
             {renderInsertSlot(`${targetId}::before-block:${block.id}`)}
-            <article
-              data-insert-disabled="true"
-              className={cn(
-                "my-5 w-full max-w-full overflow-hidden border-l-[2px] py-3 pl-5 transition-colors",
-                block.kind === "source"
-                  ? "border-cyan-500/35"
-                  : "border-amber-400/35 dark:border-amber-300/35",
-              )}
-            >
-              <div className="mb-2 flex items-start justify-between gap-4">
-                <div className="min-w-0">
-                  <p className="mb-1 text-[10px] font-mono uppercase tracking-[0.2em] text-cyan-600 dark:text-cyan-400">
-                    <ReadingLine shield={useLightShield}>
-                      {block.kind === "source" ? "Source insert" : "Feedback insert"}
-                    </ReadingLine>
-                  </p>
-                  <h4 className="break-words text-sm font-semibold text-slate-700 dark:text-slate-100">
-                    <ReadingLine shield={useLightShield}>{block.title}</ReadingLine>
-                  </h4>
-                  {block.subtitle ? (
-                    <p className="mt-1 break-all text-xs text-slate-500 dark:text-slate-400">
-                      <ReadingLine shield={useLightShield}>{block.subtitle}</ReadingLine>
-                    </p>
-                  ) : null}
-                </div>
-                <button
-                  type="button"
-                  onClick={() => removeInsertedWorkbenchBlock(targetId, block.id)}
-                  className="shrink-0 font-mono text-[10px] tracking-widest text-slate-400 transition-colors hover:text-rose-500 dark:text-slate-500 dark:hover:text-rose-300"
-                  aria-label="Remove inserted content"
+            {(() => {
+              const visual = getInsertedCardVisual(
+                block.kind === "source" ? "source" : "feedback",
+                block.feedbackLevel,
+              );
+
+              return (
+                <article
+                  data-insert-disabled="true"
+                  className={cn("my-5 w-full max-w-full", visual.shell)}
                 >
-                  [x]
-                </button>
-              </div>
+                  <div className={cn("border-l-[3px] pl-5 py-3", visual.accent)}>
+                    <div className="mb-3 flex items-start justify-between gap-4">
+                      <div className="min-w-0">
+                        <p
+                          className={cn(
+                            "mb-1 text-[10px] font-mono uppercase tracking-[0.22em]",
+                            visual.label,
+                          )}
+                        >
+                          <ReadingLine shield={useLightShield}>
+                            {block.kind === "source" ? "Source ref" : "AI feedback"}
+                          </ReadingLine>
+                        </p>
+                        <h4
+                          className={cn(
+                            "break-words text-sm font-medium",
+                            visual.title,
+                          )}
+                        >
+                          <ReadingLine shield={useLightShield}>{block.title}</ReadingLine>
+                        </h4>
+                        {block.subtitle ? (
+                          <p className={cn("mt-1 break-all text-xs", visual.meta)}>
+                            <ReadingLine shield={useLightShield}>{block.subtitle}</ReadingLine>
+                          </p>
+                        ) : null}
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => removeInsertedWorkbenchBlock(targetId, block.id)}
+                        className="shrink-0 font-mono text-[10px] tracking-[0.16em] text-slate-400 transition-colors hover:text-rose-500 dark:text-slate-500 dark:hover:text-rose-300"
+                        aria-label="Remove inserted content"
+                      >
+                        [x]
+                      </button>
+                    </div>
 
-              {block.body ? (
-                <p className="whitespace-pre-wrap break-words text-sm leading-relaxed text-slate-600 dark:text-slate-300">
-                  <ReadingLine shield={useLightShield}>{block.body}</ReadingLine>
-                </p>
-              ) : null}
+                    {block.body ? (
+                      <p
+                        className={cn(
+                          "whitespace-pre-wrap break-words text-sm leading-relaxed",
+                          visual.body,
+                        )}
+                      >
+                        <ReadingLine shield={useLightShield}>{block.body}</ReadingLine>
+                      </p>
+                    ) : null}
 
-              {block.code ? (
-                <pre className="source-workbench-scrollbar mt-3 max-h-72 w-full overflow-auto border-l border-cyan-500/25 bg-cyan-500/[0.025] p-3 text-[12px] leading-relaxed text-cyan-700 dark:bg-cyan-400/[0.035] dark:text-cyan-300">
-                  <code className="whitespace-pre-wrap break-words">{block.code}</code>
-                </pre>
-              ) : null}
+                    {block.code ? (
+                      <pre
+                        className={cn(
+                          "source-workbench-scrollbar mt-3 max-h-72 w-full overflow-auto border-l-[2px] pl-4 py-2 text-[12px] leading-relaxed",
+                          visual.code,
+                        )}
+                      >
+                        <code className="whitespace-pre-wrap break-words">{block.code}</code>
+                      </pre>
+                    ) : null}
 
-              {block.meta ? (
-                <p className="mt-2 text-[10px] font-mono uppercase tracking-[0.16em] text-slate-400 dark:text-slate-500">
-                  <ReadingLine shield={useLightShield}>{block.meta}</ReadingLine>
-                </p>
-              ) : null}
-            </article>
+                    {block.meta ? (
+                      <p
+                        className={cn(
+                          "mt-3 text-[10px] font-mono uppercase tracking-[0.16em]",
+                          visual.meta,
+                        )}
+                      >
+                        <ReadingLine shield={useLightShield}>{block.meta}</ReadingLine>
+                      </p>
+                    ) : null}
+                  </div>
+                </article>
+              );
+            })()}
             {renderInsertSlot(`${targetId}::after-block:${block.id}`)}
           </div>
         ))}
@@ -810,82 +941,98 @@ export function LearningPanel({
         {(insertedQuestionsByTargetId[targetId] ?? []).map((question) => (
           <div key={question.id} className="contents">
             {renderInsertSlot(`${targetId}::before-question:${question.id}`)}
-            <div
-              id={`question-${question.id}`}
-              data-insert-disabled="true"
-              className={cn(
-                "my-6 border-l-[2px] py-2 pl-6 transition-colors",
-                question.answerState?.status === "passed"
-                  ? "border-cyan-400/55"
-                  : "border-cyan-500/40",
-              )}
-            >
-              <div className="mb-2 flex items-center justify-between gap-4">
-                <p className="text-[10px] font-mono uppercase tracking-[0.2em] text-cyan-600 dark:text-cyan-400">
-                  <ReadingLine shield={useLightShield}>My question</ReadingLine>
-                </p>
-                <button
-                  type="button"
-                  onClick={() => onDeleteInsertedQuestion(question.id)}
-                  className="font-mono text-[10px] tracking-widest text-slate-400 transition-colors hover:text-rose-500 dark:text-slate-500 dark:hover:text-rose-300"
-                  aria-label="Delete inserted question"
+            {(() => {
+              const visual = getInsertedCardVisual("question");
+              const feedbackVisual = question.answerState?.feedback
+                ? getFeedbackToneVisual(question.answerState.feedback.level)
+                : null;
+
+              return (
+                <div
+                  id={`question-${question.id}`}
+                  data-insert-disabled="true"
+                  className={cn("my-6", visual.shell)}
                 >
-                  [x]
-                </button>
-              </div>
-              <p className="text-base leading-relaxed text-slate-700 dark:text-slate-200">
-                <ReadingLine shield={useLightShield}>{question.prompt}</ReadingLine>
-              </p>
+                  <div className={cn("border-l-[3px] pl-5 py-3", visual.accent)}>
+                    <div className="mb-3 flex items-center justify-between gap-4">
+                      <p
+                        className={cn(
+                          "text-[10px] font-mono uppercase tracking-[0.22em]",
+                          visual.label,
+                        )}
+                      >
+                        <ReadingLine shield={useLightShield}>My question</ReadingLine>
+                      </p>
+                      <button
+                        type="button"
+                        onClick={() => onDeleteInsertedQuestion(question.id)}
+                        className="font-mono text-[10px] tracking-[0.16em] text-slate-400 transition-colors hover:text-rose-500 dark:text-slate-500 dark:hover:text-rose-300"
+                        aria-label="Delete inserted question"
+                      >
+                        [x]
+                      </button>
+                    </div>
+                    <p className={cn("text-base leading-relaxed", visual.title)}>
+                      <ReadingLine shield={useLightShield}>{question.prompt}</ReadingLine>
+                    </p>
 
-              <textarea
-                rows={1}
-                value={question.answerDraft ?? question.answerState?.answer ?? ""}
-                onChange={(event) =>
-                  onInsertedQuestionDraftChange(question.id, event.target.value)
-                }
-                placeholder="Type your thought..."
-                className={cn(
-                  "mt-5 w-full min-h-[2.15rem] resize-none border-b bg-transparent pb-1 leading-7 transition-colors [field-sizing:content] placeholder:italic focus:outline-none",
-                  isDark
-                    ? "border-cyan-700/45 text-slate-200 placeholder:text-slate-400 focus:border-cyan-400"
-                    : "border-slate-300 text-slate-800 placeholder:text-slate-400 focus:border-cyan-500",
-                )}
-              />
+                    <textarea
+                      rows={1}
+                      value={question.answerDraft ?? question.answerState?.answer ?? ""}
+                      onChange={(event) =>
+                        onInsertedQuestionDraftChange(question.id, event.target.value)
+                      }
+                      placeholder="Type your thought..."
+                      className={cn(
+                        "mt-4 w-full min-h-[2.15rem] resize-none border-b bg-transparent pb-1 leading-7 transition-colors [field-sizing:content] placeholder:italic focus:outline-none",
+                        isDark
+                          ? "border-cyan-700/45 text-slate-200 placeholder:text-slate-400 focus:border-cyan-400"
+                          : "border-slate-300 text-slate-800 placeholder:text-slate-400 focus:border-cyan-500",
+                      )}
+                    />
 
-              {question.answerState?.feedback ? (
-                <div className="mt-3 space-y-2 text-sm text-slate-500 dark:text-slate-300">
-                  <p>
-                    <ReadingLine shield={useLightShield}>
-                      <span className="font-bold text-cyan-600 dark:text-cyan-400">
-                        AI:
-                      </span>{" "}
-                      {question.answerState.feedback.nextSuggestion}
-                    </ReadingLine>
-                  </p>
-                  <p className="text-xs uppercase tracking-[0.16em] text-slate-400 dark:text-slate-400">
-                    <ReadingLine shield={useLightShield}>
-                      {question.answerState.feedback.label} /{" "}
-                      {question.answerState.feedback.score}/100
-                    </ReadingLine>
-                  </p>
+                    {question.answerState?.feedback ? (
+                      <div className="mt-3 space-y-2 text-sm text-slate-500 dark:text-slate-300">
+                        <p>
+                          <ReadingLine shield={useLightShield}>
+                            <span className={cn("font-bold", feedbackVisual?.emphasis)}>
+                              AI:
+                            </span>{" "}
+                            {question.answerState.feedback.nextSuggestion}
+                          </ReadingLine>
+                        </p>
+                        <p
+                          className={cn(
+                            "text-xs uppercase tracking-[0.16em]",
+                            feedbackVisual?.label ?? visual.meta,
+                          )}
+                        >
+                          <ReadingLine shield={useLightShield}>
+                            {question.answerState.feedback.label} /{" "}
+                            {question.answerState.feedback.score}/100
+                          </ReadingLine>
+                        </p>
+                      </div>
+                    ) : null}
+
+                    <div className="mt-6 flex items-center justify-end">
+                      <button
+                        type="button"
+                        onClick={() =>
+                          onCheckInsertedQuestion(
+                            question.id,
+                            question.answerDraft ?? question.answerState?.answer ?? "",
+                          )
+                        }
+                        className="border border-cyan-600/45 px-5 py-2 text-xs uppercase tracking-widest text-cyan-700 transition-colors hover:bg-cyan-500 hover:text-white dark:border-cyan-400/45 dark:text-cyan-400 dark:hover:bg-cyan-400/12"
+                      >
+                        [ Check ]
+                      </button>
+                    </div>
+                  </div>
                 </div>
-              ) : null}
-
-              <div className="mt-6 flex items-center justify-end">
-                <button
-                  type="button"
-                  onClick={() =>
-                    onCheckInsertedQuestion(
-                      question.id,
-                      question.answerDraft ?? question.answerState?.answer ?? "",
-                    )
-                  }
-                  className="border border-cyan-600/45 px-5 py-2 text-xs uppercase tracking-widest text-cyan-700 transition-colors hover:bg-cyan-500 hover:text-white dark:border-cyan-400/45 dark:text-cyan-400 dark:hover:bg-cyan-400/12"
-                >
-                  [ Check ]
-                </button>
-              </div>
-            </div>
+              );
+            })()}
             {renderInsertSlot(`${targetId}::after-question:${question.id}`)}
           </div>
         ))}
@@ -901,7 +1048,7 @@ export function LearningPanel({
       <>
         <div
           data-insert-target-id={targetId}
-          className="relative my-2 min-h-5"
+          className="relative my-2 min-h-8"
           onDragOver={(event) => {
             if (Array.from(event.dataTransfer.types).includes(WORKBENCH_INSERT_MIME)) {
               event.preventDefault();
@@ -926,19 +1073,18 @@ export function LearningPanel({
 
         {isComposing ? (
           <form
-            className={cn("my-4", floatingWindowShellClass)}
+            className={cn("my-6", floatingWindowShellClass)}
             onSubmit={(event) => {
               event.preventDefault();
               handleSubmitInsertedQuestion(targetId);
             }}
           >
-            <div className="border-b border-cyan-900/35 px-5 py-3">
-              <p className={floatingWindowTitleClass}>
-                <ReadingLine shield={useLightShield}>My question</ReadingLine>
-              </p>
-            </div>
-
-            <div className="px-5 pb-4 pt-3">
+            <div className="border-l-[3px] border-cyan-500 pl-4 py-3 dark:border-cyan-400">
+              <div className="mb-3 flex items-center justify-between gap-4">
+                <p className={floatingWindowTitleClass}>
+                  <ReadingLine shield={useLightShield}>My question</ReadingLine>
+                </p>
+              </div>
               <textarea
                 autoFocus
                 rows={1}
@@ -949,7 +1095,7 @@ export function LearningPanel({
                 placeholder="Drop one sharp why here..."
                 className={floatingWindowTextareaClass}
               />
-              <div className="mt-4 flex items-center justify-end gap-4">
+              <div className="mt-6 flex items-center justify-end gap-6">
                 <button
                   type="button"
                   onClick={() => cancelFloatingInsert({ clearDraft: true })}
@@ -1138,10 +1284,13 @@ export function LearningPanel({
           return (
             <div key={step.id}>
               {showHistoryCard ? (
-                <div
-                  id={`question-${step.question.id}`}
-                  className="my-8 py-2 pl-6"
-                >
+                <>
+                  {renderInsertSlot(`before-history:${step.question.id}`)}
+                  <div
+                    id={`question-${step.question.id}`}
+                    data-insert-disabled="true"
+                    className="my-8 py-2 pl-6"
+                  >
                   <button
                     type="button"
                     onClick={() => onToggleHistory(step.question.id)}
@@ -1190,7 +1339,9 @@ export function LearningPanel({
                       />
                     ) : null}
                   </div>
-                </div>
+                  </div>
+                  {renderInsertSlot(`after-history:${step.question.id}`)}
+                </>
               ) : null}
 
               <div
@@ -1221,15 +1372,18 @@ export function LearningPanel({
               {renderInsertSlot(`after-step:${step.id}`)}
 
               {isCurrent ? (
-                <div
-                  id={`question-${step.question.id}`}
-                  className={cn(
-                    "my-10 rounded-r-xl border-l-[2px] py-2 pl-6 transition-all",
-                    isDark
-                      ? "border-cyan-400/45 bg-transparent"
-                      : "border-cyan-500/30 bg-transparent",
-                  )}
-                >
+                <>
+                  {renderInsertSlot(`before-current:${step.question.id}`)}
+                  <div
+                    id={`question-${step.question.id}`}
+                    data-insert-disabled="true"
+                    className={cn(
+                      "my-10 rounded-r-xl border-l-[2px] py-2 pl-6 transition-all",
+                      isDark
+                        ? "border-cyan-400/45 bg-transparent"
+                        : "border-cyan-500/30 bg-transparent",
+                    )}
+                  >
                   <p className="mb-3 flex items-center gap-2 text-[10px] font-mono uppercase tracking-[0.2em] text-cyan-600 dark:text-cyan-400">
                     <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-cyan-500" />
                     <ReadingLine shield={useLightShield}>Current Question</ReadingLine>
@@ -1305,14 +1459,21 @@ export function LearningPanel({
                       </button>
                     </div>
                   </form>
-                </div>
+                  </div>
+                  {renderInsertSlot(`after-current:${step.question.id}`)}
+                </>
               ) : null}
             </div>
           );
         })}
 
         {showCustomComposer ? (
-          <div className="my-10 rounded-r-xl border-l-[2px] border-cyan-400/45 py-2 pl-6">
+          <>
+            {renderInsertSlot("before-custom-question")}
+            <div
+              data-insert-disabled="true"
+              className="my-10 rounded-r-xl border-l-[2px] border-cyan-400/45 py-2 pl-6"
+            >
             <p className="mb-3 flex items-center gap-2 text-[10px] font-mono uppercase tracking-[0.2em] text-cyan-600 dark:text-cyan-400">
               <span className="h-1.5 w-1.5 rounded-full bg-cyan-500" />
               <ReadingLine shield={useLightShield}>My own why</ReadingLine>
@@ -1345,11 +1506,18 @@ export function LearningPanel({
                 </button>
               </div>
             </form>
-          </div>
+            </div>
+            {renderInsertSlot("after-custom-question")}
+          </>
         ) : null}
 
         {showCompletionCard ? (
-          <div className="my-10 rounded-2xl border border-slate-200/50 p-6 dark:border-cyan-800/30">
+          <>
+            {renderInsertSlot("before-completion-card")}
+            <div
+              data-insert-disabled="true"
+              className="my-10 rounded-2xl border border-slate-200/50 p-6 dark:border-cyan-800/30"
+            >
             <p className="mb-3 text-lg font-medium text-slate-900 dark:text-slate-100">
               Topic Mastered!
             </p>
@@ -1386,7 +1554,9 @@ export function LearningPanel({
                 </button>
               </div>
             </div>
-          </div>
+            </div>
+            {renderInsertSlot("after-completion-card")}
+          </>
         ) : null}
       </div>
     </div>

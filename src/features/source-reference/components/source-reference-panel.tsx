@@ -1,7 +1,11 @@
-import { useEffect, useMemo, useRef, useState, type DragEvent } from "react";
+﻿import { useEffect, useMemo, useRef, useState, type DragEvent } from "react";
 import { useThemeMode } from "@/app/theme/theme-provider";
 import { cn } from "@/lib/utils";
-import type { TopicFeedbackPreview, TopicSourceReference } from "@/features/topic-session";
+import type {
+  TopicFeedbackLevel,
+  TopicFeedbackPreview,
+  TopicSourceReference,
+} from "@/features/topic-session";
 
 type FeedbackCardState = {
   id: string;
@@ -26,7 +30,10 @@ type SourceReferencePanelProps = {
   onDismissFeedback: (feedbackId: string) => void;
   onSelectFeedback: (feedbackId: string) => void;
   onCycleFeedback: (direction: "previous" | "next") => void;
-  onReorderFeedbacks: (draggedFeedbackId: string, targetFeedbackId: string) => void;
+  onReorderFeedbacks: (
+    draggedFeedbackId: string,
+    targetFeedbackId: string,
+  ) => void;
   onReorderSources: (referenceIds: string[]) => void;
   onUnpinSource: (referenceId: string) => void;
   onClearAllSources: () => void;
@@ -39,27 +46,49 @@ const WORKBENCH_ORDER_MIME = "application/echowhy-workbench-order";
 
 const feedbackToneClasses: Record<
   TopicFeedbackPreview["level"],
-  { badge: string; accent: string }
+  {
+    badge: string;
+    accent: string;
+    shell: string;
+    border: string;
+    subtle: string;
+  }
 > = {
   weak: {
     badge:
-      "border-rose-500/35 bg-rose-500/8 text-rose-600 dark:border-rose-400/30 dark:bg-rose-400/10 dark:text-rose-300",
-    accent: "text-rose-500 dark:text-rose-300",
+      "border-rose-500/35 bg-transparent text-rose-700 dark:border-rose-400/40 dark:text-rose-300",
+    accent: "text-rose-700 dark:text-rose-300",
+    shell:
+      "border-y border-r border-rose-500/8 bg-rose-500/[0.016] dark:border-y-rose-400/7 dark:border-r-rose-400/7 dark:bg-rose-400/[0.018]",
+    border: "border-l border-l-rose-700/40 dark:border-l-rose-400/36",
+    subtle: "text-rose-600 dark:text-rose-300",
   },
   partial: {
     badge:
-      "border-amber-500/35 bg-amber-500/8 text-amber-600 dark:border-amber-400/30 dark:bg-amber-400/10 dark:text-amber-300",
-    accent: "text-amber-500 dark:text-amber-300",
+      "border-amber-500/35 bg-transparent text-amber-700 dark:border-amber-400/40 dark:text-amber-300",
+    accent: "text-amber-700 dark:text-amber-300",
+    shell:
+      "border-y border-r border-amber-500/8 bg-amber-500/[0.015] dark:border-y-amber-400/7 dark:border-r-amber-400/7 dark:bg-amber-400/[0.017]",
+    border: "border-l border-l-amber-600/40 dark:border-l-amber-400/36",
+    subtle: "text-amber-600 dark:text-amber-300",
   },
   good: {
     badge:
-      "border-emerald-500/35 bg-emerald-500/8 text-emerald-600 dark:border-emerald-400/30 dark:bg-emerald-400/10 dark:text-emerald-300",
-    accent: "text-emerald-500 dark:text-emerald-300",
+      "border-emerald-500/35 bg-transparent text-emerald-700 dark:border-emerald-400/40 dark:text-emerald-300",
+    accent: "text-emerald-700 dark:text-emerald-300",
+    shell:
+      "border-y border-r border-emerald-500/8 bg-emerald-500/[0.015] dark:border-y-emerald-400/7 dark:border-r-emerald-400/7 dark:bg-emerald-400/[0.017]",
+    border: "border-l border-l-emerald-700/40 dark:border-l-emerald-400/36",
+    subtle: "text-emerald-600 dark:text-emerald-300",
   },
   strong: {
     badge:
-      "border-emerald-500/35 bg-emerald-500/8 text-emerald-700 dark:border-emerald-300/35 dark:bg-emerald-300/10 dark:text-emerald-200",
-    accent: "text-emerald-600 dark:text-emerald-200",
+      "border-emerald-500/35 bg-transparent text-emerald-800 dark:border-emerald-300/40 dark:text-emerald-200",
+    accent: "text-emerald-800 dark:text-emerald-200",
+    shell:
+      "border-y border-r border-emerald-500/8 bg-emerald-500/[0.016] dark:border-y-emerald-300/7 dark:border-r-emerald-300/7 dark:bg-emerald-300/[0.02]",
+    border: "border-l border-l-emerald-700/38 dark:border-l-emerald-300/34",
+    subtle: "text-emerald-700 dark:text-emerald-200",
   },
 };
 
@@ -92,7 +121,9 @@ export function SourceReferencePanel({
   const itemRefs = useRef<Record<string, HTMLDivElement | null>>({});
   const scrollerRefs = useRef<Record<string, HTMLDivElement | null>>({});
   const lineRefs = useRef<Record<string, HTMLButtonElement | null>>({});
-  const [fileModeById, setFileModeById] = useState<Record<string, "snippet" | "full">>({});
+  const [fileModeById, setFileModeById] = useState<
+    Record<string, "snippet" | "full">
+  >({});
   const [loadingById, setLoadingById] = useState<Record<string, boolean>>({});
   const [flashReferenceId, setFlashReferenceId] = useState<string | null>(null);
   const [focusReferenceId, setFocusReferenceId] = useState<string | null>(null);
@@ -107,27 +138,64 @@ export function SourceReferencePanel({
     null;
   const activeFeedbackIndex = activeFeedback
     ? Math.max(
-        feedbackCards.findIndex((feedback) => feedback.id === activeFeedback.id),
+        feedbackCards.findIndex(
+          (feedback) => feedback.id === activeFeedback.id,
+        ),
         0,
       )
     : -1;
+  const activeFeedbackTone = activeFeedback
+    ? feedbackToneClasses[activeFeedback.feedback.level]
+    : null;
 
   const pinnedReferences = pinnedReferenceIds
-    .map((referenceId) => references.find((reference) => reference.id === referenceId))
-    .filter((reference): reference is TopicSourceReference => Boolean(reference));
+    .map((referenceId) =>
+      references.find((reference) => reference.id === referenceId),
+    )
+    .filter((reference): reference is TopicSourceReference =>
+      Boolean(reference),
+    );
 
   const previewReference =
     previewReferenceId && !pinnedReferenceIds.includes(previewReferenceId)
-      ? references.find((reference) => reference.id === previewReferenceId) ?? null
+      ? (references.find((reference) => reference.id === previewReferenceId) ??
+        null)
       : null;
 
   const displayedReferences = useMemo(
     () => [
-      ...pinnedReferences.map((reference) => ({ reference, kind: "pinned" as const })),
-      ...(previewReference ? [{ reference: previewReference, kind: "preview" as const }] : []),
+      ...pinnedReferences.map((reference) => ({
+        reference,
+        kind: "pinned" as const,
+      })),
+      ...(previewReference
+        ? [{ reference: previewReference, kind: "preview" as const }]
+        : []),
     ],
     [pinnedReferences, previewReference],
   );
+
+  const sourceTone = {
+    shell: isDark
+      ? "border-y border-r border-indigo-400/7 bg-indigo-400/[0.03]"
+      : "border-y border-r border-indigo-300/24 bg-indigo-500/[0.03] shadow-[0_18px_52px_-46px_rgba(79,70,229,0.12)]",
+    border: isDark
+      ? "border-l border-l-indigo-400/34"
+      : "border-l border-l-indigo-600/36",
+    label: isDark ? "text-indigo-300" : "text-indigo-700",
+    title: isDark ? "text-slate-100" : "text-slate-700",
+    meta: isDark ? "text-slate-300" : "text-slate-500",
+    code: isDark
+      ? "border-indigo-400/18 bg-transparent text-indigo-300"
+      : "border-indigo-700/16 bg-transparent text-indigo-700",
+  };
+  const sourceCardShellClass = (kind: "pinned" | "preview") =>
+    cn(
+      "relative isolate cursor-grab overflow-hidden rounded-2xl backdrop-blur-md transition-all duration-200 active:cursor-grabbing",
+      sourceTone.shell,
+      sourceTone.border,
+      kind === "preview" && "opacity-90",
+    );
 
   const stopWorkbenchAutoScroll = () => {
     if (workbenchAutoScrollFrameRef.current !== null) {
@@ -149,7 +217,8 @@ export function SourceReferencePanel({
     workbenchAutoScrollStateRef.current = {
       clientY,
       lastSeenAt: performance.now(),
-      currentVelocity: workbenchAutoScrollStateRef.current?.currentVelocity ?? 0,
+      currentVelocity:
+        workbenchAutoScrollStateRef.current?.currentVelocity ?? 0,
       lastFrameAt: performance.now(),
     };
 
@@ -196,7 +265,11 @@ export function SourceReferencePanel({
         activePanel.scrollTop += state.currentVelocity * frameDelta;
       }
 
-      if (targetVelocity === 0 && Math.abs(state.currentVelocity) <= 0.08 && now - state.lastSeenAt > 520) {
+      if (
+        targetVelocity === 0 &&
+        Math.abs(state.currentVelocity) <= 0.08 &&
+        now - state.lastSeenAt > 520
+      ) {
         stopWorkbenchAutoScroll();
         return;
       }
@@ -276,7 +349,9 @@ export function SourceReferencePanel({
       return;
     }
 
-    const activeReference = references.find((reference) => reference.id === activeReferenceId);
+    const activeReference = references.find(
+      (reference) => reference.id === activeReferenceId,
+    );
     const targetLine = activeReference?.defaultHighlightLines?.[0];
 
     if (!targetLine) {
@@ -285,25 +360,41 @@ export function SourceReferencePanel({
 
     const lineKey = `${activeReferenceId}-${targetLine}`;
     window.setTimeout(() => {
-      lineRefs.current[lineKey]?.scrollIntoView({ block: "center", behavior: "smooth" });
+      lineRefs.current[lineKey]?.scrollIntoView({
+        block: "center",
+        behavior: "smooth",
+      });
     }, 0);
     setFlashReferenceId(activeReferenceId);
 
     const timeoutId = window.setTimeout(() => {
-      setFlashReferenceId((previous) => (previous === activeReferenceId ? null : previous));
+      setFlashReferenceId((previous) =>
+        previous === activeReferenceId ? null : previous,
+      );
     }, 720);
 
     return () => {
       window.clearTimeout(timeoutId);
     };
-  }, [fileModeById, focusReferenceId, pinnedReferenceIds, previewReferenceId, references]);
+  }, [
+    fileModeById,
+    focusReferenceId,
+    pinnedReferenceIds,
+    previewReferenceId,
+    references,
+  ]);
 
   const toggleReferenceMode = (reference: TopicSourceReference) => {
     const currentMode = fileModeById[reference.id] ?? "snippet";
 
     if (currentMode === "full") {
-      setFileModeById((previous) => ({ ...previous, [reference.id]: "snippet" }));
-      setFocusReferenceId((previous) => (previous === reference.id ? null : previous));
+      setFileModeById((previous) => ({
+        ...previous,
+        [reference.id]: "snippet",
+      }));
+      setFocusReferenceId((previous) =>
+        previous === reference.id ? null : previous,
+      );
       return;
     }
 
@@ -323,6 +414,7 @@ export function SourceReferencePanel({
       id: string;
       label: string;
       insertPrompt: string;
+      feedbackLevel?: TopicFeedbackLevel;
       title?: string;
       subtitle?: string;
       body?: string;
@@ -348,7 +440,10 @@ export function SourceReferencePanel({
     }
 
     try {
-      return JSON.parse(rawPayload) as { kind?: "feedback" | "source"; id?: string };
+      return JSON.parse(rawPayload) as {
+        kind?: "feedback" | "source";
+        id?: string;
+      };
     } catch {
       return null;
     }
@@ -361,7 +456,11 @@ export function SourceReferencePanel({
   ) => {
     const payload = readOrderPayload(event);
 
-    if (payload?.kind !== "source" || !payload.id || payload.id === targetReferenceId) {
+    if (
+      payload?.kind !== "source" ||
+      !payload.id ||
+      payload.id === targetReferenceId
+    ) {
       setSourceDropTarget(null);
       return;
     }
@@ -425,10 +524,17 @@ export function SourceReferencePanel({
     );
   };
 
-  const handleFeedbackDrop = (event: DragEvent<HTMLDivElement>, targetFeedbackId: string) => {
+  const handleFeedbackDrop = (
+    event: DragEvent<HTMLDivElement>,
+    targetFeedbackId: string,
+  ) => {
     const payload = readOrderPayload(event);
 
-    if (payload?.kind !== "feedback" || !payload.id || payload.id === targetFeedbackId) {
+    if (
+      payload?.kind !== "feedback" ||
+      !payload.id ||
+      payload.id === targetFeedbackId
+    ) {
       return;
     }
 
@@ -465,7 +571,8 @@ export function SourceReferencePanel({
                 kind: "feedback",
                 id: activeFeedback.id,
                 label: activeFeedback.feedback.label,
-                title: `${activeFeedback.feedback.label} 路 ${activeFeedback.feedback.score}`,
+                feedbackLevel: activeFeedback.feedback.level,
+                title: `${activeFeedback.feedback.label} 璺?${activeFeedback.feedback.score}`,
                 subtitle: "Answer feedback",
                 body: [
                   activeFeedback.feedback.correctPoints.length
@@ -487,7 +594,7 @@ export function SourceReferencePanel({
                 ]
                   .filter(Boolean)
                   .join("\n\n"),
-                meta: `Question answer · ${activeFeedback.feedback.score}/100`,
+                meta: `Question answer 路 ${activeFeedback.feedback.score}/100`,
                 insertPrompt: `Review this feedback: ${activeFeedback.feedback.nextSuggestion}`,
               })
             }
@@ -500,21 +607,30 @@ export function SourceReferencePanel({
             }}
             onDrop={(event) => handleFeedbackDrop(event, activeFeedback.id)}
             className={cn(
-              "cursor-grab rounded-2xl border p-5 active:cursor-grabbing",
-              isDark
-                ? "border-cyan-500/18 bg-transparent"
-                : "border-slate-200/46 bg-white/[0.025] backdrop-blur-[2px]",
+              "cursor-grab rounded-2xl backdrop-blur-md active:cursor-grabbing",
+              activeFeedbackTone?.shell,
+              activeFeedbackTone?.border,
+              "p-5",
             )}
           >
             <div className="mb-4 flex items-start justify-between gap-4">
-              <div className="flex items-center gap-3">
+              <div className="space-y-3">
+                <p
+                  className={cn(
+                    "text-[10px] font-mono uppercase tracking-[0.22em]",
+                    activeFeedbackTone?.accent ?? "text-slate-400",
+                  )}
+                >
+                  AI feedback
+                </p>
                 <span
                   className={cn(
                     "rounded-full border px-3 py-1 text-[10px] font-mono uppercase tracking-[0.2em]",
-                    feedbackToneClasses[activeFeedback.feedback.level].badge,
+                    activeFeedbackTone?.badge,
                   )}
                 >
-                  {activeFeedback.feedback.label} · {activeFeedback.feedback.score}
+                  {activeFeedback.feedback.label} 路{" "}
+                  {activeFeedback.feedback.score}
                 </span>
               </div>
 
@@ -529,8 +645,10 @@ export function SourceReferencePanel({
 
             <div className="space-y-4 text-sm text-slate-600 dark:text-slate-300">
               <div>
-                <p className={cn("mb-2 font-medium", feedbackToneClasses[activeFeedback.feedback.level].accent)}>
-                  👍 What landed well:
+                <p
+                  className={cn("mb-2 font-medium", activeFeedbackTone?.accent)}
+                >
+                  What landed well:
                 </p>
                 <ul className="space-y-1">
                   {activeFeedback.feedback.correctPoints.map((point) => (
@@ -541,8 +659,14 @@ export function SourceReferencePanel({
 
               {activeFeedback.feedback.vaguePoints.length ? (
                 <div>
-                  <p className="mb-2 font-medium text-slate-500 dark:text-slate-400">
-                    ⚠️ What feels unclear:
+                  <p
+                    className={cn(
+                      "mb-2 font-medium",
+                      activeFeedbackTone?.subtle ??
+                        "text-slate-500 dark:text-slate-400",
+                    )}
+                  >
+                    What feels unclear:
                   </p>
                   <ul className="space-y-1">
                     {activeFeedback.feedback.vaguePoints.map((point) => (
@@ -554,8 +678,14 @@ export function SourceReferencePanel({
 
               {activeFeedback.feedback.missingPoints.length ? (
                 <div>
-                  <p className="mb-2 font-medium text-slate-500 dark:text-slate-400">
-                    ❌ What's still missing:
+                  <p
+                    className={cn(
+                      "mb-2 font-medium",
+                      activeFeedbackTone?.subtle ??
+                        "text-slate-500 dark:text-slate-400",
+                    )}
+                  >
+                    What's still missing:
                   </p>
                   <ul className="space-y-1">
                     {activeFeedback.feedback.missingPoints.map((point) => (
@@ -566,14 +696,16 @@ export function SourceReferencePanel({
               ) : null}
 
               <div>
-                <p className="mb-2 font-medium text-cyan-600 dark:text-cyan-400">
-                  💡 A good next step:
+                <p
+                  className={cn("mb-2 font-medium", activeFeedbackTone?.accent)}
+                >
+                  A good next step:
                 </p>
                 <p>{activeFeedback.feedback.nextSuggestion}</p>
               </div>
             </div>
 
-            <div className="mt-5 flex items-center justify-between border-t border-slate-200/30 pt-3 text-[10px] font-mono uppercase tracking-[0.18em] text-slate-400 dark:border-cyan-900/30">
+            <div className="mt-5 flex items-center justify-between border-t border-slate-200/30 pt-3 text-[10px] font-mono uppercase tracking-[0.18em] text-slate-400 dark:border-slate-700/40">
               <button
                 type="button"
                 onClick={() => onFocusQuestion(activeFeedback.questionId)}
@@ -649,10 +781,14 @@ export function SourceReferencePanel({
           {displayedReferences.map(({ reference, kind }) => {
             const isFullFile = fileModeById[reference.id] === "full";
             const isLoading = loadingById[reference.id];
-            const fileLines = (reference.fullContent ?? reference.snippet).split("\n");
+            const fileLines = (
+              reference.fullContent ?? reference.snippet
+            ).split("\n");
             const snippetLines = reference.snippet.split("\n");
             const visibleLines = isFullFile ? fileLines : snippetLines;
-            const lineNumberOffset = isFullFile ? 1 : reference.startLine ?? 1;
+            const lineNumberOffset = isFullFile
+              ? 1
+              : (reference.startLine ?? 1);
             const sourceSubtitle = `${reference.referencePath}${
               reference.startLine
                 ? ` : ${reference.startLine}-${reference.endLine}`
@@ -708,23 +844,15 @@ export function SourceReferencePanel({
                     sourceDropPosition ?? "before",
                   )
                 }
-                className={cn(
-                  "relative isolate cursor-grab overflow-hidden rounded-2xl border p-4 transition-all duration-200 active:cursor-grabbing",
-                  isDark
-                    ? "border-cyan-500/18 bg-transparent"
-                    : "bg-white/[0.025] backdrop-blur-[2px]",
-                  kind === "preview"
-                    ? "border-cyan-200/42 opacity-90 shadow-[0_18px_52px_-42px_rgba(8,145,178,0.22)] dark:border-cyan-500/24"
-                    : "border-slate-200/46 shadow-[0_18px_60px_-48px_rgba(15,23,42,0.24)] dark:border-cyan-500/18",
-                )}
+                className={cn(sourceCardShellClass(kind), "p-4")}
               >
                 {!isDark ? (
                   <div
                     className={cn(
                       "pointer-events-none absolute inset-0 z-0 rounded-2xl",
                       kind === "preview"
-                        ? "bg-[radial-gradient(ellipse_at_35%_20%,rgba(236,254,255,0.38)_0%,rgba(236,254,255,0.16)_36%,rgba(236,254,255,0.035)_72%,transparent_100%)]"
-                        : "bg-[radial-gradient(ellipse_at_35%_20%,rgba(248,250,252,0.5)_0%,rgba(248,250,252,0.18)_42%,rgba(248,250,252,0.04)_76%,transparent_100%)]",
+                        ? "bg-[radial-gradient(ellipse_at_35%_20%,rgba(224,231,255,0.34)_0%,rgba(224,231,255,0.13)_36%,rgba(224,231,255,0.03)_72%,transparent_100%)]"
+                        : "bg-[radial-gradient(ellipse_at_35%_20%,rgba(238,242,255,0.44)_0%,rgba(238,242,255,0.16)_42%,rgba(238,242,255,0.035)_76%,transparent_100%)]",
                     )}
                   />
                 ) : null}
@@ -739,13 +867,28 @@ export function SourceReferencePanel({
                 ) : null}
 
                 <div className="relative z-10 mb-4 flex items-start justify-between gap-3">
-                  <div className="space-y-1 text-sm font-medium text-slate-700 dark:text-slate-300">
-                    <p className={cn("dark:text-slate-100", !isDark && "text-halo-light")}>
+                  <div className="space-y-2 text-sm font-medium text-slate-700 dark:text-slate-300">
+                    <p
+                      className={cn(
+                        "text-[10px] font-mono uppercase tracking-[0.22em]",
+                        sourceTone.label,
+                        !isDark && "text-halo-light",
+                      )}
+                    >
+                      {kind === "preview" ? "Source preview" : "Source ref"}
+                    </p>
+                    <p
+                      className={cn(
+                        sourceTone.title,
+                        !isDark && "text-halo-light",
+                      )}
+                    >
                       {reference.label}
                     </p>
                     <p
                       className={cn(
-                        "break-all text-slate-500 dark:text-slate-300",
+                        "break-all",
+                        sourceTone.meta,
                         !isDark && "text-halo-light",
                       )}
                     >
@@ -765,7 +908,12 @@ export function SourceReferencePanel({
                       [ x ]
                     </button>
                   ) : (
-                    <span className="shrink-0 text-[10px] font-mono uppercase tracking-[0.2em] text-cyan-500/80 dark:text-cyan-400">
+                    <span
+                      className={cn(
+                        "shrink-0 text-[10px] font-mono uppercase tracking-[0.2em]",
+                        sourceTone.label,
+                      )}
+                    >
                       [ Preview ]
                     </span>
                   )}
@@ -786,14 +934,19 @@ export function SourceReferencePanel({
                       {visibleLines.map((line, index) => {
                         const lineNumber = lineNumberOffset + index;
                         const isHighlighted =
-                          reference.defaultHighlightLines?.includes(lineNumber) ?? false;
-                        const isFlashing = flashReferenceId === reference.id && isHighlighted;
+                          reference.defaultHighlightLines?.includes(
+                            lineNumber,
+                          ) ?? false;
+                        const isFlashing =
+                          flashReferenceId === reference.id && isHighlighted;
 
                         return (
                           <button
                             key={`${reference.id}-${lineNumber}`}
                             ref={(element) => {
-                              lineRefs.current[`${reference.id}-${lineNumber}`] = element;
+                              lineRefs.current[
+                                `${reference.id}-${lineNumber}`
+                              ] = element;
                             }}
                             type="button"
                             onClick={() =>
@@ -808,10 +961,10 @@ export function SourceReferencePanel({
                                 ? "cursor-pointer border-transparent hover:border-cyan-500/35"
                                 : "cursor-pointer",
                               isHighlighted
-                                ? "border-cyan-500 bg-gradient-to-r from-cyan-500/[0.035] via-cyan-500/[0.012] to-transparent text-cyan-700 shadow-[-3px_0_10px_rgba(6,182,212,0.05)] dark:border-cyan-400 dark:from-cyan-400/[0.045] dark:via-cyan-400/[0.012] dark:text-cyan-400"
+                                ? "border-indigo-600/24 bg-gradient-to-r from-indigo-500/[0.018] via-indigo-500/[0.006] to-transparent text-indigo-700 shadow-[-1px_0_6px_rgba(79,70,229,0.02)] dark:border-indigo-400/26 dark:from-indigo-400/[0.022] dark:via-indigo-400/[0.008] dark:text-indigo-300"
                                 : "border-transparent",
                               isFlashing &&
-                                "bg-cyan-500/[0.045] dark:bg-cyan-400/[0.06]",
+                                "bg-indigo-500/[0.05] dark:bg-indigo-400/[0.07]",
                             )}
                           >
                             {isFullFile ? (
@@ -819,7 +972,9 @@ export function SourceReferencePanel({
                                 {lineNumber}
                               </span>
                             ) : null}
-                            <span className="min-w-0 flex-1 whitespace-pre-wrap">{line || " "}</span>
+                            <span className="min-w-0 flex-1 whitespace-pre-wrap">
+                              {line || " "}
+                            </span>
                           </button>
                         );
                       })}
@@ -831,7 +986,12 @@ export function SourceReferencePanel({
                   <button
                     type="button"
                     onClick={() => toggleReferenceMode(reference)}
-                    className="text-[9px] uppercase tracking-[0.18em] text-slate-400 transition-colors hover:text-cyan-600 dark:text-slate-500 dark:hover:text-cyan-400"
+                    className={cn(
+                      "text-[9px] uppercase tracking-[0.18em] text-slate-400 transition-colors dark:text-slate-500",
+                      isDark
+                        ? "hover:text-indigo-300"
+                        : "hover:text-indigo-700",
+                    )}
                     aria-label={isFullFile ? "Show snippet" : "View full file"}
                     title={isFullFile ? "Show snippet" : "View full file"}
                   >
