@@ -354,6 +354,7 @@ export function LearningPanel({
   const lastQuestionIdRef = useRef<string | null>(null);
   const lastCustomComposerVisibleRef = useRef(false);
   const activeInsertTargetIdRef = useRef<string | null>(null);
+  const insertDragDelayTimeoutRef = useRef<number | null>(null);
   const readingAutoScrollFrameRef = useRef<number | null>(null);
   const readingAutoScrollStateRef = useRef<{
     container: HTMLElement;
@@ -372,8 +373,39 @@ export function LearningPanel({
     x: number;
     y: number;
   } | null>(null);
+  const [isFloatingWindowHovered, setIsFloatingWindowHovered] = useState(false);
+  const [isFloatingWindowFocused, setIsFloatingWindowFocused] = useState(false);
   const [insertedWorkbenchBlocksByTargetId, setInsertedWorkbenchBlocksByTargetId] =
     useState<Record<string, InsertedWorkbenchBlock[]>>({});
+
+  const floatingWindowShellClass = cn(
+    "overflow-hidden rounded-2xl border backdrop-blur-md transition-all duration-200",
+    isDark
+      ? "border-cyan-900/50 bg-black/60"
+      : "border-blue-200 bg-white/80",
+  );
+  const floatingWindowTitleClass = cn(
+    "text-[10px] font-mono uppercase tracking-[0.24em]",
+    isDark ? "text-cyan-400" : "text-blue-600",
+  );
+  const floatingWindowTextareaClass = cn(
+    "w-full min-h-[1.85rem] resize-none border-b bg-transparent pb-0.5 leading-[1.85rem] transition-colors [field-sizing:content] placeholder:italic focus:outline-none",
+    isDark
+      ? "border-cyan-700/45 text-white placeholder:text-gray-400 focus:border-cyan-400"
+      : "border-slate-300 text-gray-900 placeholder:text-gray-500 focus:border-cyan-500",
+  );
+  const floatingWindowSecondaryActionClass = cn(
+    "text-[10px] font-mono uppercase tracking-widest transition-colors",
+    isDark
+      ? "text-slate-500 hover:text-slate-300"
+      : "text-slate-400 hover:text-slate-600",
+  );
+  const floatingWindowPrimaryActionClass = cn(
+    "border px-4 py-1.5 text-[10px] uppercase tracking-widest transition-colors",
+    isDark
+      ? "border-cyan-400/45 text-cyan-400 hover:bg-cyan-400/12"
+      : "border-cyan-600/45 text-cyan-700 hover:bg-cyan-500 hover:text-white",
+  );
 
   useEffect(() => {
     const nextQuestionId = currentStep?.question.id ?? null;
@@ -438,6 +470,9 @@ export function LearningPanel({
 
     function getTargetIdFromPoint(clientX: number, clientY: number) {
       const element = document.elementFromPoint(clientX, clientY);
+      if (element?.closest("[data-insert-disabled='true']")) {
+        return null;
+      }
       const target = element?.closest<HTMLElement>("[data-insert-target-id]");
       return target?.dataset.insertTargetId ?? null;
     }
@@ -453,7 +488,6 @@ export function LearningPanel({
     function handlePointerUp() {
       if (activeInsertTargetIdRef.current) {
         setInsertComposerTargetId(activeInsertTargetIdRef.current);
-        setInsertQuestionDraft("");
       }
 
       setIsInsertDragging(false);
@@ -473,10 +507,87 @@ export function LearningPanel({
 
   useEffect(() => stopReadingAutoScroll, []);
 
-  function handleInsertDragStart(event: ReactPointerEvent<HTMLButtonElement>) {
+  useEffect(() => {
+    return () => {
+      if (insertDragDelayTimeoutRef.current !== null) {
+        window.clearTimeout(insertDragDelayTimeoutRef.current);
+      }
+    };
+  }, []);
+
+  function clearInsertDragDelay() {
+    if (insertDragDelayTimeoutRef.current !== null) {
+      window.clearTimeout(insertDragDelayTimeoutRef.current);
+      insertDragDelayTimeoutRef.current = null;
+    }
+  }
+
+  function cancelFloatingInsert(options?: { clearDraft?: boolean }) {
+    clearInsertDragDelay();
+    setIsInsertDragging(false);
+    setInsertComposerTargetId(null);
+    setActiveInsertTargetId(null);
+    setIsFloatingWindowFocused(false);
+    setIsFloatingWindowHovered(false);
+    activeInsertTargetIdRef.current = null;
+    setInsertButtonPosition(null);
+    stopReadingAutoScroll();
+
+    if (options?.clearDraft) {
+      setInsertQuestionDraft("");
+    }
+  }
+
+  useEffect(() => {
+    if (!isInsertDragging && !insertComposerTargetId) {
+      return;
+    }
+
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.key !== "Escape") {
+        return;
+      }
+
+      event.preventDefault();
+      cancelFloatingInsert();
+    }
+
+    function handleContextMenu(event: MouseEvent) {
+      if (!isInsertDragging) {
+        return;
+      }
+
+      event.preventDefault();
+      cancelFloatingInsert();
+    }
+
+    window.addEventListener("keydown", handleKeyDown);
+    window.addEventListener("contextmenu", handleContextMenu);
+
+    return () => {
+      window.removeEventListener("keydown", handleKeyDown);
+      window.removeEventListener("contextmenu", handleContextMenu);
+    };
+  }, [insertComposerTargetId, isInsertDragging]);
+
+  function handleInsertDragStart(event: ReactPointerEvent<HTMLDivElement>) {
     event.preventDefault();
-    setIsInsertDragging(true);
-    setInsertButtonPosition({ x: event.clientX, y: event.clientY });
+    clearInsertDragDelay();
+
+    insertDragDelayTimeoutRef.current = window.setTimeout(() => {
+      setIsInsertDragging(true);
+      setInsertButtonPosition({ x: event.clientX, y: event.clientY });
+      insertDragDelayTimeoutRef.current = null;
+    }, 100);
+
+    function handlePointerUpBeforeDrag() {
+      clearInsertDragDelay();
+      window.removeEventListener("pointerup", handlePointerUpBeforeDrag);
+    }
+
+    window.addEventListener("pointerup", handlePointerUpBeforeDrag, {
+      once: true,
+    });
   }
 
   function handleSubmitInsertedQuestion(targetId: string) {
@@ -489,6 +600,8 @@ export function LearningPanel({
     onInsertQuestion(targetId, nextQuestion);
     setInsertQuestionDraft("");
     setInsertComposerTargetId(null);
+    setIsFloatingWindowFocused(false);
+    setIsFloatingWindowHovered(false);
   }
 
   function stopReadingAutoScroll() {
@@ -629,59 +742,63 @@ export function LearningPanel({
     return (
       <>
         {(insertedWorkbenchBlocksByTargetId[targetId] ?? []).map((block) => (
-          <article
-            key={block.id}
-            className={cn(
-              "my-5 w-full max-w-full overflow-hidden border-l-[2px] py-3 pl-5 transition-colors",
-              block.kind === "source"
-                ? "border-cyan-500/35"
-                : "border-amber-400/35 dark:border-amber-300/35",
-            )}
-          >
-            <div className="mb-2 flex items-start justify-between gap-4">
-              <div className="min-w-0">
-                <p className="mb-1 text-[10px] font-mono uppercase tracking-[0.2em] text-cyan-600 dark:text-cyan-400">
-                  <ReadingLine shield={useLightShield}>
-                    {block.kind === "source" ? "Source insert" : "Feedback insert"}
-                  </ReadingLine>
-                </p>
-                <h4 className="break-words text-sm font-semibold text-slate-700 dark:text-slate-100">
-                  <ReadingLine shield={useLightShield}>{block.title}</ReadingLine>
-                </h4>
-                {block.subtitle ? (
-                  <p className="mt-1 break-all text-xs text-slate-500 dark:text-slate-400">
-                    <ReadingLine shield={useLightShield}>{block.subtitle}</ReadingLine>
+          <div key={block.id} className="contents">
+            {renderInsertSlot(`${targetId}::before-block:${block.id}`)}
+            <article
+              data-insert-disabled="true"
+              className={cn(
+                "my-5 w-full max-w-full overflow-hidden border-l-[2px] py-3 pl-5 transition-colors",
+                block.kind === "source"
+                  ? "border-cyan-500/35"
+                  : "border-amber-400/35 dark:border-amber-300/35",
+              )}
+            >
+              <div className="mb-2 flex items-start justify-between gap-4">
+                <div className="min-w-0">
+                  <p className="mb-1 text-[10px] font-mono uppercase tracking-[0.2em] text-cyan-600 dark:text-cyan-400">
+                    <ReadingLine shield={useLightShield}>
+                      {block.kind === "source" ? "Source insert" : "Feedback insert"}
+                    </ReadingLine>
                   </p>
-                ) : null}
+                  <h4 className="break-words text-sm font-semibold text-slate-700 dark:text-slate-100">
+                    <ReadingLine shield={useLightShield}>{block.title}</ReadingLine>
+                  </h4>
+                  {block.subtitle ? (
+                    <p className="mt-1 break-all text-xs text-slate-500 dark:text-slate-400">
+                      <ReadingLine shield={useLightShield}>{block.subtitle}</ReadingLine>
+                    </p>
+                  ) : null}
+                </div>
+                <button
+                  type="button"
+                  onClick={() => removeInsertedWorkbenchBlock(targetId, block.id)}
+                  className="shrink-0 font-mono text-[10px] tracking-widest text-slate-400 transition-colors hover:text-rose-500 dark:text-slate-500 dark:hover:text-rose-300"
+                  aria-label="Remove inserted content"
+                >
+                  [x]
+                </button>
               </div>
-              <button
-                type="button"
-                onClick={() => removeInsertedWorkbenchBlock(targetId, block.id)}
-                className="shrink-0 font-mono text-[10px] tracking-widest text-slate-400 transition-colors hover:text-rose-500 dark:text-slate-500 dark:hover:text-rose-300"
-                aria-label="Remove inserted content"
-              >
-                [x]
-              </button>
-            </div>
 
-            {block.body ? (
-              <p className="whitespace-pre-wrap break-words text-sm leading-relaxed text-slate-600 dark:text-slate-300">
-                <ReadingLine shield={useLightShield}>{block.body}</ReadingLine>
-              </p>
-            ) : null}
+              {block.body ? (
+                <p className="whitespace-pre-wrap break-words text-sm leading-relaxed text-slate-600 dark:text-slate-300">
+                  <ReadingLine shield={useLightShield}>{block.body}</ReadingLine>
+                </p>
+              ) : null}
 
-            {block.code ? (
-              <pre className="source-workbench-scrollbar mt-3 max-h-72 w-full overflow-auto border-l border-cyan-500/25 bg-cyan-500/[0.025] p-3 text-[12px] leading-relaxed text-cyan-700 dark:bg-cyan-400/[0.035] dark:text-cyan-300">
-                <code className="whitespace-pre-wrap break-words">{block.code}</code>
-              </pre>
-            ) : null}
+              {block.code ? (
+                <pre className="source-workbench-scrollbar mt-3 max-h-72 w-full overflow-auto border-l border-cyan-500/25 bg-cyan-500/[0.025] p-3 text-[12px] leading-relaxed text-cyan-700 dark:bg-cyan-400/[0.035] dark:text-cyan-300">
+                  <code className="whitespace-pre-wrap break-words">{block.code}</code>
+                </pre>
+              ) : null}
 
-            {block.meta ? (
-              <p className="mt-2 text-[10px] font-mono uppercase tracking-[0.16em] text-slate-400 dark:text-slate-500">
-                <ReadingLine shield={useLightShield}>{block.meta}</ReadingLine>
-              </p>
-            ) : null}
-          </article>
+              {block.meta ? (
+                <p className="mt-2 text-[10px] font-mono uppercase tracking-[0.16em] text-slate-400 dark:text-slate-500">
+                  <ReadingLine shield={useLightShield}>{block.meta}</ReadingLine>
+                </p>
+              ) : null}
+            </article>
+            {renderInsertSlot(`${targetId}::after-block:${block.id}`)}
+          </div>
         ))}
       </>
     );
@@ -691,81 +808,85 @@ export function LearningPanel({
     return (
       <>
         {(insertedQuestionsByTargetId[targetId] ?? []).map((question) => (
-          <div
-            key={question.id}
-            id={`question-${question.id}`}
-            className={cn(
-              "my-6 border-l-[2px] py-2 pl-6 transition-colors",
-              question.answerState?.status === "passed"
-                ? "border-cyan-400/55"
-                : "border-cyan-500/40",
-            )}
-          >
-            <div className="mb-2 flex items-center justify-between gap-4">
-              <p className="text-[10px] font-mono uppercase tracking-[0.2em] text-cyan-600 dark:text-cyan-400">
-                <ReadingLine shield={useLightShield}>My question</ReadingLine>
-              </p>
-              <button
-                type="button"
-                onClick={() => onDeleteInsertedQuestion(question.id)}
-                className="font-mono text-[10px] tracking-widest text-slate-400 transition-colors hover:text-rose-500 dark:text-slate-500 dark:hover:text-rose-300"
-                aria-label="Delete inserted question"
-              >
-                [x]
-              </button>
-            </div>
-            <p className="text-base leading-relaxed text-slate-700 dark:text-slate-200">
-              <ReadingLine shield={useLightShield}>{question.prompt}</ReadingLine>
-            </p>
-
-            <textarea
-              rows={1}
-              value={question.answerDraft ?? question.answerState?.answer ?? ""}
-              onChange={(event) =>
-                onInsertedQuestionDraftChange(question.id, event.target.value)
-              }
-              placeholder="Type your thought..."
+          <div key={question.id} className="contents">
+            {renderInsertSlot(`${targetId}::before-question:${question.id}`)}
+            <div
+              id={`question-${question.id}`}
+              data-insert-disabled="true"
               className={cn(
-                "mt-5 w-full min-h-[2.15rem] resize-none border-b bg-transparent pb-1 leading-7 transition-colors [field-sizing:content] placeholder:italic focus:outline-none",
-                isDark
-                  ? "border-cyan-700/45 text-slate-200 placeholder:text-slate-400 focus:border-cyan-400"
-                  : "border-slate-300 text-slate-800 placeholder:text-slate-400 focus:border-cyan-500",
+                "my-6 border-l-[2px] py-2 pl-6 transition-colors",
+                question.answerState?.status === "passed"
+                  ? "border-cyan-400/55"
+                  : "border-cyan-500/40",
               )}
-            />
-
-            {question.answerState?.feedback ? (
-              <div className="mt-3 space-y-2 text-sm text-slate-500 dark:text-slate-300">
-                <p>
-                  <ReadingLine shield={useLightShield}>
-                    <span className="font-bold text-cyan-600 dark:text-cyan-400">
-                      AI:
-                    </span>{" "}
-                    {question.answerState.feedback.nextSuggestion}
-                  </ReadingLine>
+            >
+              <div className="mb-2 flex items-center justify-between gap-4">
+                <p className="text-[10px] font-mono uppercase tracking-[0.2em] text-cyan-600 dark:text-cyan-400">
+                  <ReadingLine shield={useLightShield}>My question</ReadingLine>
                 </p>
-                <p className="text-xs uppercase tracking-[0.16em] text-slate-400 dark:text-slate-400">
-                  <ReadingLine shield={useLightShield}>
-                    {question.answerState.feedback.label} /{" "}
-                    {question.answerState.feedback.score}/100
-                  </ReadingLine>
-                </p>
+                <button
+                  type="button"
+                  onClick={() => onDeleteInsertedQuestion(question.id)}
+                  className="font-mono text-[10px] tracking-widest text-slate-400 transition-colors hover:text-rose-500 dark:text-slate-500 dark:hover:text-rose-300"
+                  aria-label="Delete inserted question"
+                >
+                  [x]
+                </button>
               </div>
-            ) : null}
+              <p className="text-base leading-relaxed text-slate-700 dark:text-slate-200">
+                <ReadingLine shield={useLightShield}>{question.prompt}</ReadingLine>
+              </p>
 
-            <div className="mt-6 flex items-center justify-end">
-              <button
-                type="button"
-                onClick={() =>
-                  onCheckInsertedQuestion(
-                    question.id,
-                    question.answerDraft ?? question.answerState?.answer ?? "",
-                  )
+              <textarea
+                rows={1}
+                value={question.answerDraft ?? question.answerState?.answer ?? ""}
+                onChange={(event) =>
+                  onInsertedQuestionDraftChange(question.id, event.target.value)
                 }
-                className="border border-cyan-600/45 px-5 py-2 text-xs uppercase tracking-widest text-cyan-700 transition-colors hover:bg-cyan-500 hover:text-white dark:border-cyan-400/45 dark:text-cyan-400 dark:hover:bg-cyan-400/12"
-              >
-                [ Check ]
-              </button>
+                placeholder="Type your thought..."
+                className={cn(
+                  "mt-5 w-full min-h-[2.15rem] resize-none border-b bg-transparent pb-1 leading-7 transition-colors [field-sizing:content] placeholder:italic focus:outline-none",
+                  isDark
+                    ? "border-cyan-700/45 text-slate-200 placeholder:text-slate-400 focus:border-cyan-400"
+                    : "border-slate-300 text-slate-800 placeholder:text-slate-400 focus:border-cyan-500",
+                )}
+              />
+
+              {question.answerState?.feedback ? (
+                <div className="mt-3 space-y-2 text-sm text-slate-500 dark:text-slate-300">
+                  <p>
+                    <ReadingLine shield={useLightShield}>
+                      <span className="font-bold text-cyan-600 dark:text-cyan-400">
+                        AI:
+                      </span>{" "}
+                      {question.answerState.feedback.nextSuggestion}
+                    </ReadingLine>
+                  </p>
+                  <p className="text-xs uppercase tracking-[0.16em] text-slate-400 dark:text-slate-400">
+                    <ReadingLine shield={useLightShield}>
+                      {question.answerState.feedback.label} /{" "}
+                      {question.answerState.feedback.score}/100
+                    </ReadingLine>
+                  </p>
+                </div>
+              ) : null}
+
+              <div className="mt-6 flex items-center justify-end">
+                <button
+                  type="button"
+                  onClick={() =>
+                    onCheckInsertedQuestion(
+                      question.id,
+                      question.answerDraft ?? question.answerState?.answer ?? "",
+                    )
+                  }
+                  className="border border-cyan-600/45 px-5 py-2 text-xs uppercase tracking-widest text-cyan-700 transition-colors hover:bg-cyan-500 hover:text-white dark:border-cyan-400/45 dark:text-cyan-400 dark:hover:bg-cyan-400/12"
+                >
+                  [ Check ]
+                </button>
+              </div>
             </div>
+            {renderInsertSlot(`${targetId}::after-question:${question.id}`)}
           </div>
         ))}
       </>
@@ -777,78 +898,76 @@ export function LearningPanel({
     const isComposing = insertComposerTargetId === targetId;
 
     return (
-      <div
-        data-insert-target-id={targetId}
-        className="relative my-2 min-h-5"
-        onDragOver={(event) => {
-          if (Array.from(event.dataTransfer.types).includes(WORKBENCH_INSERT_MIME)) {
-            event.preventDefault();
-            autoScrollNearestReadingArea(event);
-            setActiveInsertTargetId(targetId);
-          }
-        }}
-        onDragLeave={() => {
-          setActiveInsertTargetId((current) => (current === targetId ? null : current));
-        }}
-        onDrop={(event) => handleWorkbenchCardDrop(event, targetId)}
-      >
+      <>
         <div
-          className={cn(
-            "pointer-events-none absolute left-0 right-0 top-1/2 z-10 h-px -translate-y-1/2 transition-all duration-200",
-            isActive
-              ? "bg-cyan-300/90 shadow-[0_0_18px_rgba(34,211,238,0.32)]"
-              : "bg-transparent",
-          )}
-        />
+          data-insert-target-id={targetId}
+          className="relative my-2 min-h-5"
+          onDragOver={(event) => {
+            if (Array.from(event.dataTransfer.types).includes(WORKBENCH_INSERT_MIME)) {
+              event.preventDefault();
+              autoScrollNearestReadingArea(event);
+              setActiveInsertTargetId(targetId);
+            }
+          }}
+          onDragLeave={() => {
+            setActiveInsertTargetId((current) => (current === targetId ? null : current));
+          }}
+          onDrop={(event) => handleWorkbenchCardDrop(event, targetId)}
+        >
+          <div
+            className={cn(
+              "pointer-events-none absolute left-0 right-0 top-1/2 z-10 -translate-y-1/2 transition-all duration-200",
+              isActive
+                ? "h-[2px] bg-cyan-300/95 shadow-[0_0_18px_rgba(34,211,238,0.38)]"
+                : "h-px bg-transparent",
+            )}
+          />
+        </div>
 
         {isComposing ? (
           <form
-            className="my-4 border-l-[2px] border-cyan-500/40 py-2 pl-6"
+            className={cn("my-4", floatingWindowShellClass)}
             onSubmit={(event) => {
               event.preventDefault();
               handleSubmitInsertedQuestion(targetId);
             }}
           >
-            <p className="mb-3 text-[10px] font-mono uppercase tracking-[0.2em] text-cyan-600 dark:text-cyan-400">
-              <ReadingLine shield={useLightShield}>My question</ReadingLine>
-            </p>
-            <textarea
-              autoFocus
-              rows={1}
-              value={insertQuestionDraft}
-              onChange={(event) => setInsertQuestionDraft(event.target.value)}
-              placeholder="Drop one sharp why here..."
-              className={cn(
-                "w-full min-h-[2.15rem] resize-none border-b bg-transparent pb-1 leading-7 transition-colors [field-sizing:content] placeholder:italic focus:outline-none",
-                isDark
-                  ? "border-cyan-700/45 text-slate-200 placeholder:text-slate-500 focus:border-cyan-400"
-                  : "border-slate-300 text-slate-800 placeholder:text-slate-400 focus:border-cyan-500",
-              )}
-            />
-            <div className="mt-4 flex items-center justify-end gap-4">
-              <button
-                type="button"
-                onClick={() => {
-                  setInsertComposerTargetId(null);
-                  setInsertQuestionDraft("");
-                }}
-                className="text-[10px] font-mono uppercase tracking-widest text-slate-400 transition-colors hover:text-slate-600 dark:text-slate-500 dark:hover:text-slate-300"
-              >
-                [ cancel ]
-              </button>
-              <button
-                type="submit"
-                className="border border-cyan-600/45 px-4 py-1.5 text-[10px] uppercase tracking-widest text-cyan-700 transition-colors hover:bg-cyan-500 hover:text-white dark:border-cyan-400/45 dark:text-cyan-400 dark:hover:bg-cyan-400/12"
-              >
-                [ insert ]
-              </button>
+            <div className="border-b border-cyan-900/35 px-5 py-3">
+              <p className={floatingWindowTitleClass}>
+                <ReadingLine shield={useLightShield}>My question</ReadingLine>
+              </p>
+            </div>
+
+            <div className="px-5 pb-4 pt-3">
+              <textarea
+                autoFocus
+                rows={1}
+                value={insertQuestionDraft}
+                onChange={(event) => setInsertQuestionDraft(event.target.value)}
+                onFocus={() => setIsFloatingWindowFocused(true)}
+                onBlur={() => setIsFloatingWindowFocused(false)}
+                placeholder="Drop one sharp why here..."
+                className={floatingWindowTextareaClass}
+              />
+              <div className="mt-4 flex items-center justify-end gap-4">
+                <button
+                  type="button"
+                  onClick={() => cancelFloatingInsert({ clearDraft: true })}
+                  className={floatingWindowSecondaryActionClass}
+                >
+                  [ cancel ]
+                </button>
+                <button type="submit" className={floatingWindowPrimaryActionClass}>
+                  [ insert ]
+                </button>
+              </div>
             </div>
           </form>
         ) : null}
 
         {renderInsertedWorkbenchBlocks(targetId)}
         {renderInsertedQuestionCards(targetId)}
-      </div>
+      </>
     );
   }
 
@@ -862,30 +981,117 @@ export function LearningPanel({
       }}
       onDrop={stopReadingAutoScroll}
     >
-      <button
-        type="button"
-        onPointerDown={handleInsertDragStart}
-        style={
-          insertButtonPosition
-            ? {
-                left: insertButtonPosition.x,
-                top: insertButtonPosition.y,
-                transform: "translate(-50%, -50%)",
-              }
-            : undefined
-        }
-        className={cn(
-          "fixed z-40 select-none border border-cyan-500/35 bg-slate-950/25 px-4 py-2 font-mono text-[10px] uppercase tracking-[0.2em] text-cyan-500/80 backdrop-blur-md hover:border-cyan-400/60 hover:text-cyan-300",
-          isInsertDragging
-            ? "pointer-events-none cursor-grabbing transition-none"
-            : "cursor-grab transition-colors",
-          insertButtonPosition
-            ? ""
-            : "bottom-8 left-1/2 -translate-x-[25rem]",
-        )}
-      >
-        [ + why ]
-      </button>
+      {!insertComposerTargetId ? (
+        <div
+          style={
+            isInsertDragging && insertButtonPosition
+              ? {
+                  left: insertButtonPosition.x,
+                  top: insertButtonPosition.y,
+                  transform: "translate(-50%, -50%) scale(0.88)",
+                }
+              : {
+                  left: 24,
+                  bottom: 24,
+                }
+          }
+          onMouseEnter={() => setIsFloatingWindowHovered(true)}
+          onMouseLeave={() => setIsFloatingWindowHovered(false)}
+          className={cn(
+            "fixed z-40 select-none bg-transparent transition-[opacity,transform] duration-200",
+            isInsertDragging
+              ? "pointer-events-none opacity-100"
+              : isFloatingWindowHovered || Boolean(insertQuestionDraft.trim())
+                ? "opacity-100"
+                : "opacity-55 hover:opacity-100",
+          )}
+        >
+          <div
+            onPointerDown={handleInsertDragStart}
+            className="cursor-grab active:cursor-grabbing"
+          >
+            <div
+              className={cn(
+                "relative flex h-11 w-11 items-center justify-center transition-all duration-200",
+                isDark
+                  ? "text-cyan-400"
+                  : "text-blue-600",
+                isFloatingWindowHovered && !isInsertDragging
+                  ? "scale-[1.04]"
+                  : "scale-100",
+              )}
+              aria-label="Insert my question"
+            >
+              <svg
+                viewBox="0 0 44 44"
+                className="pointer-events-none h-11 w-11 overflow-visible"
+                aria-hidden="true"
+              >
+                <g
+                  stroke={isDark ? "rgba(34,211,238,0.68)" : "rgba(59,130,246,0.60)"}
+                  fill="none"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <circle
+                    cx="22"
+                    cy="22"
+                    r="11"
+                    strokeWidth="1"
+                    fill={isDark ? "rgba(2,6,23,0.16)" : "rgba(255,255,255,0.12)"}
+                  />
+                  <path
+                    d="M 22 7.2
+                       Q 24.1 19.6 35.1 22
+                       Q 24.1 24.4 22 36.8
+                       Q 19.9 24.4 8.9 22
+                       Q 19.9 19.6 22 7.2 Z"
+                    strokeWidth="1"
+                    fill={isDark ? "rgba(34,211,238,0.68)" : "rgba(59,130,246,0.60)"}
+                  />
+                  <circle
+                    cx="22"
+                    cy="22"
+                    r="4.2"
+                    strokeWidth="1"
+                    fill={isDark ? "rgba(2,6,23,0.88)" : "rgba(255,255,255,0.86)"}
+                  />
+                </g>
+                <text
+                  x="22"
+                  y="24.4"
+                  textAnchor="middle"
+                  fontSize="8"
+                  fontWeight="700"
+                  fill={isDark ? "rgba(207,250,254,0.96)" : "rgba(37,99,235,0.88)"}
+                >
+                  ?
+                </text>
+              </svg>
+            </div>
+          </div>
+
+          {!isInsertDragging ? (
+            <div
+              className={cn(
+                "pointer-events-none absolute left-full top-1/2 ml-3 -translate-y-1/2 whitespace-nowrap transition-all duration-200",
+                isFloatingWindowHovered
+                  ? "translate-x-0 opacity-100"
+                  : "translate-x-1 opacity-0",
+              )}
+            >
+              <p
+                className={cn(
+                  "text-[10px] font-mono uppercase tracking-[0.24em]",
+                  isDark ? "text-cyan-400/88" : "text-blue-600/88",
+                )}
+              >
+                <ReadingLine shield={useLightShield}>My question</ReadingLine>
+              </p>
+            </div>
+          ) : null}
+        </div>
+      ) : null}
 
       <div className="mb-12">
         <p className="mb-4 text-[10px] font-mono uppercase tracking-[0.2em] text-slate-400 dark:text-slate-500">
@@ -930,7 +1136,7 @@ export function LearningPanel({
           const showHistoryCard = Boolean(answerState && answerState.status !== "failed");
 
           return (
-            <div key={step.id} data-insert-target-id={`after-step:${step.id}`}>
+            <div key={step.id}>
               {showHistoryCard ? (
                 <div
                   id={`question-${step.question.id}`}
@@ -988,6 +1194,7 @@ export function LearningPanel({
               ) : null}
 
               <div
+                data-insert-target-id={`after-step:${step.id}`}
                 id={`block-${step.block.id}`}
                 className={cn(
                   "-mx-4 px-4 py-2 transition-colors duration-300",
