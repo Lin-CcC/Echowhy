@@ -154,7 +154,7 @@ function renderBlockContent(
   switch (step.block.id) {
     case "exp-login-first-proof":
       return (
-        <p className="mb-8">
+        <p>
           <ReadingLine shield={shield}>
             The backend cannot verify a JWT during login because no token has
             been issued yet. It must first compare the submitted credentials
@@ -164,7 +164,7 @@ function renderBlockContent(
       );
     case "exp-controller-entry":
       return (
-        <p className="mb-8">
+        <p>
           <ReadingLine shield={shield}>
             <AnchorToken
               referenceId="ref-auth-controller"
@@ -195,7 +195,7 @@ function renderBlockContent(
       );
     case "exp-service-separation":
       return (
-        <p className="mb-8">
+        <p>
           <ReadingLine shield={shield}>
             The actual decision about whether credentials are valid belongs in{" "}
             <AnchorToken
@@ -215,7 +215,7 @@ function renderBlockContent(
       );
     case "exp-controller-thin":
       return (
-        <p className="mb-8">
+        <p>
           <ReadingLine shield={shield}>
             <AnchorToken
               referenceId="ref-auth-controller"
@@ -235,7 +235,7 @@ function renderBlockContent(
       );
     case "exp-jwt-after-validation":
       return (
-        <p className="mb-8">
+        <p>
           <ReadingLine shield={shield}>
             Only after the backend decides the user is valid does{" "}
             <AnchorToken
@@ -255,7 +255,7 @@ function renderBlockContent(
       );
     case "exp-jwt-trust":
       return (
-        <p className="mb-8">
+        <p>
           <ReadingLine shield={shield}>
             A later protected endpoint is not re-checking the raw password. It
             is trusting a server-issued token that already encodes the result of
@@ -265,7 +265,7 @@ function renderBlockContent(
       );
     default:
       return (
-        <p className="mb-8">
+        <p>
           <ReadingLine shield={shield}>{step.block.content}</ReadingLine>
         </p>
       );
@@ -284,7 +284,7 @@ function InlineFeedback({
   }
 
   return (
-    <div className="mt-3 space-y-2 text-sm text-slate-500 dark:text-slate-300">
+    <div className="mt-2.5 space-y-1.5 text-sm text-slate-500 dark:text-slate-300">
       <p>
         <ReadingLine shield={useLightShield}>
           <span className="font-bold text-cyan-600 dark:text-cyan-400">AI:</span>{" "}
@@ -464,22 +464,108 @@ export function LearningPanel({
     return accumulator;
   }, {});
 
+  function resolveInsertTargetIdAtPoint(clientX: number, clientY: number) {
+    const hitElement = document.elementFromPoint(clientX, clientY);
+
+    if (hitElement?.closest("[data-insert-disabled='true']")) {
+      return null;
+    }
+
+    const candidateTargets = Array.from(
+      document.querySelectorAll<HTMLElement>("[data-insert-target-id]"),
+    )
+      .map((node) => {
+        const rect = node.getBoundingClientRect();
+        return {
+          node,
+          targetId: node.dataset.insertTargetId ?? "",
+          top: rect.top,
+          bottom: rect.bottom,
+          left: rect.left,
+          right: rect.right,
+          centerY: rect.top + rect.height / 2,
+        };
+      })
+      .filter(
+        (target) =>
+          target.targetId &&
+          target.right > target.left &&
+          target.bottom > target.top &&
+          clientX >= target.left - 32 &&
+          clientX <= target.right + 32 &&
+          !target.node.closest("[data-insert-disabled='true']"),
+      )
+      .sort((left, right) => left.centerY - right.centerY);
+
+    if (candidateTargets.length === 0) {
+      return null;
+    }
+
+    const clusterThreshold = 44;
+    const clusters: typeof candidateTargets[] = [];
+
+    for (const target of candidateTargets) {
+      const lastCluster = clusters[clusters.length - 1];
+
+      if (!lastCluster) {
+        clusters.push([target]);
+        continue;
+      }
+
+      const lastCenterY =
+        lastCluster[lastCluster.length - 1]?.centerY ?? target.centerY;
+
+      if (Math.abs(target.centerY - lastCenterY) <= clusterThreshold) {
+        lastCluster.push(target);
+      } else {
+        clusters.push([target]);
+      }
+    }
+
+    const nearestCluster = clusters.reduce<typeof candidateTargets | null>(
+      (bestCluster, cluster) => {
+        const clusterTop = cluster[0]?.top ?? 0;
+        const clusterBottom = cluster[cluster.length - 1]?.bottom ?? clusterTop;
+        const clusterCenterY = (clusterTop + clusterBottom) / 2;
+
+        if (!bestCluster) {
+          return cluster;
+        }
+
+        const bestTop = bestCluster[0]?.top ?? 0;
+        const bestBottom =
+          bestCluster[bestCluster.length - 1]?.bottom ?? bestTop;
+        const bestCenterY = (bestTop + bestBottom) / 2;
+
+        return Math.abs(clientY - clusterCenterY) <
+          Math.abs(clientY - bestCenterY)
+          ? cluster
+          : bestCluster;
+      },
+      null,
+    );
+
+    if (!nearestCluster || nearestCluster.length === 0) {
+      return null;
+    }
+
+    const canonicalTarget =
+      nearestCluster[Math.floor((nearestCluster.length - 1) / 2)] ??
+      nearestCluster[0];
+
+    return canonicalTarget?.targetId ?? null;
+  }
+
   useEffect(() => {
     if (!isInsertDragging) {
       return;
     }
 
-    function getTargetIdFromPoint(clientX: number, clientY: number) {
-      const element = document.elementFromPoint(clientX, clientY);
-      if (element?.closest("[data-insert-disabled='true']")) {
-        return null;
-      }
-      const target = element?.closest<HTMLElement>("[data-insert-target-id]");
-      return target?.dataset.insertTargetId ?? null;
-    }
-
     function handlePointerMove(event: PointerEvent) {
-      const nextTargetId = getTargetIdFromPoint(event.clientX, event.clientY);
+      const nextTargetId = resolveInsertTargetIdAtPoint(
+        event.clientX,
+        event.clientY,
+      );
 
       setInsertButtonPosition({ x: event.clientX, y: event.clientY });
       setActiveInsertTargetId(nextTargetId);
@@ -716,6 +802,10 @@ export function LearningPanel({
     }
 
     event.preventDefault();
+    const resolvedTargetId =
+      activeInsertTargetIdRef.current ??
+      resolveInsertTargetIdAtPoint(event.clientX, event.clientY) ??
+      targetId;
     const nextBlock: InsertedWorkbenchBlock = {
       id: `${payload.kind ?? "feedback"}-${payload.id ?? "card"}-${Date.now()}`,
       kind: payload.kind === "source" ? "source" : "feedback",
@@ -732,7 +822,7 @@ export function LearningPanel({
 
     setInsertedWorkbenchBlocksByTargetId((previous) => ({
       ...previous,
-      [targetId]: [...(previous[targetId] ?? []), nextBlock],
+      [resolvedTargetId]: [...(previous[resolvedTargetId] ?? []), nextBlock],
     }));
     onWorkbenchCardInserted({ kind: payload.kind, id: payload.id });
     setActiveInsertTargetId(null);
@@ -843,7 +933,6 @@ export function LearningPanel({
       <>
         {(insertedWorkbenchBlocksByTargetId[targetId] ?? []).map((block) => (
           <div key={block.id} className="contents">
-            {renderInsertSlot(`${targetId}::before-block:${block.id}`)}
             {(() => {
               const visual = getInsertedCardVisual(
                 block.kind === "source" ? "source" : "feedback",
@@ -853,14 +942,14 @@ export function LearningPanel({
               return (
                 <article
                   data-insert-disabled="true"
-                  className={cn("my-5 w-full max-w-full", visual.shell)}
+                  className={cn("w-full max-w-full", visual.shell)}
                 >
-                  <div className={cn("border-l-[3px] pl-5 py-3", visual.accent)}>
-                    <div className="mb-3 flex items-start justify-between gap-4">
+                  <div className={cn("border-l-[3px] pl-5 py-0.5", visual.accent)}>
+                    <div className="mb-1 flex items-start justify-between gap-4">
                       <div className="min-w-0">
                         <p
                           className={cn(
-                            "mb-1 text-[10px] font-mono uppercase tracking-[0.22em]",
+                            "mb-0.5 text-[10px] font-mono uppercase tracking-[0.22em]",
                             visual.label,
                           )}
                         >
@@ -877,7 +966,7 @@ export function LearningPanel({
                           <ReadingLine shield={useLightShield}>{block.title}</ReadingLine>
                         </h4>
                         {block.subtitle ? (
-                          <p className={cn("mt-1 break-all text-xs", visual.meta)}>
+                          <p className={cn("mt-0.5 break-all text-xs", visual.meta)}>
                             <ReadingLine shield={useLightShield}>{block.subtitle}</ReadingLine>
                           </p>
                         ) : null}
@@ -906,7 +995,7 @@ export function LearningPanel({
                     {block.code ? (
                       <pre
                         className={cn(
-                          "source-workbench-scrollbar mt-3 max-h-72 w-full overflow-auto border-l-[2px] pl-4 py-2 text-[12px] leading-relaxed",
+                          "source-workbench-scrollbar mt-1 max-h-72 w-full overflow-auto border-l-[2px] pl-4 py-1 text-[12px] leading-relaxed",
                           visual.code,
                         )}
                       >
@@ -917,7 +1006,7 @@ export function LearningPanel({
                     {block.meta ? (
                       <p
                         className={cn(
-                          "mt-3 text-[10px] font-mono uppercase tracking-[0.16em]",
+                          "mt-1 text-[10px] font-mono uppercase tracking-[0.16em]",
                           visual.meta,
                         )}
                       >
@@ -940,7 +1029,6 @@ export function LearningPanel({
       <>
         {(insertedQuestionsByTargetId[targetId] ?? []).map((question) => (
           <div key={question.id} className="contents">
-            {renderInsertSlot(`${targetId}::before-question:${question.id}`)}
             {(() => {
               const visual = getInsertedCardVisual("question");
               const feedbackVisual = question.answerState?.feedback
@@ -951,10 +1039,10 @@ export function LearningPanel({
                 <div
                   id={`question-${question.id}`}
                   data-insert-disabled="true"
-                  className={cn("my-6", visual.shell)}
+                  className={cn(visual.shell)}
                 >
-                  <div className={cn("border-l-[3px] pl-5 py-3", visual.accent)}>
-                    <div className="mb-3 flex items-center justify-between gap-4">
+                  <div className={cn("border-l-[3px] pl-5 py-0.5", visual.accent)}>
+                    <div className="mb-1 flex items-center justify-between gap-4">
                       <p
                         className={cn(
                           "text-[10px] font-mono uppercase tracking-[0.22em]",
@@ -984,7 +1072,7 @@ export function LearningPanel({
                       }
                       placeholder="Type your thought..."
                       className={cn(
-                        "mt-4 w-full min-h-[2.15rem] resize-none border-b bg-transparent pb-1 leading-7 transition-colors [field-sizing:content] placeholder:italic focus:outline-none",
+                        "mt-1 w-full min-h-[1.85rem] resize-none border-b bg-transparent pb-0.5 leading-6 transition-colors [field-sizing:content] placeholder:italic focus:outline-none",
                         isDark
                           ? "border-cyan-700/45 text-slate-200 placeholder:text-slate-400 focus:border-cyan-400"
                           : "border-slate-300 text-slate-800 placeholder:text-slate-400 focus:border-cyan-500",
@@ -992,7 +1080,7 @@ export function LearningPanel({
                     />
 
                     {question.answerState?.feedback ? (
-                      <div className="mt-3 space-y-2 text-sm text-slate-500 dark:text-slate-300">
+                      <div className="mt-1 space-y-1 text-sm text-slate-500 dark:text-slate-300">
                         <p>
                           <ReadingLine shield={useLightShield}>
                             <span className={cn("font-bold", feedbackVisual?.emphasis)}>
@@ -1015,7 +1103,7 @@ export function LearningPanel({
                       </div>
                     ) : null}
 
-                    <div className="mt-6 flex items-center justify-end">
+                    <div className="mt-1 flex items-center justify-end">
                       <button
                         type="button"
                         onClick={() =>
@@ -1046,41 +1134,48 @@ export function LearningPanel({
 
     return (
       <>
-        <div
-          data-insert-target-id={targetId}
-          className="relative my-2 min-h-8"
-          onDragOver={(event) => {
-            if (Array.from(event.dataTransfer.types).includes(WORKBENCH_INSERT_MIME)) {
-              event.preventDefault();
-              autoScrollNearestReadingArea(event);
-              setActiveInsertTargetId(targetId);
-            }
-          }}
-          onDragLeave={() => {
-            setActiveInsertTargetId((current) => (current === targetId ? null : current));
-          }}
-          onDrop={(event) => handleWorkbenchCardDrop(event, targetId)}
-        >
+        <div className="relative h-0">
           <div
+            data-insert-target-id={targetId}
             className={cn(
-              "pointer-events-none absolute left-0 right-0 top-1/2 z-10 -translate-y-1/2 transition-all duration-200",
-              isActive
-                ? "h-[2px] bg-cyan-300/95 shadow-[0_0_18px_rgba(34,211,238,0.38)]"
-                : "h-px bg-transparent",
+              "absolute inset-x-0 top-1/2 z-20 -translate-y-1/2",
+              isActive || isComposing ? "h-6" : "h-4",
             )}
-          />
+            onDragOver={(event) => {
+              if (Array.from(event.dataTransfer.types).includes(WORKBENCH_INSERT_MIME)) {
+                event.preventDefault();
+                autoScrollNearestReadingArea(event);
+                const resolvedTargetId = resolveInsertTargetIdAtPoint(
+                  event.clientX,
+                  event.clientY,
+                );
+                setActiveInsertTargetId(resolvedTargetId);
+                activeInsertTargetIdRef.current = resolvedTargetId;
+              }
+            }}
+            onDrop={(event) => handleWorkbenchCardDrop(event, targetId)}
+          >
+            <div
+              className={cn(
+                "pointer-events-none absolute left-0 right-0 top-1/2 z-10 -translate-y-1/2 transition-all duration-200",
+                isActive
+                  ? "h-[2px] bg-cyan-300/95 shadow-[0_0_18px_rgba(34,211,238,0.38)]"
+                  : "h-px bg-transparent",
+              )}
+            />
+          </div>
         </div>
 
         {isComposing ? (
           <form
-            className={cn("my-6", floatingWindowShellClass)}
+            className={cn(floatingWindowShellClass)}
             onSubmit={(event) => {
               event.preventDefault();
               handleSubmitInsertedQuestion(targetId);
             }}
           >
-            <div className="border-l-[3px] border-cyan-500 pl-4 py-3 dark:border-cyan-400">
-              <div className="mb-3 flex items-center justify-between gap-4">
+            <div className="border-l-[3px] border-cyan-500 pl-4 py-1.5 dark:border-cyan-400">
+              <div className="mb-1.5 flex items-center justify-between gap-4">
                 <p className={floatingWindowTitleClass}>
                   <ReadingLine shield={useLightShield}>My question</ReadingLine>
                 </p>
@@ -1095,7 +1190,7 @@ export function LearningPanel({
                 placeholder="Drop one sharp why here..."
                 className={floatingWindowTextareaClass}
               />
-              <div className="mt-6 flex items-center justify-end gap-6">
+              <div className="mt-1.5 flex items-center justify-end gap-6">
                 <button
                   type="button"
                   onClick={() => cancelFloatingInsert({ clearDraft: true })}
@@ -1122,7 +1217,14 @@ export function LearningPanel({
       className="mx-auto w-full max-w-3xl px-8 py-8 pb-24"
       onDragOver={(event) => {
         if (Array.from(event.dataTransfer.types).includes(WORKBENCH_INSERT_MIME)) {
+          event.preventDefault();
           autoScrollNearestReadingArea(event);
+          const resolvedTargetId = resolveInsertTargetIdAtPoint(
+            event.clientX,
+            event.clientY,
+          );
+          setActiveInsertTargetId(resolvedTargetId);
+          activeInsertTargetIdRef.current = resolvedTargetId;
         }
       }}
       onDrop={stopReadingAutoScroll}
@@ -1239,42 +1341,43 @@ export function LearningPanel({
         </div>
       ) : null}
 
-      <div className="mb-12">
-        <p className="mb-4 text-[10px] font-mono uppercase tracking-[0.2em] text-slate-400 dark:text-slate-500">
-          <ReadingLine shield={useLightShield}>Learning Topic</ReadingLine>
-        </p>
-        <h1
-          className={cn(
-            "max-w-[18ch] text-balance text-3xl font-light tracking-tight text-slate-900 dark:text-white dark:[text-shadow:0_0_12px_#0a0f1a,_0_0_24px_#0a0f1a] sm:max-w-[20ch] sm:text-4xl 2xl:max-w-none",
-            useLightShield &&
-              "text-halo-soft-light bg-slate-50/35 [box-decoration-break:clone] [-webkit-box-decoration-break:clone]",
-          )}
-        >
-          {title}
-        </h1>
-      </div>
+        <div className="flex flex-col gap-12">
+          <div className="flex flex-col gap-8">
+            <p className="text-[10px] font-mono uppercase tracking-[0.2em] text-slate-400 dark:text-slate-500">
+              <ReadingLine shield={useLightShield}>Learning Topic</ReadingLine>
+            </p>
+            <h1
+              className={cn(
+                "max-w-[18ch] text-balance text-3xl font-light tracking-tight text-slate-900 dark:text-white dark:[text-shadow:0_0_12px_#0a0f1a,_0_0_24px_#0a0f1a] sm:max-w-[20ch] sm:text-4xl 2xl:max-w-none",
+                useLightShield &&
+                  "text-halo-soft-light bg-slate-50/35 [box-decoration-break:clone] [-webkit-box-decoration-break:clone]",
+              )}
+            >
+              {title}
+            </h1>
+          </div>
 
-      <div
-        data-insert-target-id="after-root"
-        className="mb-12 border-l-[3px] border-slate-300 pl-6 dark:border-cyan-800/42"
-      >
-        <p className="mb-2 text-[10px] font-bold uppercase tracking-widest text-slate-400 dark:text-slate-400">
-          <ReadingLine shield={useLightShield}>Root Why</ReadingLine>
-        </p>
-        <p
-          className={cn(
-            "text-lg font-normal italic leading-relaxed text-slate-600 dark:text-slate-200 dark:[text-shadow:0_0_10px_#0a0f1a,_0_0_20px_#0a0f1a]",
-            useLightShield &&
-              "text-halo-soft-light bg-slate-50/28 [box-decoration-break:clone] [-webkit-box-decoration-break:clone]",
-          )}
-        >
-          {rootQuestion}
-        </p>
-      </div>
+          <div
+            className="flex flex-col gap-6 border-l-[3px] border-slate-300 pl-6 pb-12 dark:border-cyan-800/42"
+          >
+            <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 dark:text-slate-400">
+              <ReadingLine shield={useLightShield}>Root Why</ReadingLine>
+            </p>
+            <p
+              className={cn(
+                "text-lg font-normal italic leading-[1.85] text-slate-600 dark:text-slate-200 dark:[text-shadow:0_0_10px_#0a0f1a,_0_0_20px_#0a0f1a]",
+                useLightShield &&
+                  "text-halo-soft-light bg-slate-50/28 [box-decoration-break:clone] [-webkit-box-decoration-break:clone]",
+              )}
+            >
+              {rootQuestion}
+            </p>
+          </div>
+        </div>
 
       {renderInsertSlot("after-root")}
 
-      <div className="space-y-8 text-[15px] font-normal leading-relaxed text-slate-700 dark:text-slate-300 dark:[text-shadow:0_0_8px_#0a0f1a,_0_0_16px_#0a0f1a]">
+      <div className="mt-10 flex flex-col gap-[18px] text-[15px] font-normal leading-relaxed text-slate-700 dark:text-slate-300 dark:[text-shadow:0_0_8px_#0a0f1a,_0_0_16px_#0a0f1a]">
         {visibleSteps.map((step, index) => {
           const answerState = answerStateByQuestionId[step.question.id];
           const isHistoryExpanded = !answerState?.isCollapsed;
@@ -1282,21 +1385,20 @@ export function LearningPanel({
           const showHistoryCard = Boolean(answerState && answerState.status !== "failed");
 
           return (
-            <div key={step.id}>
+            <div key={step.id} className="flex flex-col gap-[18px]">
               {showHistoryCard ? (
                 <>
-                  {renderInsertSlot(`before-history:${step.question.id}`)}
                   <div
                     id={`question-${step.question.id}`}
                     data-insert-disabled="true"
-                    className="my-8 py-2 pl-6"
+                    className="py-1 pl-6"
                   >
                   <button
                     type="button"
                     onClick={() => onToggleHistory(step.question.id)}
                     className="group flex w-full items-center justify-between gap-4 text-left"
                   >
-                    <div className="space-y-1">
+                    <div className="space-y-1.5">
                       <p className="text-sm font-normal italic text-slate-500 transition-colors group-hover:text-cyan-600 dark:text-slate-200 dark:group-hover:text-cyan-400">
                         <ReadingLine shield={useLightShield}>
                           <span className="font-bold not-italic">Q:</span>{" "}
@@ -1319,7 +1421,7 @@ export function LearningPanel({
                   <div
                     className={cn(
                       "overflow-hidden transition-all duration-300 ease-out",
-                      isHistoryExpanded ? "mt-3 max-h-96 opacity-100" : "max-h-0 opacity-0",
+                      isHistoryExpanded ? "mt-1.5 max-h-96 opacity-100" : "max-h-0 opacity-0",
                     )}
                   >
                     <p className="text-sm text-slate-600 dark:text-slate-300">
@@ -1345,10 +1447,9 @@ export function LearningPanel({
               ) : null}
 
               <div
-                data-insert-target-id={`after-step:${step.id}`}
                 id={`block-${step.block.id}`}
                 className={cn(
-                  "-mx-4 px-4 py-2 transition-colors duration-300",
+                  "-mx-4 px-4 transition-colors duration-300",
                   highlightedBlockId === step.block.id &&
                     "block-focus-flash",
                 )}
@@ -1373,22 +1474,21 @@ export function LearningPanel({
 
               {isCurrent ? (
                 <>
-                  {renderInsertSlot(`before-current:${step.question.id}`)}
                   <div
                     id={`question-${step.question.id}`}
                     data-insert-disabled="true"
                     className={cn(
-                      "my-10 rounded-r-xl border-l-[2px] py-2 pl-6 transition-all",
+                      "rounded-r-xl border-l-[2px] py-0.5 pl-6 transition-all",
                       isDark
                         ? "border-cyan-400/45 bg-transparent"
                         : "border-cyan-500/30 bg-transparent",
                     )}
                   >
-                  <p className="mb-3 flex items-center gap-2 text-[10px] font-mono uppercase tracking-[0.2em] text-cyan-600 dark:text-cyan-400">
+                  <p className="mb-1 flex items-center gap-2 text-[10px] font-mono uppercase tracking-[0.2em] text-cyan-600 dark:text-cyan-400">
                     <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-cyan-500" />
                     <ReadingLine shield={useLightShield}>Current Question</ReadingLine>
                   </p>
-                  <p className="mb-6 text-lg font-light text-slate-900 dark:text-slate-100 dark:[text-shadow:0_0_10px_#0a0f1a,_0_0_20px_#0a0f1a]">
+                  <p className="mb-1 text-lg font-light text-slate-900 dark:text-slate-100 dark:[text-shadow:0_0_10px_#0a0f1a,_0_0_20px_#0a0f1a]">
                     <ReadingLine shield={useLightShield}>{step.question.prompt}</ReadingLine>
                   </p>
 
@@ -1405,19 +1505,19 @@ export function LearningPanel({
                       rows={1}
                       placeholder={step.question.inputPlaceholder ?? "Type your thought..."}
                       className={cn(
-                        "w-full min-h-[2.15rem] resize-none border-b bg-transparent pb-1 leading-7 transition-colors [field-sizing:content] placeholder:italic focus:outline-none",
+                        "w-full min-h-[1.85rem] resize-none border-b bg-transparent pb-0.5 leading-6 transition-colors [field-sizing:content] placeholder:italic focus:outline-none",
                         isDark
                           ? "border-cyan-700/45 text-slate-200 placeholder:text-slate-400 focus:border-cyan-400"
                           : "border-slate-300 text-slate-800 placeholder:text-slate-400 focus:border-cyan-500",
                       )}
                     />
 
-                    <div className="mt-2 text-sm text-rose-500/80 dark:text-rose-300/80">
+                    <div className="mt-1 text-sm text-rose-500/80 dark:text-rose-300/80">
                       {answerForm.formState.errors.answer?.message ?? ""}
                     </div>
 
                     {failedCurrentAttempt && currentAnswerState?.feedback ? (
-                      <div className="mt-4 space-y-3 text-sm text-slate-500 dark:text-slate-300">
+                      <div className="mt-1 space-y-1.5 text-sm text-slate-500 dark:text-slate-300">
                         <p>
                           <ReadingLine shield={useLightShield}>
                             This doesn't seem quite right. Want to try again or
@@ -1443,7 +1543,7 @@ export function LearningPanel({
                       </div>
                     ) : null}
 
-                    <div className="mt-6 flex items-center justify-end gap-6">
+                    <div className="mt-1 flex items-center justify-end gap-6">
                       <button
                         type="button"
                         onClick={onSkipCurrent}
@@ -1469,12 +1569,11 @@ export function LearningPanel({
 
         {showCustomComposer ? (
           <>
-            {renderInsertSlot("before-custom-question")}
             <div
               data-insert-disabled="true"
-              className="my-10 rounded-r-xl border-l-[2px] border-cyan-400/45 py-2 pl-6"
+              className="rounded-r-xl border-l-[2px] border-cyan-400/45 py-0.5 pl-6"
             >
-            <p className="mb-3 flex items-center gap-2 text-[10px] font-mono uppercase tracking-[0.2em] text-cyan-600 dark:text-cyan-400">
+            <p className="mb-1 flex items-center gap-2 text-[10px] font-mono uppercase tracking-[0.2em] text-cyan-600 dark:text-cyan-400">
               <span className="h-1.5 w-1.5 rounded-full bg-cyan-500" />
               <ReadingLine shield={useLightShield}>My own why</ReadingLine>
             </p>
@@ -1488,16 +1587,16 @@ export function LearningPanel({
                 rows={1}
                 placeholder="Or ask any follow-up you want to understand next..."
                 className={cn(
-                  "w-full min-h-[2.15rem] resize-none border-b bg-transparent pb-1 leading-7 transition-colors [field-sizing:content] placeholder:italic focus:outline-none",
+                  "w-full min-h-[1.85rem] resize-none border-b bg-transparent pb-0.5 leading-6 transition-colors [field-sizing:content] placeholder:italic focus:outline-none",
                   isDark
                     ? "border-cyan-700/45 text-slate-200 placeholder:text-slate-500 focus:border-cyan-400"
                     : "border-slate-300 text-slate-800 placeholder:text-slate-400 focus:border-cyan-500",
                 )}
               />
-              <div className="mt-2 text-sm text-rose-500/80 dark:text-rose-300/80">
+              <div className="mt-1 text-sm text-rose-500/80 dark:text-rose-300/80">
                 {customQuestionForm.formState.errors.question?.message ?? ""}
               </div>
-              <div className="mt-6 flex items-center justify-end">
+              <div className="mt-1 flex items-center justify-end">
                 <button
                   type="submit"
                   className="border border-cyan-600/50 px-5 py-2 text-xs uppercase tracking-widest text-cyan-700 transition-colors hover:bg-cyan-500 hover:text-white dark:border-cyan-400/45 dark:text-cyan-400 dark:hover:bg-cyan-400/12"
@@ -1513,10 +1612,9 @@ export function LearningPanel({
 
         {showCompletionCard ? (
           <>
-            {renderInsertSlot("before-completion-card")}
             <div
               data-insert-disabled="true"
-              className="my-10 rounded-2xl border border-slate-200/50 p-6 dark:border-cyan-800/30"
+              className="rounded-2xl border border-slate-200/50 p-6 dark:border-cyan-800/30"
             >
             <p className="mb-3 text-lg font-medium text-slate-900 dark:text-slate-100">
               Topic Mastered!
