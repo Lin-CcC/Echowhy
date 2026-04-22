@@ -6,6 +6,7 @@ import type {
 } from "react";
 import { cn } from "@/lib/utils";
 import type { LibraryCardModel } from "../types";
+import { buildLibraryMetaSummary } from "../presentation";
 import { LibraryCardMenu } from "./library-card-menu";
 
 type LibraryCardProps = {
@@ -28,10 +29,10 @@ function getStatusClasses(status: LibraryCardModel["status"]) {
     return {
       shell: "border-cyan-500/18 dark:border-cyan-300/16",
       progress: "bg-cyan-500/90 dark:bg-cyan-300/90",
-      title: "text-slate-950 dark:text-slate-50",
-      meta: "text-slate-500 dark:text-slate-400",
-      progressText: "text-cyan-700/90 dark:text-cyan-300/90",
-      ask: "text-cyan-700 hover:text-cyan-800 dark:text-cyan-300 dark:hover:text-cyan-200",
+      title: "text-slate-800/95 dark:text-slate-50",
+      meta: "text-slate-500/88 dark:text-slate-400/88",
+      progressText: "text-cyan-700/72 dark:text-cyan-300/74",
+      ask: "text-cyan-700/78 hover:text-cyan-800 dark:text-cyan-300/84 dark:hover:text-cyan-200",
     };
   }
 
@@ -39,20 +40,20 @@ function getStatusClasses(status: LibraryCardModel["status"]) {
     return {
       shell: "border-sky-500/14 dark:border-sky-300/14",
       progress: "bg-sky-500/86 dark:bg-sky-300/86",
-      title: "text-slate-950 dark:text-slate-50",
-      meta: "text-slate-500 dark:text-slate-400",
-      progressText: "text-sky-700/88 dark:text-sky-300/88",
-      ask: "text-sky-700 hover:text-sky-800 dark:text-sky-300 dark:hover:text-sky-200",
+      title: "text-slate-800/95 dark:text-slate-50",
+      meta: "text-slate-500/88 dark:text-slate-400/88",
+      progressText: "text-sky-700/72 dark:text-sky-300/74",
+      ask: "text-sky-700/78 hover:text-sky-800 dark:text-sky-300/84 dark:hover:text-sky-200",
     };
   }
 
   return {
     shell: "border-slate-200/65 dark:border-white/[0.08]",
     progress: "bg-slate-300 dark:bg-slate-600",
-    title: "text-slate-900 dark:text-slate-100",
-    meta: "text-slate-500 dark:text-slate-500",
-    progressText: "text-slate-500 dark:text-slate-400",
-    ask: "text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200",
+    title: "text-slate-800/92 dark:text-slate-100",
+    meta: "text-slate-500/84 dark:text-slate-500",
+    progressText: "text-slate-500/72 dark:text-slate-400/78",
+    ask: "text-slate-500/82 hover:text-slate-700 dark:text-slate-400/82 dark:hover:text-slate-200",
   };
 }
 
@@ -71,6 +72,10 @@ export function LibraryCard({
   onCancelEditing,
 }: LibraryCardProps) {
   const statusClasses = getStatusClasses(card.status);
+  const metaSummary = buildLibraryMetaSummary({
+    sourceBadges: card.sourceBadges,
+    sourceFiles: card.sourceFiles,
+  });
 
   function handleContainerClick() {
     if (isEditing) {
@@ -96,6 +101,11 @@ export function LibraryCard({
     onAskNew();
   }
 
+  function handleOpenClick(event: MouseEvent<HTMLButtonElement>) {
+    event.stopPropagation();
+    onOpen();
+  }
+
   function handleMenuToggle(event: MouseEvent<HTMLButtonElement>) {
     event.stopPropagation();
     onToggleMenu();
@@ -116,8 +126,8 @@ export function LibraryCard({
       onClick={handleContainerClick}
       onKeyDown={handleContainerKeyDown}
       className={cn(
-        "group relative overflow-hidden border-t bg-transparent px-0 pb-4 pt-5 text-left transition-colors duration-300 ease-out outline-none",
-        "hover:border-slate-300/85 hover:bg-transparent",
+        "group relative overflow-hidden border-t bg-transparent px-0 pb-2.5 pt-3.5 text-left transition-colors duration-300 ease-out outline-none",
+        "hover:border-slate-300/85 hover:bg-[linear-gradient(90deg,rgba(241,245,249,0.22),rgba(241,245,249,0))]",
         "dark:hover:border-white/[0.14] dark:hover:bg-transparent",
         "focus-visible:border-cyan-500/40 dark:focus-visible:border-cyan-300/34",
         statusClasses.shell,
@@ -143,38 +153,40 @@ export function LibraryCard({
                   onCancelEditing();
                 }
               }}
-              className="w-full border-0 border-b border-cyan-500/35 bg-transparent px-0 py-1 text-[22px] font-light tracking-tight text-slate-900 outline-none transition-colors focus:border-cyan-500/65 dark:border-cyan-400/26 dark:text-slate-100 dark:focus:border-cyan-400/45"
+              className="w-full border-0 border-b border-cyan-500/35 bg-transparent px-0 py-1 text-[18px] font-normal tracking-[-0.01em] text-slate-800 outline-none transition-colors focus:border-cyan-500/65 dark:border-cyan-400/26 dark:text-slate-100 dark:focus:border-cyan-400/45"
             />
           ) : (
             <div className="flex items-center gap-2">
               <h3
                 className={cn(
-                  "truncate text-[22px] font-light leading-[1.25] tracking-tight",
+                  "truncate text-[17px] font-normal leading-[1.24] tracking-[-0.01em] sm:text-[18px]",
                   statusClasses.title,
                 )}
               >
                 {card.title}
               </h3>
               {card.status === "completed" ? (
-                <span className="shrink-0 text-sm text-cyan-600/90 dark:text-cyan-300/90">
-                  ✓
+                <span className="shrink-0 text-[10px] tracking-[0.04em] text-cyan-600/76 dark:text-cyan-300/82">
+                  Done
                 </span>
               ) : null}
             </div>
           )}
 
-          <div className={cn("mt-3 text-[12px] leading-6", statusClasses.meta)}>
-            <span>{card.sourceBadges.join(" / ")}</span>
-            {card.sourceFiles.length > card.sourceBadges.length ? (
-              <span> +{card.sourceFiles.length - card.sourceBadges.length}</span>
-            ) : null}
+          <div
+            className={cn(
+              "mt-1.5 truncate text-[11px] leading-[1.8] tracking-[0.005em] sm:text-[12px]",
+              statusClasses.meta,
+            )}
+          >
+            <span>{metaSummary}</span>
           </div>
         </div>
 
-        <div className="relative flex shrink-0 flex-col items-end gap-2">
+        <div className="relative flex w-[6.2rem] shrink-0 flex-col items-end gap-2 pt-0.5 text-right">
           <div
             className={cn(
-              "text-[12px] font-normal tracking-[0.08em]",
+              "text-[10px] font-normal tracking-[0.04em]",
               statusClasses.progressText,
             )}
           >
@@ -184,7 +196,7 @@ export function LibraryCard({
             type="button"
             onPointerDown={(event) => event.stopPropagation()}
             onClick={handleMenuToggle}
-            className="px-0 py-0 text-[11px] uppercase tracking-[0.18em] text-slate-400 transition-colors hover:text-slate-700 dark:text-slate-500 dark:hover:text-slate-200"
+            className="px-0 py-0 text-[10px] tracking-[0.08em] text-slate-400/92 transition-colors hover:text-slate-700 dark:text-slate-500 dark:hover:text-slate-200"
           >
             More
           </button>
@@ -196,28 +208,48 @@ export function LibraryCard({
         </div>
       </div>
 
-      <div className="mt-4 flex items-end justify-between gap-4">
-        <div>
-          <p className={cn("text-[12px] leading-6", statusClasses.meta)}>
+      <div className="mt-2.5 flex items-end justify-between gap-4">
+        <div className="min-w-0">
+          <p
+            className={cn(
+              "text-[10px] leading-5 tracking-[0.01em] text-slate-400/82 dark:text-slate-500",
+            )}
+          >
             {card.relativeUpdatedAt}
           </p>
+          <div className="mt-1.5 flex items-center gap-3.5">
+            <button
+              type="button"
+              onClick={handleAskNewClick}
+              className={cn(
+                "px-0 py-0 text-[11px] tracking-[0.08em] transition-colors",
+                statusClasses.ask,
+              )}
+            >
+              Ask new
+            </button>
+            <span
+              className="h-3 w-px bg-slate-200/72 dark:bg-white/[0.08]"
+              aria-hidden="true"
+            />
+            <button
+              type="button"
+              onClick={handleOpenClick}
+              className="px-0 py-0 text-[11px] tracking-[0.08em] text-slate-400/90 transition-colors hover:text-slate-700 dark:text-slate-500 dark:hover:text-slate-200"
+            >
+              Open
+            </button>
+          </div>
         </div>
-
-        <button
-          type="button"
-          onClick={handleAskNewClick}
-          className={cn(
-            "px-0 py-0 text-[11px] uppercase tracking-[0.18em] transition-colors",
-            statusClasses.ask,
-          )}
-        >
-          Ask New
-        </button>
       </div>
 
       <div className="absolute inset-x-0 bottom-0 h-px overflow-hidden bg-transparent">
+        <div className="absolute inset-0 bg-slate-200/70 dark:bg-white/[0.06]" />
         <div
-          className={cn("h-full transition-[width] duration-300", statusClasses.progress)}
+          className={cn(
+            "absolute left-0 top-0 h-full transition-[width,opacity] duration-300 opacity-28 group-hover:opacity-90 group-focus-visible:opacity-90",
+            statusClasses.progress,
+          )}
           style={{ width: `${card.progress.percent}%` }}
         />
       </div>

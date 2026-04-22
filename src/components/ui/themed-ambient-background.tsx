@@ -38,6 +38,7 @@ type ThemedAmbientBackgroundProps = {
   showLightDynamicAnnotations?: boolean;
   showLightDynamicCenterMask?: boolean;
   quiet?: boolean;
+  minimal?: boolean;
 };
 
 export function ThemedAmbientBackground({
@@ -45,6 +46,7 @@ export function ThemedAmbientBackground({
   showLightDynamicAnnotations = false,
   showLightDynamicCenterMask = false,
   quiet = false,
+  minimal = false,
 }: ThemedAmbientBackgroundProps) {
   const { theme, mode } = useThemeMode();
   const prefersReducedMotion = useReducedMotion();
@@ -130,75 +132,90 @@ export function ThemedAmbientBackground({
             className="absolute left-1/2 top-1/2 h-[400px] w-[800px] -translate-x-1/2 -translate-y-1/2"
             style={{
               background:
-                quiet
-                  ? "radial-gradient(ellipse at center, rgba(255,255,255,0.1) 0%, rgba(255,255,255,0) 70%)"
-                  : "radial-gradient(ellipse at center, rgba(255,255,255,0.16) 0%, rgba(255,255,255,0) 70%)",
+                minimal
+                  ? "radial-gradient(ellipse at center, rgba(255,255,255,0.045) 0%, rgba(255,255,255,0) 68%)"
+                  : quiet
+                    ? "radial-gradient(ellipse at center, rgba(226,232,240,0.075) 0%, rgba(226,232,240,0) 70%)"
+                    : "radial-gradient(ellipse at center, rgba(255,255,255,0.16) 0%, rgba(255,255,255,0) 70%)",
             }}
           />
 
           <div
             className={cn(
               "absolute right-[12rem] top-[3rem] h-64 w-64 rounded-full blur-[110px]",
-              quiet ? "bg-cyan-400/4" : "bg-cyan-400/6",
+              minimal ? "bg-cyan-400/2" : quiet ? "bg-cyan-400/4" : "bg-cyan-400/6",
             )}
           />
 
-          <motion.svg
-            viewBox="0 0 1440 900"
-            className="absolute left-0 top-0 h-full w-full overflow-visible"
-            fill="none"
-            animate={
-              prefersReducedMotion
-                ? {}
-                : { opacity: quiet ? [0.1, 0.16, 0.1] : [0.22, 0.34, 0.22] }
-            }
-            transition={{ duration: 24, repeat: Infinity, ease: "easeInOut" }}
-          >
-            <defs>
-              <linearGradient
-                id="main-axis-gradient"
-                x1="120"
-                y1="760"
-                x2="1320"
-                y2="150"
-                gradientUnits="userSpaceOnUse"
-              >
-                <stop offset="0%" stopColor="rgba(100,116,139,0)" />
-                <stop offset="18%" stopColor="rgba(100,116,139,0.12)" />
-                <stop offset="50%" stopColor="rgba(100,116,139,0.22)" />
-                <stop offset="82%" stopColor="rgba(100,116,139,0.12)" />
-                <stop offset="100%" stopColor="rgba(100,116,139,0)" />
-              </linearGradient>
-            </defs>
-            <motion.path
-              d="M 60 760 C 360 640, 640 470, 900 330 S 1230 180, 1380 120"
-              stroke="url(#main-axis-gradient)"
-              strokeWidth="0.5"
-              strokeLinecap="round"
-              strokeDasharray="1 5"
-              animate={prefersReducedMotion ? {} : { strokeDashoffset: [0, -180] }}
-              transition={{ duration: 112, repeat: Infinity, ease: "linear" }}
-            />
-          </motion.svg>
+          {!minimal ? (
+            <motion.svg
+              viewBox="0 0 1440 900"
+              className="absolute left-0 top-0 h-full w-full overflow-visible"
+              fill="none"
+              animate={
+                prefersReducedMotion
+                  ? {}
+                  : { opacity: quiet ? [0.1, 0.16, 0.1] : [0.22, 0.34, 0.22] }
+              }
+              transition={{ duration: 24, repeat: Infinity, ease: "easeInOut" }}
+            >
+              <defs>
+                <linearGradient
+                  id="main-axis-gradient"
+                  x1="120"
+                  y1="760"
+                  x2="1320"
+                  y2="150"
+                  gradientUnits="userSpaceOnUse"
+                >
+                  <stop offset="0%" stopColor="rgba(100,116,139,0)" />
+                  <stop offset="18%" stopColor="rgba(100,116,139,0.12)" />
+                  <stop offset="50%" stopColor="rgba(100,116,139,0.22)" />
+                  <stop offset="82%" stopColor="rgba(100,116,139,0.12)" />
+                  <stop offset="100%" stopColor="rgba(100,116,139,0)" />
+                </linearGradient>
+              </defs>
+              <motion.path
+                d="M 60 760 C 360 640, 640 470, 900 330 S 1230 180, 1380 120"
+                stroke="url(#main-axis-gradient)"
+                strokeWidth="0.5"
+                strokeLinecap="round"
+                strokeDasharray="1 5"
+                animate={prefersReducedMotion ? {} : { strokeDashoffset: [0, -180] }}
+                transition={{ duration: 112, repeat: Infinity, ease: "linear" }}
+              />
+            </motion.svg>
+          ) : null}
 
           <motion.div
             className="absolute inset-0"
             style={{
               background:
-                "radial-gradient(78% 74% at 16% 22%, rgba(191,219,254,0.22) 0%, rgba(191,219,254,0.06) 26%, rgba(248,250,252,0) 58%), radial-gradient(84% 76% at 84% 18%, rgba(125,211,252,0.18) 0%, rgba(125,211,252,0.05) 24%, rgba(248,250,252,0) 56%), radial-gradient(70% 66% at 76% 74%, rgba(199,210,254,0.12) 0%, rgba(199,210,254,0.04) 24%, rgba(248,250,252,0) 54%)",
+                minimal
+                  ? "radial-gradient(78% 74% at 16% 22%, rgba(191,219,254,0.08) 0%, rgba(191,219,254,0.02) 26%, rgba(248,250,252,0) 58%), radial-gradient(84% 76% at 84% 18%, rgba(125,211,252,0.06) 0%, rgba(125,211,252,0.015) 24%, rgba(248,250,252,0) 56%)"
+                  : quiet
+                    ? "radial-gradient(78% 74% at 16% 22%, rgba(191,219,254,0.14) 0%, rgba(191,219,254,0.035) 26%, rgba(248,250,252,0) 58%), radial-gradient(84% 76% at 84% 18%, rgba(125,211,252,0.12) 0%, rgba(125,211,252,0.03) 24%, rgba(248,250,252,0) 56%), radial-gradient(70% 66% at 76% 74%, rgba(199,210,254,0.08) 0%, rgba(199,210,254,0.025) 24%, rgba(248,250,252,0) 54%)"
+                    : "radial-gradient(78% 74% at 16% 22%, rgba(191,219,254,0.22) 0%, rgba(191,219,254,0.06) 26%, rgba(248,250,252,0) 58%), radial-gradient(84% 76% at 84% 18%, rgba(125,211,252,0.18) 0%, rgba(125,211,252,0.05) 24%, rgba(248,250,252,0) 56%), radial-gradient(70% 66% at 76% 74%, rgba(199,210,254,0.12) 0%, rgba(199,210,254,0.04) 24%, rgba(248,250,252,0) 54%)",
             }}
-            animate={{ opacity: quiet ? [0.66, 0.74, 0.68] : [0.92, 1, 0.94] }}
+            animate={{
+              opacity: minimal
+                ? [0.38, 0.46, 0.4]
+                : quiet
+                  ? [0.56, 0.64, 0.58]
+                  : [0.92, 1, 0.94],
+            }}
             transition={{ duration: 24, repeat: Infinity, ease: "easeInOut" }}
           />
 
-          <div
-            className={cn(
-              "absolute inset-0",
-              showLightDynamicCenterMask
-                ? "mask-[radial-gradient(circle_at_50%_53%,transparent_0_150px,black_230px_100%)] [mask-image:radial-gradient(circle_at_50%_53%,transparent_0_150px,black_230px_100%)] [-webkit-mask-image:radial-gradient(circle_at_50%_53%,transparent_0_150px,black_230px_100%)]"
-                : "",
-            )}
-          >
+          {!minimal ? (
+            <div
+              className={cn(
+                "absolute inset-0",
+                showLightDynamicCenterMask
+                  ? "mask-[radial-gradient(circle_at_50%_53%,transparent_0_150px,black_230px_100%)] [mask-image:radial-gradient(circle_at_50%_53%,transparent_0_150px,black_230px_100%)] [-webkit-mask-image:radial-gradient(circle_at_50%_53%,transparent_0_150px,black_230px_100%)]"
+                  : "",
+              )}
+            >
             <motion.div
               className="absolute inset-0"
               style={{ transformOrigin: "18% 22%" }}
@@ -330,7 +347,8 @@ export function ThemedAmbientBackground({
                   </div>
                 ))
               : null}
-          </div>
+            </div>
+          ) : null}
         </div>
       ) : null}
     </div>

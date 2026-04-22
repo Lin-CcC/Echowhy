@@ -175,19 +175,18 @@ export function LearningLibraryPage() {
     : null;
 
   return (
-    <section className="fixed inset-x-0 bottom-0 top-20 overflow-y-auto px-6 pb-24 pt-12 text-slate-800 dark:text-slate-100 sm:px-10 sm:pt-14">
-      <div className="mx-auto w-full max-w-4xl">
-        <p className="text-[10px] uppercase tracking-[0.32em] text-slate-500 dark:text-slate-400">
+    <section className="fixed inset-x-0 bottom-0 top-14 overflow-y-auto px-6 pb-20 pt-7 text-slate-800 dark:text-slate-100 sm:px-9 sm:pt-8">
+      <div className="mx-auto w-full max-w-[56rem]">
+        <p className="text-[10px] uppercase tracking-[0.3em] text-slate-500 dark:text-slate-400">
           Learning Library
         </p>
-        <div className="mt-5 max-w-2xl">
-          <h2 className="text-[40px] font-light leading-[1.08] tracking-tight text-slate-900 dark:text-white/90">
+        <div className="mt-3 max-w-[31rem]">
+          <h2 className="text-[29px] font-light leading-[1.08] tracking-[-0.03em] text-slate-900 dark:text-white/90 sm:text-[31px]">
             Your source-born learning modules
           </h2>
-          <p className="mt-4 max-w-xl text-sm leading-8 text-slate-500 dark:text-slate-400">
+          <p className="mt-2 max-w-[25rem] text-[13px] leading-7 text-slate-500 dark:text-slate-400">
             Reopen a thread, continue from the same source, or ask a sharper why
-            from the same foundation. The page should feel closer to an index of
-            living questions than a wall of components.
+            from the same foundation.
           </p>
         </div>
 
@@ -199,7 +198,7 @@ export function LearningLibraryPage() {
         />
 
         {visibleCards.length ? (
-          <div className="mt-5 grid gap-0">
+          <div className="mt-3 grid gap-0">
             {visibleCards.map((card) => {
               const module = visibleModulesById.get(card.id);
 

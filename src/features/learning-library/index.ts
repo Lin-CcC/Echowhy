@@ -9,6 +9,11 @@ export {
   getCompletedChildIds,
   isAngleProgressCompleted,
 } from "./utils";
+export {
+  buildLibraryMetaSummary,
+  getLibrarySortLabel,
+  librarySortOptions,
+} from "./presentation";
 export type {
   BuildLibraryCardModelOptions,
   FilterAndSortLibraryCardsOptions,
