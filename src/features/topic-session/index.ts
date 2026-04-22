@@ -5,6 +5,7 @@ export type {
   TopicAnswerState,
   TopicAngle,
   TopicAngleProgressState,
+  TopicBehaviorSignalCounts,
   TopicDiscussionStep,
   TopicDiscussionPlan,
   TopicEdge,
@@ -14,6 +15,7 @@ export type {
   TopicFeedbackTemplate,
   TopicGuidedEntry,
   TopicNode,
+  TopicQuestionReviewState,
   TopicNodeVisualState,
   TopicProjectTreeItem,
   TopicSession,
@@ -26,6 +28,27 @@ export {
   savePersistedTopicSessionState,
   type PersistedTopicSessionState,
 } from "./storage";
+
+export {
+  createGeneratedTopicSession,
+  resolveTopicSession,
+} from "./topic-resolver";
+
+export {
+  createEmptyBehaviorSignalCounts,
+  createInitialAngleProgress,
+  createTopicModuleRecord,
+  filterValidReferenceIds,
+  mergePersistedAngleProgress,
+  normalizePinnedSourcesByAngle,
+} from "./topic-state";
+
+export {
+  buildDiscussionSteps,
+  evaluateTopicAnswer,
+  getAttemptRecordStatus,
+  getFirstIncompleteAngleId,
+} from "./session-helpers";
 
 export {
   appendLearningModuleChild,

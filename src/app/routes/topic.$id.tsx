@@ -9,6 +9,7 @@ export const topicRoute = createRoute({
   validateSearch: z.object({
     angle: z.string().optional(),
     customQuestion: z.string().optional(),
+    question: z.string().optional(),
     sourceId: z.string().optional(),
     sourceLabel: z.string().optional(),
   }),

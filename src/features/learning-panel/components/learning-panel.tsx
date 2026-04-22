@@ -9,6 +9,7 @@ import {
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
+import { Bookmark, Flag, TimerReset } from "lucide-react";
 import { useThemeMode } from "@/app/theme/theme-provider";
 import { cn } from "@/lib/utils";
 import type {
@@ -16,6 +17,7 @@ import type {
   TopicAnswerState,
   TopicDiscussionStep,
   TopicFeedbackLevel,
+  TopicQuestionReviewState,
 } from "@/features/topic-session";
 
 const answerSchema = z.object({
@@ -71,6 +73,7 @@ type LearningPanelProps = {
   currentStepIndex: number;
   visibleStepCount: number;
   answerStateByQuestionId: Record<string, TopicAnswerState | undefined>;
+  questionReviewStateById: Record<string, TopicQuestionReviewState | undefined>;
   activeReferenceIds: string[];
   highlightedBlockId: string | null;
   prefilledAnswer?: string;
@@ -93,6 +96,9 @@ type LearningPanelProps = {
   }) => void;
   onCheckCurrent: (answer: string) => void;
   onSkipCurrent: () => void;
+  onToggleQuestionPending: (questionId: string) => void;
+  onToggleQuestionBookmark: (questionId: string) => void;
+  onToggleQuestionWeak: (questionId: string) => void;
   onTryAgain: () => void;
   onRevealAnswer: () => void;
   onPreviewReference: (referenceId: string) => void;
@@ -300,6 +306,73 @@ function InlineFeedback({
   );
 }
 
+function QuestionReviewActions({
+  questionId,
+  reviewState,
+  isDark,
+  onTogglePending,
+  onToggleBookmark,
+  onToggleWeak,
+}: {
+  questionId: string;
+  reviewState: TopicQuestionReviewState | undefined;
+  isDark: boolean;
+  onTogglePending: (questionId: string) => void;
+  onToggleBookmark: (questionId: string) => void;
+  onToggleWeak: (questionId: string) => void;
+}) {
+  const actions = [
+    {
+      key: "pending",
+      label: "Pending",
+      active: reviewState?.pending === true,
+      onClick: onTogglePending,
+      icon: TimerReset,
+    },
+    {
+      key: "bookmark",
+      label: "Favorite",
+      active: reviewState?.bookmarked === true,
+      onClick: onToggleBookmark,
+      icon: Bookmark,
+    },
+    {
+      key: "weak",
+      label: "Needs work",
+      active: reviewState?.selfMarkedWeak === true,
+      onClick: onToggleWeak,
+      icon: Flag,
+    },
+  ] as const;
+
+  return (
+    <div className="mt-3 flex flex-wrap items-center gap-x-5 gap-y-2">
+      {actions.map((action) => {
+        const Icon = action.icon;
+
+        return (
+          <button
+            key={action.key}
+            type="button"
+            onClick={() => action.onClick(questionId)}
+            className={cn(
+              "inline-flex items-center gap-2 text-[10px] uppercase tracking-[0.24em] transition-colors",
+              action.active
+                ? "text-cyan-700 dark:text-cyan-400"
+                : isDark
+                  ? "text-slate-400 hover:text-slate-200"
+                  : "text-slate-400 hover:text-slate-700",
+            )}
+          >
+            <Icon size={12} />
+            <span>{action.label}</span>
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
 export function LearningPanel({
   title,
   rootQuestion,
@@ -307,6 +380,7 @@ export function LearningPanel({
   currentStepIndex,
   visibleStepCount,
   answerStateByQuestionId,
+  questionReviewStateById,
   activeReferenceIds,
   highlightedBlockId,
   prefilledAnswer,
@@ -326,6 +400,9 @@ export function LearningPanel({
   onWorkbenchCardInserted,
   onCheckCurrent,
   onSkipCurrent,
+  onToggleQuestionPending,
+  onToggleQuestionBookmark,
+  onToggleQuestionWeak,
   onTryAgain,
   onRevealAnswer,
   onPreviewReference,
@@ -1380,6 +1457,7 @@ export function LearningPanel({
       <div className="mt-10 flex flex-col gap-[18px] text-[15px] font-normal leading-relaxed text-slate-700 dark:text-slate-300 dark:[text-shadow:0_0_8px_#0a0f1a,_0_0_16px_#0a0f1a]">
         {visibleSteps.map((step, index) => {
           const answerState = answerStateByQuestionId[step.question.id];
+          const reviewState = questionReviewStateById[step.question.id];
           const isHistoryExpanded = !answerState?.isCollapsed;
           const isCurrent = index === currentStepIndex && !showCompletionCard;
           const showHistoryCard = Boolean(answerState && answerState.status !== "failed");
@@ -1440,6 +1518,14 @@ export function LearningPanel({
                         useLightShield={useLightShield}
                       />
                     ) : null}
+                    <QuestionReviewActions
+                      questionId={step.question.id}
+                      reviewState={reviewState}
+                      isDark={isDark}
+                      onTogglePending={onToggleQuestionPending}
+                      onToggleBookmark={onToggleQuestionBookmark}
+                      onToggleWeak={onToggleQuestionWeak}
+                    />
                   </div>
                   </div>
                   {renderInsertSlot(`after-history:${step.question.id}`)}
@@ -1558,6 +1644,14 @@ export function LearningPanel({
                         [ Check ]
                       </button>
                     </div>
+                    <QuestionReviewActions
+                      questionId={step.question.id}
+                      reviewState={reviewState}
+                      isDark={isDark}
+                      onTogglePending={onToggleQuestionPending}
+                      onToggleBookmark={onToggleQuestionBookmark}
+                      onToggleWeak={onToggleQuestionWeak}
+                    />
                   </form>
                   </div>
                   {renderInsertSlot(`after-current:${step.question.id}`)}

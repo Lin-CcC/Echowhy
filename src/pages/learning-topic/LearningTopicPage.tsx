@@ -2,36 +2,43 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams, useSearch } from "@tanstack/react-router";
 import { ConstellationView } from "@/features/constellation-view";
 import { LearningPanel } from "@/features/learning-panel";
+import {
+  QuestionLocatorGutter,
+  TopicScanControls,
+  type QuestionLocatorFilter,
+} from "@/features/question-locator";
 import { SourceReferencePanel } from "@/features/source-reference";
 import type {
   InsertedQuestionRecord,
   TopicAnswerState,
   TopicAngleProgressState,
+  TopicBehaviorSignalCounts,
   TopicFeedbackPreview,
   TopicNode,
   TopicNodeVisualState,
-  TopicSession,
+  TopicQuestionReviewState,
 } from "@/features/topic-session";
 import {
   buildDiscussionSteps,
   evaluateTopicAnswer,
   getFirstIncompleteAngleId,
   getAttemptRecordStatus,
-} from "@/features/topic-session/session-helpers";
-import {
+  createEmptyBehaviorSignalCounts,
+  createInitialAngleProgress,
+  filterValidReferenceIds,
   loadPersistedTopicSessionState,
+  mergePersistedAngleProgress,
+  normalizePinnedSourcesByAngle,
+  resolveTopicSession,
   savePersistedTopicSessionState,
 } from "@/features/topic-session";
 import {
   getLearningModuleById,
   upsertLearningModule,
 } from "@/features/topic-session/module-storage";
-import {
-  constellationTopic,
-  getConstellationTopicById,
-  getSourceImportById,
-} from "@/mock/data/constellation-topic";
+import { getConstellationTopicById } from "@/mock/data/constellation-topic";
 import { cn } from "@/lib/utils";
+import { buildTopicReviewBridge } from "./topic-review-bridge";
 
 type FeedbackCardState = {
   id: string;
@@ -42,188 +49,12 @@ type FeedbackCardState = {
   revealedAnswerUsed: boolean;
 };
 
-function createGeneratedTopicSession({
-  topicId,
-  seedQuestion,
-  sourceId,
-  sourceLabel,
-}: {
-  topicId: string;
-  seedQuestion?: string;
-  sourceId?: string;
-  sourceLabel?: string;
-}): TopicSession {
-  const sourceImport = sourceId ? getSourceImportById(sourceId) : undefined;
-  const sourceName =
-    sourceImport?.projectName ??
-    sourceLabel?.trim() ??
-    (sourceId ? "Imported source" : "Conceptual source");
-  const moduleTitle = seedQuestion || sourceName;
-  const moduleRootQuestion =
-    seedQuestion || `What is worth understanding first in ${sourceName}?`;
-
-  return {
-    ...constellationTopic,
-    id: topicId,
-    title: moduleTitle,
-    rootQuestion: moduleRootQuestion,
-    goal: seedQuestion
-      ? `Build a grounded learning path around "${seedQuestion}".`
-      : `Build a grounded learning path from ${sourceName}.`,
-    overview: seedQuestion
-      ? `This generated module starts from the learner's question, then asks Echowhy to organize useful angles from the available source material.`
-      : `This generated module starts from the selected source material and lets Echowhy propose useful learning angles before the learner adds their own why.`,
-    learningAngles: constellationTopic.learningAngles.map((angle) => {
-      if (angle.isCustom) {
-        return { ...angle };
-      }
-
-      if (angle.id === "angle-request-flow") {
-        return {
-          ...angle,
-          rootQuestion: seedQuestion
-            ? `What source flow is most useful for answering: ${seedQuestion}`
-            : `What is the first useful flow to understand in ${sourceName}?`,
-        };
-      }
-
-      if (angle.id === "angle-responsibility") {
-        return {
-          ...angle,
-          rootQuestion: seedQuestion
-            ? `Which responsibility boundary matters most for: ${seedQuestion}`
-            : `Which responsibility boundary in ${sourceName} is easiest to misunderstand?`,
-        };
-      }
-
-      if (angle.id === "angle-jwt-timing") {
-        return {
-          ...angle,
-          rootQuestion: seedQuestion
-            ? `What timing or sequence detail changes the answer to: ${seedQuestion}`
-            : `What sequence or timing detail should be learned from ${sourceName}?`,
-        };
-      }
-
-      return { ...angle };
-    }),
-    sourceImport: {
-      ...(sourceImport ?? constellationTopic.sourceImport),
-      id: sourceId ?? "source-conceptual-search",
-      projectName: sourceName,
-    },
-  };
-}
-
-function createInitialAngleProgress(topic: TopicSession) {
-  return topic.learningAngles.reduce<Record<string, TopicAngleProgressState>>(
-    (accumulator, angle) => {
-      accumulator[angle.id] = {
-        unlockedStepCount: angle.isCustom ? 0 : 1,
-        answerStateByQuestionId: {},
-        attemptRecordsByQuestionId: {},
-        customQuestion: "",
-      };
-      return accumulator;
-    },
-    {},
-  );
-}
-
-function mergePersistedAngleProgress(
-  topic: TopicSession,
-  persistedState?: Record<string, TopicAngleProgressState | undefined>,
-) {
-  const initialState = createInitialAngleProgress(topic);
-
-  return topic.learningAngles.reduce<Record<string, TopicAngleProgressState>>(
-    (accumulator, angle) => {
-      const fallbackState = initialState[angle.id];
-      const persistedAngleState = persistedState?.[angle.id];
-
-      accumulator[angle.id] = {
-        ...fallbackState,
-        unlockedStepCount:
-          typeof persistedAngleState?.unlockedStepCount === "number"
-            ? Math.max(
-                fallbackState.unlockedStepCount,
-                persistedAngleState.unlockedStepCount,
-              )
-            : fallbackState.unlockedStepCount,
-        answerStateByQuestionId:
-          persistedAngleState?.answerStateByQuestionId ?? {},
-        attemptRecordsByQuestionId:
-          persistedAngleState?.attemptRecordsByQuestionId ?? {},
-        customQuestion:
-          typeof persistedAngleState?.customQuestion === "string"
-            ? persistedAngleState.customQuestion
-            : fallbackState.customQuestion,
-      };
-
-      return accumulator;
-    },
-    {},
-  );
-}
-
-function filterValidReferenceIds(
-  topic: TopicSession,
-  referenceIds: string[] = [],
-) {
-  const validReferenceIds = new Set(
-    topic.sourceReferences.map((reference) => reference.id),
-  );
-
-  return referenceIds.filter(
-    (referenceId, index, sourceIds) =>
-      validReferenceIds.has(referenceId) &&
-      sourceIds.indexOf(referenceId) === index,
-  );
-}
-
-function normalizePinnedSourcesByAngle(
-  topic: TopicSession,
-  pinnedSourcesByAngleId: Record<string, string[]> | undefined,
-  legacyPinnedSources: string[] | undefined,
-  fallbackAngleId: string,
-) {
-  const nextPinnedSourcesByAngleId: Record<string, string[]> = {};
-
-  for (const angle of topic.learningAngles) {
-    const rawPinnedSources = pinnedSourcesByAngleId?.[angle.id];
-    const pinnedSources = filterValidReferenceIds(
-      topic,
-      Array.isArray(rawPinnedSources) ? rawPinnedSources : [],
-    );
-
-    if (pinnedSources.length) {
-      nextPinnedSourcesByAngleId[angle.id] = pinnedSources;
-    }
-  }
-
-  const hasPinnedSourcesByAngle =
-    Object.keys(nextPinnedSourcesByAngleId).length > 0;
-
-  if (!hasPinnedSourcesByAngle) {
-    const legacySources = filterValidReferenceIds(
-      topic,
-      Array.isArray(legacyPinnedSources) ? legacyPinnedSources : [],
-    );
-
-    if (legacySources.length) {
-      nextPinnedSourcesByAngleId[fallbackAngleId] = legacySources;
-    }
-  }
-
-  return nextPinnedSourcesByAngleId;
-}
-
 export function LearningTopicPage() {
   const { id } = useParams({ from: "/topic/$id" });
   const search = useSearch({ from: "/topic/$id" });
   const navigate = useNavigate();
   const knownTopic = getConstellationTopicById(id);
-  const storedModule = knownTopic ? null : getLearningModuleById(id);
+  const storedModule = getLearningModuleById(id);
   const generatedQuestionTitle =
     search.customQuestion?.trim() || storedModule?.seedQuestion;
   const generatedSourceId = search.sourceId ?? storedModule?.sourceId;
@@ -231,14 +62,13 @@ export function LearningTopicPage() {
     search.sourceLabel ?? storedModule?.sourceLabel ?? storedModule?.title;
   const topic = useMemo(
     () =>
-      knownTopic ??
-      createGeneratedTopicSession({
+      resolveTopicSession({
         topicId: id,
         seedQuestion: generatedQuestionTitle,
         sourceId: generatedSourceId,
         sourceLabel: generatedSourceLabel,
       }),
-    [generatedQuestionTitle, generatedSourceId, generatedSourceLabel, id, knownTopic],
+    [generatedQuestionTitle, generatedSourceId, generatedSourceLabel, id],
   );
   const defaultAngleId =
     topic.learningAngles.find((angle) => !angle.isCustom)?.id ??
@@ -277,6 +107,14 @@ export function LearningTopicPage() {
   const [insertedQuestionsByAngleId, setInsertedQuestionsByAngleId] = useState<
     Record<string, InsertedQuestionRecord[]>
   >({});
+  const [questionReviewStateById, setQuestionReviewStateById] = useState<
+    Record<string, TopicQuestionReviewState | undefined>
+  >({});
+  const [behaviorSignalCounts, setBehaviorSignalCounts] = useState<
+    TopicBehaviorSignalCounts
+  >(createEmptyBehaviorSignalCounts());
+  const [activeScanFilter, setActiveScanFilter] =
+    useState<QuestionLocatorFilter | null>(null);
   const highlightTimeoutRef = useRef<number | null>(null);
 
   useEffect(() => {
@@ -361,9 +199,15 @@ export function LearningTopicPage() {
     setInsertedQuestionsByAngleId(
       persistedState?.insertedQuestionsByAngleId ?? {},
     );
+    setQuestionReviewStateById(
+      persistedState?.questionReviewStateById ?? {},
+    );
+    setBehaviorSignalCounts(
+      persistedState?.behaviorSignalCounts ?? createEmptyBehaviorSignalCounts(),
+    );
     setHighlightedBlockId(null);
     setRestoredTopicId(topic.id);
-  }, [defaultAngleId, search.angle, search.customQuestion, topic]);
+  }, [defaultAngleId, knownTopic, search.angle, search.customQuestion, topic]);
 
   useEffect(() => {
     if (restoredTopicId !== topic.id) {
@@ -379,13 +223,17 @@ export function LearningTopicPage() {
       customQuestionDraftsByAngleId,
       revealedQuestionIds,
       insertedQuestionsByAngleId,
+      questionReviewStateById,
+      behaviorSignalCounts,
     });
   }, [
     angleStateById,
+    behaviorSignalCounts,
     customQuestionDraftsByAngleId,
     draftAnswersByQuestionId,
     insertedQuestionsByAngleId,
     pinnedSourcesByAngleId,
+    questionReviewStateById,
     revealedQuestionIds,
     restoredTopicId,
     selectedAngleId,
@@ -429,6 +277,31 @@ export function LearningTopicPage() {
   const currentDraftAnswer = currentStep
     ? draftAnswersByQuestionId[currentStep.question.id]
     : "";
+  useEffect(() => {
+    if (!search.question) {
+      return;
+    }
+
+    const timeoutId = window.setTimeout(() => {
+      const questionElement = document.getElementById(
+        `question-${search.question}`,
+      );
+
+      questionElement?.scrollIntoView({
+        behavior: "smooth",
+        block: "center",
+      });
+    }, 120);
+
+    return () => {
+      window.clearTimeout(timeoutId);
+    };
+  }, [
+    insertedQuestionsByAngleId,
+    search.question,
+    selectedAngleId,
+    visibleStepCount,
+  ]);
 
   const completedAngleIds = useMemo(
     () =>
@@ -553,6 +426,39 @@ export function LearningTopicPage() {
       })),
     [constellationNodes],
   );
+  const { locatorCounts, locatorModel } = useMemo(
+    () =>
+      buildTopicReviewBridge({
+        topic,
+        storedModule,
+        selectedAngleId,
+        angleStateById,
+        pinnedSourcesByAngleId,
+        draftAnswersByQuestionId,
+        customQuestionDraftsByAngleId,
+        revealedQuestionIds,
+        insertedQuestionsByAngleId,
+        questionReviewStateById,
+        behaviorSignalCounts,
+        activeScanFilter,
+        orderedQuestionIds: constellationNodes.map((node) => node.id),
+      }),
+    [
+      activeScanFilter,
+      angleStateById,
+      behaviorSignalCounts,
+      constellationNodes,
+      customQuestionDraftsByAngleId,
+      draftAnswersByQuestionId,
+      insertedQuestionsByAngleId,
+      pinnedSourcesByAngleId,
+      questionReviewStateById,
+      revealedQuestionIds,
+      selectedAngleId,
+      storedModule,
+      topic,
+    ],
+  );
 
   useEffect(
     () => () => {
@@ -593,6 +499,33 @@ export function LearningTopicPage() {
   const handleSelectNode = (nodeId: string) => {
     scrollToQuestion(nodeId);
   };
+
+  const handleToggleScanFilter = useCallback(
+    (filter: QuestionLocatorFilter) => {
+      setActiveScanFilter((current) => (current === filter ? null : filter));
+    },
+    [],
+  );
+
+  const handleClearScanFilter = useCallback(() => {
+    setActiveScanFilter(null);
+  }, []);
+
+  const handleOpenLocatorReview = useCallback(() => {
+    if (!activeScanFilter) {
+      return;
+    }
+
+    void navigate({
+      to: "/review",
+      search: {
+        filter: activeScanFilter,
+        topicId: topic.id,
+        angleId: selectedAngleId,
+        source: "locator",
+      },
+    });
+  }, [activeScanFilter, navigate, selectedAngleId, topic.id]);
 
   const handleToggleHistory = (questionId: string) => {
     setAngleStateById((previous) => {
@@ -643,6 +576,10 @@ export function LearningTopicPage() {
           },
         ],
       }));
+      setBehaviorSignalCounts((previous) => ({
+        ...previous,
+        branchQuestionCount: previous.branchQuestionCount + 1,
+      }));
     },
     [selectedAngleId],
   );
@@ -657,6 +594,69 @@ export function LearningTopicPage() {
       }));
     },
     [selectedAngleId],
+  );
+
+  const toggleQuestionReviewFlag = useCallback(
+    (
+      questionId: string,
+      field: keyof Omit<TopicQuestionReviewState, "updatedAt">,
+    ) => {
+      const currentState = questionReviewStateById[questionId] ?? {};
+      const nextFlagValue = !Boolean(currentState[field]);
+      const updatedAt = new Date().toISOString();
+
+      setQuestionReviewStateById((previous) => {
+        const nextState: TopicQuestionReviewState = {
+          ...(previous[questionId] ?? {}),
+          [field]: nextFlagValue,
+          updatedAt,
+        };
+
+        if (
+          !nextState.pending &&
+          !nextState.bookmarked &&
+          !nextState.selfMarkedWeak
+        ) {
+          const nextReviewStateById = { ...previous };
+          delete nextReviewStateById[questionId];
+          return nextReviewStateById;
+        }
+
+        return {
+          ...previous,
+          [questionId]: nextState,
+        };
+      });
+
+      if (field === "pending" && nextFlagValue) {
+        setBehaviorSignalCounts((previous) => ({
+          ...previous,
+          pendingMarkCount: previous.pendingMarkCount + 1,
+        }));
+      }
+    },
+    [questionReviewStateById],
+  );
+
+  const handleToggleQuestionPending = useCallback(
+    (questionId: string) => {
+      toggleQuestionReviewFlag(questionId, "pending");
+    },
+    [toggleQuestionReviewFlag],
+  );
+
+  const handleToggleQuestionBookmark = useCallback(
+    (questionId: string) => {
+      toggleQuestionReviewFlag(questionId, "bookmarked");
+    },
+    [toggleQuestionReviewFlag],
+  );
+
+  const handleToggleQuestionWeak = useCallback(
+    (questionId: string) => {
+      toggleQuestionReviewFlag(questionId, "selfMarkedWeak");
+    },
+    [toggleQuestionReviewFlag],
   );
 
   const updateInsertedQuestionForCurrentAngle = useCallback(
@@ -719,6 +719,7 @@ export function LearningTopicPage() {
         feedback,
         summary: passed ? feedback.nextSuggestion : null,
         isCollapsed: passed,
+        updatedAt: new Date().toISOString(),
       };
 
       updateInsertedQuestionForCurrentAngle(questionId, (question) => ({
@@ -726,6 +727,10 @@ export function LearningTopicPage() {
         answerDraft: answer,
         answerState,
         visualState: passed ? "lit" : "pulsing",
+      }));
+      setBehaviorSignalCounts((previous) => ({
+        ...previous,
+        answerChecks: previous.answerChecks + 1,
       }));
     },
     [insertedQuestions, selectedAngleId, updateInsertedQuestionForCurrentAngle],
@@ -906,11 +911,16 @@ export function LearningTopicPage() {
               summary: passed ? feedbackCard.feedback.nextSuggestion : null,
               isCollapsed: passed,
               revealedAnswerUsed: feedbackCard.revealedAnswerUsed,
+              updatedAt: new Date().toISOString(),
             },
           },
         },
       };
     });
+    setBehaviorSignalCounts((previous) => ({
+      ...previous,
+      answerChecks: previous.answerChecks + 1,
+    }));
 
     setFloatingFeedbacks((previous) => {
       const nextFeedbacks = previous.filter(
@@ -1019,11 +1029,16 @@ export function LearningTopicPage() {
               feedback: null,
               summary: "Skipped for now.",
               isCollapsed: true,
+              updatedAt: new Date().toISOString(),
             },
           },
         },
       };
     });
+    setBehaviorSignalCounts((previous) => ({
+      ...previous,
+      skipCount: previous.skipCount + 1,
+    }));
   };
 
   const handleTryAgain = () => {
@@ -1163,6 +1178,14 @@ export function LearningTopicPage() {
               </div>
             </div>
 
+            <TopicScanControls
+              activeFilter={activeScanFilter}
+              counts={locatorCounts}
+              onToggleFilter={handleToggleScanFilter}
+              onClear={handleClearScanFilter}
+              onOpenReview={handleOpenLocatorReview}
+            />
+
             <div className="stealth-scrollbar relative flex-1 overflow-y-auto overflow-x-hidden">
               <ConstellationView
                 nodes={constellationNodes}
@@ -1188,6 +1211,7 @@ export function LearningTopicPage() {
               answerStateByQuestionId={
                 activeAngleState?.answerStateByQuestionId ?? {}
               }
+              questionReviewStateById={questionReviewStateById}
               activeReferenceIds={activeReferenceIds}
               highlightedBlockId={highlightedBlockId}
               prefilledAnswer={currentDraftAnswer}
@@ -1214,6 +1238,9 @@ export function LearningTopicPage() {
               onWorkbenchCardInserted={handleWorkbenchCardInserted}
               onCheckCurrent={handleCheckCurrent}
               onSkipCurrent={handleSkipCurrent}
+              onToggleQuestionPending={handleToggleQuestionPending}
+              onToggleQuestionBookmark={handleToggleQuestionBookmark}
+              onToggleQuestionWeak={handleToggleQuestionWeak}
               onTryAgain={handleTryAgain}
               onRevealAnswer={handleRevealAnswer}
               onPreviewReference={handlePreviewReference}
@@ -1227,6 +1254,11 @@ export function LearningTopicPage() {
           </div>
 
         </main>
+
+        <QuestionLocatorGutter
+          model={locatorModel}
+          onSelectQuestion={scrollToQuestion}
+        />
 
         <SourceReferencePanel
           references={topic.sourceReferences}

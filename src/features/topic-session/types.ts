@@ -112,6 +112,22 @@ export type TopicAnswerState = {
   summary: string | null;
   isCollapsed: boolean;
   revealedAnswerUsed?: boolean;
+  updatedAt?: string;
+};
+
+export type TopicQuestionReviewState = {
+  pending?: boolean;
+  bookmarked?: boolean;
+  selfMarkedWeak?: boolean;
+  updatedAt?: string;
+};
+
+export type TopicBehaviorSignalCounts = {
+  answerChecks: number;
+  continueLadderCount: number;
+  branchQuestionCount: number;
+  skipCount: number;
+  pendingMarkCount: number;
 };
 
 export type TopicAngleProgressState = {
