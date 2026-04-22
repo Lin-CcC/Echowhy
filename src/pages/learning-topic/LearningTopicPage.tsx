@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useNavigate, useParams, useSearch } from "@tanstack/react-router";
 import { ConstellationView } from "@/features/constellation-view";
 import { LearningPanel } from "@/features/learning-panel";
@@ -8,214 +8,78 @@ import {
   type QuestionLocatorFilter,
 } from "@/features/question-locator";
 import { SourceReferencePanel } from "@/features/source-reference";
-import type {
-  InsertedQuestionRecord,
-  TopicAnswerState,
-  TopicAngleProgressState,
-  TopicBehaviorSignalCounts,
-  TopicFeedbackPreview,
-  TopicNode,
-  TopicNodeVisualState,
-  TopicQuestionReviewState,
-} from "@/features/topic-session";
-import {
-  buildDiscussionSteps,
-  evaluateTopicAnswer,
-  getFirstIncompleteAngleId,
-  getAttemptRecordStatus,
-  createEmptyBehaviorSignalCounts,
-  createInitialAngleProgress,
-  filterValidReferenceIds,
-  loadPersistedTopicSessionState,
-  mergePersistedAngleProgress,
-  normalizePinnedSourcesByAngle,
-  resolveTopicSession,
-  savePersistedTopicSessionState,
-} from "@/features/topic-session";
-import {
-  getLearningModuleById,
-  upsertLearningModule,
-} from "@/features/topic-session/module-storage";
-import { getConstellationTopicById } from "@/mock/data/constellation-topic";
 import { cn } from "@/lib/utils";
-import { buildTopicReviewBridge } from "./topic-review-bridge";
-
-type FeedbackCardState = {
-  id: string;
-  angleId: string;
-  questionId: string;
-  answer: string;
-  feedback: TopicFeedbackPreview;
-  revealedAnswerUsed: boolean;
-};
+import { useLearningTopicInteractions } from "./use-learning-topic-interactions";
+import { useLearningTopicSession } from "./use-learning-topic-session";
+import { useLearningTopicStructure } from "./use-learning-topic-structure";
 
 export function LearningTopicPage() {
   const { id } = useParams({ from: "/topic/$id" });
   const search = useSearch({ from: "/topic/$id" });
   const navigate = useNavigate();
-  const knownTopic = getConstellationTopicById(id);
-  const storedModule = getLearningModuleById(id);
-  const generatedQuestionTitle =
-    search.customQuestion?.trim() || storedModule?.seedQuestion;
-  const generatedSourceId = search.sourceId ?? storedModule?.sourceId;
-  const generatedSourceLabel =
-    search.sourceLabel ?? storedModule?.sourceLabel ?? storedModule?.title;
-  const topic = useMemo(
-    () =>
-      resolveTopicSession({
-        topicId: id,
-        seedQuestion: generatedQuestionTitle,
-        sourceId: generatedSourceId,
-        sourceLabel: generatedSourceLabel,
-      }),
-    [generatedQuestionTitle, generatedSourceId, generatedSourceLabel, id],
-  );
-  const defaultAngleId =
-    topic.learningAngles.find((angle) => !angle.isCustom)?.id ??
-    topic.learningAngles[0]?.id ??
-    "";
-
-  const [selectedAngleId, setSelectedAngleId] = useState(
-    topic.learningAngles.some((angle) => angle.id === search.angle)
-      ? (search.angle ?? defaultAngleId)
-      : defaultAngleId,
-  );
-  const [angleStateById, setAngleStateById] = useState<
-    Record<string, TopicAngleProgressState>
-  >(createInitialAngleProgress(topic));
-  const [isAngleMenuOpen, setIsAngleMenuOpen] = useState(false);
-  const [restoredTopicId, setRestoredTopicId] = useState<string | null>(null);
-  const [previewSource, setPreviewSource] = useState<string | null>(null);
-  const [pinnedSourcesByAngleId, setPinnedSourcesByAngleId] = useState<
-    Record<string, string[]>
-  >({});
-  const [floatingFeedbacks, setFloatingFeedbacks] = useState<FeedbackCardState[]>(
-    [],
-  );
-  const [activeFeedbackId, setActiveFeedbackId] = useState<string | null>(null);
-  const [draftAnswersByQuestionId, setDraftAnswersByQuestionId] = useState<
-    Record<string, string>
-  >({});
-  const [customQuestionDraftsByAngleId, setCustomQuestionDraftsByAngleId] =
-    useState<Record<string, string>>({});
-  const [revealedQuestionIds, setRevealedQuestionIds] = useState<
-    Record<string, boolean>
-  >({});
+  const {
+    storedModule,
+    topic,
+    selectedAngleId,
+    setSelectedAngleId,
+    isAngleMenuOpen,
+    setIsAngleMenuOpen,
+    angleStateById,
+    setAngleStateById,
+    previewSource,
+    setPreviewSource,
+    pinnedSourcesByAngleId,
+    setPinnedSourcesByAngleId,
+    floatingFeedbacks,
+    setFloatingFeedbacks,
+    activeFeedbackId,
+    setActiveFeedbackId,
+    draftAnswersByQuestionId,
+    setDraftAnswersByQuestionId,
+    customQuestionDraftsByAngleId,
+    setCustomQuestionDraftsByAngleId,
+    revealedQuestionIds,
+    setRevealedQuestionIds,
+    insertedQuestionsByAngleId,
+    setInsertedQuestionsByAngleId,
+    questionReviewStateById,
+    setQuestionReviewStateById,
+    behaviorSignalCounts,
+    setBehaviorSignalCounts,
+    activeAngle,
+    activeAngleState,
+    pinnedSources,
+    insertedQuestions,
+    discussionSteps,
+    visibleStepCount,
+    currentStepIndex,
+    currentStep,
+    currentDraftAnswer,
+    showCompletionCard,
+    nextAngleId,
+    canExploreAnotherAngle,
+    showCustomComposer,
+    currentCustomQuestionDraft,
+    activeReferenceIds,
+    activeFloatingFeedback,
+    activeAngleLabel,
+  } = useLearningTopicSession({
+    topicId: id,
+    routeAngleId: search.angle,
+    routeCustomQuestion: search.customQuestion,
+    routeSourceId: search.sourceId,
+    routeSourceLabel: search.sourceLabel,
+  });
+  const [activeScanFilter, setActiveScanFilter] =
+    useState<QuestionLocatorFilter | null>(null);
   const [highlightedBlockId, setHighlightedBlockId] = useState<string | null>(
     null,
   );
-  const [insertedQuestionsByAngleId, setInsertedQuestionsByAngleId] = useState<
-    Record<string, InsertedQuestionRecord[]>
-  >({});
-  const [questionReviewStateById, setQuestionReviewStateById] = useState<
-    Record<string, TopicQuestionReviewState | undefined>
-  >({});
-  const [behaviorSignalCounts, setBehaviorSignalCounts] = useState<
-    TopicBehaviorSignalCounts
-  >(createEmptyBehaviorSignalCounts());
-  const [activeScanFilter, setActiveScanFilter] =
-    useState<QuestionLocatorFilter | null>(null);
   const highlightTimeoutRef = useRef<number | null>(null);
-
-  useEffect(() => {
-    if (knownTopic) {
-      return;
-    }
-
-    upsertLearningModule({
-      id: topic.id,
-      title: topic.title,
-      seedQuestion: generatedQuestionTitle,
-      sourceId: generatedSourceId,
-      sourceLabel: topic.sourceImport.projectName,
-      kind: generatedSourceId ? "source-backed" : "conceptual",
-    });
-  }, [
-    generatedQuestionTitle,
-    generatedSourceId,
-    knownTopic,
-    topic.id,
-    topic.sourceImport.projectName,
-    topic.title,
-  ]);
-
-  useEffect(() => {
-    const hasRouteAngle = topic.learningAngles.some(
-      (angle) => angle.id === search.angle,
-    );
-    const routeAngleId = hasRouteAngle ? (search.angle ?? defaultAngleId) : defaultAngleId;
-    const persistedState = loadPersistedTopicSessionState(topic.id);
-    const initialProgress = mergePersistedAngleProgress(
+  const { constellationNodes, constellationEdges, locatorCounts, locatorModel } =
+    useLearningTopicStructure({
       topic,
-      persistedState?.angleStateById,
-    );
-    const persistedAngleId = persistedState?.selectedAngleId;
-    const shouldStartFromGeneratedAngles =
-      Boolean(search.customQuestion?.trim()) && !search.angle && !knownTopic;
-    const initialAngleId = hasRouteAngle
-      ? routeAngleId
-      : shouldStartFromGeneratedAngles
-        ? defaultAngleId
-        : topic.learningAngles.some((angle) => angle.id === persistedAngleId)
-          ? (persistedAngleId ?? defaultAngleId)
-          : defaultAngleId;
-
-    if (search.customQuestion?.trim()) {
-      initialProgress["angle-custom-followup"] = {
-        ...initialProgress["angle-custom-followup"],
-        answerStateByQuestionId: {},
-        attemptRecordsByQuestionId: {},
-        customQuestion: search.customQuestion.trim(),
-        unlockedStepCount: 1,
-      };
-    }
-
-    setSelectedAngleId(initialAngleId);
-    setAngleStateById(initialProgress);
-    setPreviewSource(null);
-    setPinnedSourcesByAngleId(
-      normalizePinnedSourcesByAngle(
-        topic,
-        persistedState?.pinnedSourcesByAngleId,
-        persistedState?.pinnedSources,
-        initialAngleId,
-      ),
-    );
-    setFloatingFeedbacks([]);
-    setActiveFeedbackId(null);
-    setDraftAnswersByQuestionId(persistedState?.draftAnswersByQuestionId ?? {});
-    setCustomQuestionDraftsByAngleId(
-      persistedState?.customQuestionDraftsByAngleId ??
-        topic.learningAngles.reduce<Record<string, string>>(
-          (accumulator, angle) => {
-            accumulator[angle.id] =
-              initialProgress[angle.id]?.customQuestion ?? "";
-            return accumulator;
-          },
-          {},
-        ),
-    );
-    setRevealedQuestionIds(persistedState?.revealedQuestionIds ?? {});
-    setInsertedQuestionsByAngleId(
-      persistedState?.insertedQuestionsByAngleId ?? {},
-    );
-    setQuestionReviewStateById(
-      persistedState?.questionReviewStateById ?? {},
-    );
-    setBehaviorSignalCounts(
-      persistedState?.behaviorSignalCounts ?? createEmptyBehaviorSignalCounts(),
-    );
-    setHighlightedBlockId(null);
-    setRestoredTopicId(topic.id);
-  }, [defaultAngleId, knownTopic, search.angle, search.customQuestion, topic]);
-
-  useEffect(() => {
-    if (restoredTopicId !== topic.id) {
-      return;
-    }
-
-    savePersistedTopicSessionState(topic.id, {
-      version: 1,
+      storedModule,
       selectedAngleId,
       angleStateById,
       pinnedSourcesByAngleId,
@@ -225,58 +89,70 @@ export function LearningTopicPage() {
       insertedQuestionsByAngleId,
       questionReviewStateById,
       behaviorSignalCounts,
+      activeScanFilter,
+      discussionSteps,
+      activeAngleState,
+      insertedQuestions,
+      currentStepIndex,
+      showCompletionCard,
     });
-  }, [
-    angleStateById,
-    behaviorSignalCounts,
-    customQuestionDraftsByAngleId,
-    draftAnswersByQuestionId,
-    insertedQuestionsByAngleId,
-    pinnedSourcesByAngleId,
-    questionReviewStateById,
-    revealedQuestionIds,
-    restoredTopicId,
+  const {
+    handleToggleHistory,
+    handleInsertQuestion,
+    handleDeleteInsertedQuestion,
+    handleToggleQuestionPending,
+    handleToggleQuestionBookmark,
+    handleToggleQuestionWeak,
+    handleInsertedQuestionDraftChange,
+    handleCheckInsertedQuestion,
+    handlePreviewReference,
+    handleClearPreviewReference,
+    handlePinSource,
+    handleUnpinSource,
+    handleClearAllSources,
+    handleDraftAnswerChange,
+    handleCustomQuestionDraftChange,
+    handleCheckCurrent,
+    dismissFloatingFeedback,
+    handleSelectFeedback,
+    handleCycleFeedback,
+    handleReorderPinnedSources,
+    handleReorderFeedbacks,
+    handleWorkbenchCardInserted,
+    handleSkipCurrent,
+    handleTryAgain,
+    handleRevealAnswer,
+    handleSubmitCustomQuestion,
+    handleExploreAnotherAngle,
+    handleAskFollowUp,
+  } = useLearningTopicInteractions({
+    topic,
     selectedAngleId,
-    topic.id,
-  ]);
+    setSelectedAngleId,
+    setIsAngleMenuOpen,
+    setAngleStateById,
+    setPreviewSource,
+    pinnedSources,
+    setPinnedSourcesByAngleId,
+    floatingFeedbacks,
+    setFloatingFeedbacks,
+    activeFeedbackId,
+    setActiveFeedbackId,
+    setDraftAnswersByQuestionId,
+    setCustomQuestionDraftsByAngleId,
+    revealedQuestionIds,
+    setRevealedQuestionIds,
+    insertedQuestions,
+    setInsertedQuestionsByAngleId,
+    questionReviewStateById,
+    setQuestionReviewStateById,
+    setBehaviorSignalCounts,
+    discussionSteps,
+    currentStepIndex,
+    currentStep,
+    nextAngleId,
+  });
 
-  const activeAngle =
-    topic.learningAngles.find((angle) => angle.id === selectedAngleId) ??
-    topic.learningAngles[0];
-  const activeAngleState =
-    angleStateById[selectedAngleId] ??
-    createInitialAngleProgress(topic)[selectedAngleId];
-  const pinnedSources = pinnedSourcesByAngleId[selectedAngleId] ?? [];
-  const insertedQuestions = insertedQuestionsByAngleId[selectedAngleId] ?? [];
-
-  const discussionSteps = useMemo(
-    () =>
-      buildDiscussionSteps(
-        topic,
-        selectedAngleId,
-        activeAngleState?.customQuestion,
-      ),
-    [activeAngleState?.customQuestion, selectedAngleId, topic],
-  );
-
-  const visibleStepCount =
-    selectedAngleId === "angle-custom-followup" &&
-    !activeAngleState?.customQuestion
-      ? 0
-      : Math.min(
-          activeAngleState?.unlockedStepCount ?? 1,
-          discussionSteps.length,
-        );
-
-  const currentStepIndex =
-    visibleStepCount > 0
-      ? Math.min(visibleStepCount - 1, discussionSteps.length - 1)
-      : -1;
-  const currentStep =
-    currentStepIndex >= 0 ? discussionSteps[currentStepIndex] : null;
-  const currentDraftAnswer = currentStep
-    ? draftAnswersByQuestionId[currentStep.question.id]
-    : "";
   useEffect(() => {
     if (!search.question) {
       return;
@@ -303,163 +179,6 @@ export function LearningTopicPage() {
     visibleStepCount,
   ]);
 
-  const completedAngleIds = useMemo(
-    () =>
-      topic.learningAngles
-        .filter((angle) => !angle.isCustom)
-        .filter((angle) => {
-          const steps = buildDiscussionSteps(
-            topic,
-            angle.id,
-            angleStateById[angle.id]?.customQuestion,
-          );
-
-          return (
-            steps.length > 0 &&
-            steps.every(
-              (step) =>
-                angleStateById[angle.id]?.answerStateByQuestionId[
-                  step.question.id
-                ]?.status === "passed",
-            )
-          );
-        })
-        .map((angle) => angle.id),
-    [angleStateById, topic],
-  );
-
-  const showCompletionCard =
-    discussionSteps.length > 0 &&
-    discussionSteps.every(
-      (step) =>
-        activeAngleState?.answerStateByQuestionId[step.question.id]?.status ===
-        "passed",
-    );
-
-  const nextAngleId = getFirstIncompleteAngleId(topic, completedAngleIds);
-  const canExploreAnotherAngle = Boolean(
-    nextAngleId && nextAngleId !== selectedAngleId,
-  );
-
-  const insertedQuestionsByTarget = useMemo(() => {
-    return insertedQuestions.reduce<Record<string, InsertedQuestionRecord[]>>(
-      (accumulator, question) => {
-        accumulator[question.targetId] = [
-          ...(accumulator[question.targetId] ?? []),
-          question,
-        ];
-        return accumulator;
-      },
-      {},
-    );
-  }, [insertedQuestions]);
-
-  const constellationNodes = useMemo(() => {
-    const baseNodes = discussionSteps.map((step, index) => {
-        const answerState =
-          activeAngleState?.answerStateByQuestionId[step.question.id];
-        let visualState: TopicNodeVisualState = "dim";
-
-        if (answerState?.status === "passed") {
-          visualState = "lit";
-        } else if (!showCompletionCard && index === currentStepIndex) {
-          visualState = "pulsing";
-        }
-
-        return {
-          ...step.question,
-          visualState,
-        };
-      });
-
-    function mapInsertedQuestion(question: InsertedQuestionRecord) {
-      return {
-        id: question.id,
-        angleId: question.angleId,
-        label: "My question",
-        prompt: question.prompt,
-        x: 0,
-        y: 0,
-        visualState: question.answerState?.status === "passed" ? "lit" : question.visualState,
-      };
-    }
-
-    const orderedNodes: TopicNode[] = [
-      ...(insertedQuestionsByTarget["after-root"] ?? []).map(mapInsertedQuestion),
-    ];
-
-    for (const [index, node] of baseNodes.entries()) {
-      const step = discussionSteps[index];
-      const insertedAfterStep =
-        insertedQuestionsByTarget[`after-step:${step?.id}`] ?? [];
-      const answerState = step
-        ? activeAngleState?.answerStateByQuestionId[step.question.id]
-        : undefined;
-      const shouldInsertBeforeNode =
-        !answerState || answerState.status === "failed";
-
-      if (shouldInsertBeforeNode) {
-        orderedNodes.push(...insertedAfterStep.map(mapInsertedQuestion));
-      }
-
-      orderedNodes.push(node);
-
-      if (!shouldInsertBeforeNode) {
-        orderedNodes.push(...insertedAfterStep.map(mapInsertedQuestion));
-      }
-    }
-
-    return orderedNodes;
-  }, [
-    activeAngleState?.answerStateByQuestionId,
-    currentStepIndex,
-    discussionSteps,
-    insertedQuestionsByTarget,
-    showCompletionCard,
-  ]);
-
-  const constellationEdges = useMemo(
-    () =>
-      constellationNodes.slice(0, -1).map((node, index) => ({
-        from: node.id,
-        to: constellationNodes[index + 1]!.id,
-      })),
-    [constellationNodes],
-  );
-  const { locatorCounts, locatorModel } = useMemo(
-    () =>
-      buildTopicReviewBridge({
-        topic,
-        storedModule,
-        selectedAngleId,
-        angleStateById,
-        pinnedSourcesByAngleId,
-        draftAnswersByQuestionId,
-        customQuestionDraftsByAngleId,
-        revealedQuestionIds,
-        insertedQuestionsByAngleId,
-        questionReviewStateById,
-        behaviorSignalCounts,
-        activeScanFilter,
-        orderedQuestionIds: constellationNodes.map((node) => node.id),
-      }),
-    [
-      activeScanFilter,
-      angleStateById,
-      behaviorSignalCounts,
-      constellationNodes,
-      customQuestionDraftsByAngleId,
-      draftAnswersByQuestionId,
-      insertedQuestionsByAngleId,
-      pinnedSourcesByAngleId,
-      questionReviewStateById,
-      revealedQuestionIds,
-      selectedAngleId,
-      storedModule,
-      topic,
-    ],
-  );
-
   useEffect(
     () => () => {
       if (highlightTimeoutRef.current) {
@@ -468,12 +187,6 @@ export function LearningTopicPage() {
     },
     [],
   );
-
-  useEffect(() => {
-    setPreviewSource(null);
-    setFloatingFeedbacks([]);
-    setActiveFeedbackId(null);
-  }, [selectedAngleId]);
 
   const triggerBlockHighlight = (blockId: string) => {
     setHighlightedBlockId(blockId);
@@ -527,590 +240,6 @@ export function LearningTopicPage() {
     });
   }, [activeScanFilter, navigate, selectedAngleId, topic.id]);
 
-  const handleToggleHistory = (questionId: string) => {
-    setAngleStateById((previous) => {
-      const angleState = previous[selectedAngleId];
-      const current = angleState?.answerStateByQuestionId[questionId];
-
-      if (!angleState || !current) {
-        return previous;
-      }
-
-      return {
-        ...previous,
-        [selectedAngleId]: {
-          ...angleState,
-          answerStateByQuestionId: {
-            ...angleState.answerStateByQuestionId,
-            [questionId]: {
-              ...current,
-              isCollapsed: !current.isCollapsed,
-            },
-          },
-        },
-      };
-    });
-  };
-
-  const handleInsertQuestion = useCallback(
-    (targetId: string, prompt: string) => {
-      const trimmedPrompt = prompt.trim();
-
-      if (!trimmedPrompt) {
-        return;
-      }
-
-      const createdAt = new Date().toISOString();
-
-      setInsertedQuestionsByAngleId((previous) => ({
-        ...previous,
-        [selectedAngleId]: [
-          ...(previous[selectedAngleId] ?? []),
-          {
-            id: `inserted-question-${Date.now()}`,
-            angleId: selectedAngleId,
-            targetId,
-            prompt: trimmedPrompt,
-            createdAt,
-            visualState: "pulsing",
-          },
-        ],
-      }));
-      setBehaviorSignalCounts((previous) => ({
-        ...previous,
-        branchQuestionCount: previous.branchQuestionCount + 1,
-      }));
-    },
-    [selectedAngleId],
-  );
-
-  const handleDeleteInsertedQuestion = useCallback(
-    (questionId: string) => {
-      setInsertedQuestionsByAngleId((previous) => ({
-        ...previous,
-        [selectedAngleId]: (previous[selectedAngleId] ?? []).filter(
-          (question) => question.id !== questionId,
-        ),
-      }));
-    },
-    [selectedAngleId],
-  );
-
-  const toggleQuestionReviewFlag = useCallback(
-    (
-      questionId: string,
-      field: keyof Omit<TopicQuestionReviewState, "updatedAt">,
-    ) => {
-      const currentState = questionReviewStateById[questionId] ?? {};
-      const nextFlagValue = !Boolean(currentState[field]);
-      const updatedAt = new Date().toISOString();
-
-      setQuestionReviewStateById((previous) => {
-        const nextState: TopicQuestionReviewState = {
-          ...(previous[questionId] ?? {}),
-          [field]: nextFlagValue,
-          updatedAt,
-        };
-
-        if (
-          !nextState.pending &&
-          !nextState.bookmarked &&
-          !nextState.selfMarkedWeak
-        ) {
-          const nextReviewStateById = { ...previous };
-          delete nextReviewStateById[questionId];
-          return nextReviewStateById;
-        }
-
-        return {
-          ...previous,
-          [questionId]: nextState,
-        };
-      });
-
-      if (field === "pending" && nextFlagValue) {
-        setBehaviorSignalCounts((previous) => ({
-          ...previous,
-          pendingMarkCount: previous.pendingMarkCount + 1,
-        }));
-      }
-    },
-    [questionReviewStateById],
-  );
-
-  const handleToggleQuestionPending = useCallback(
-    (questionId: string) => {
-      toggleQuestionReviewFlag(questionId, "pending");
-    },
-    [toggleQuestionReviewFlag],
-  );
-
-  const handleToggleQuestionBookmark = useCallback(
-    (questionId: string) => {
-      toggleQuestionReviewFlag(questionId, "bookmarked");
-    },
-    [toggleQuestionReviewFlag],
-  );
-
-  const handleToggleQuestionWeak = useCallback(
-    (questionId: string) => {
-      toggleQuestionReviewFlag(questionId, "selfMarkedWeak");
-    },
-    [toggleQuestionReviewFlag],
-  );
-
-  const updateInsertedQuestionForCurrentAngle = useCallback(
-    (
-      questionId: string,
-      updater: (question: InsertedQuestionRecord) => InsertedQuestionRecord,
-    ) => {
-      setInsertedQuestionsByAngleId((previous) => ({
-        ...previous,
-        [selectedAngleId]: (previous[selectedAngleId] ?? []).map((question) =>
-          question.id === questionId ? updater(question) : question,
-        ),
-      }));
-    },
-    [selectedAngleId],
-  );
-
-  const handleInsertedQuestionDraftChange = useCallback(
-    (questionId: string, draft: string) => {
-      updateInsertedQuestionForCurrentAngle(questionId, (question) => ({
-        ...question,
-        answerDraft: draft,
-      }));
-    },
-    [updateInsertedQuestionForCurrentAngle],
-  );
-
-  const handleCheckInsertedQuestion = useCallback(
-    (questionId: string, answer: string) => {
-      const currentQuestion = insertedQuestions.find(
-        (question) => question.id === questionId,
-      );
-
-      if (!currentQuestion) {
-        return;
-      }
-
-      const feedback = evaluateTopicAnswer(
-        {
-          id: currentQuestion.id,
-          angleId: selectedAngleId,
-          label: "My question",
-          prompt: currentQuestion.prompt,
-          x: 0,
-          y: 0,
-          visualState: currentQuestion.visualState,
-          keywordGroups: [
-            ["why", "because", "understand", "rule", "flow"],
-            ["auth", "jwt", "controller", "service", "token"],
-          ],
-          bonusKeywords: ["specific", "responsibility", "validation", "source"],
-        },
-        answer,
-      );
-      const passed = feedback.score >= 60;
-      const answerState: TopicAnswerState = {
-        questionId,
-        answer,
-        status: passed ? "passed" : "failed",
-        feedback,
-        summary: passed ? feedback.nextSuggestion : null,
-        isCollapsed: passed,
-        updatedAt: new Date().toISOString(),
-      };
-
-      updateInsertedQuestionForCurrentAngle(questionId, (question) => ({
-        ...question,
-        answerDraft: answer,
-        answerState,
-        visualState: passed ? "lit" : "pulsing",
-      }));
-      setBehaviorSignalCounts((previous) => ({
-        ...previous,
-        answerChecks: previous.answerChecks + 1,
-      }));
-    },
-    [insertedQuestions, selectedAngleId, updateInsertedQuestionForCurrentAngle],
-  );
-
-  const updatePinnedSourcesForCurrentAngle = useCallback(
-    (updater: (currentPinnedSources: string[]) => string[]) => {
-      setPinnedSourcesByAngleId((previous) => {
-        const currentPinnedSources = previous[selectedAngleId] ?? [];
-        const nextPinnedSources = filterValidReferenceIds(
-          topic,
-          updater(currentPinnedSources),
-        );
-
-        if (!nextPinnedSources.length) {
-          const remainingPinnedSources = { ...previous };
-          delete remainingPinnedSources[selectedAngleId];
-          return remainingPinnedSources;
-        }
-
-        return {
-          ...previous,
-          [selectedAngleId]: nextPinnedSources,
-        };
-      });
-    },
-    [selectedAngleId, topic],
-  );
-
-  const handlePreviewReference = (referenceId: string) => {
-    if (!pinnedSources.includes(referenceId)) {
-      setPreviewSource(referenceId);
-    }
-  };
-
-  const handleClearPreviewReference = () => {
-    setPreviewSource(null);
-  };
-
-  const handlePinSource = (referenceId: string) => {
-    updatePinnedSourcesForCurrentAngle((previous) =>
-      previous.includes(referenceId)
-        ? previous.filter((id) => id !== referenceId)
-        : [...previous, referenceId],
-    );
-    setPreviewSource(null);
-  };
-
-  const handleUnpinSource = (referenceId: string) => {
-    updatePinnedSourcesForCurrentAngle((previous) =>
-      previous.filter((id) => id !== referenceId),
-    );
-  };
-
-  const handleClearAllSources = () => {
-    updatePinnedSourcesForCurrentAngle(() => []);
-    setPreviewSource(null);
-  };
-
-  const handleDraftAnswerChange = useCallback(
-    (questionId: string, draft: string) => {
-      setDraftAnswersByQuestionId((previous) => {
-        if (previous[questionId] === draft) {
-          return previous;
-        }
-
-        return {
-          ...previous,
-          [questionId]: draft,
-        };
-      });
-    },
-    [],
-  );
-
-  const handleCustomQuestionDraftChange = useCallback(
-    (draft: string) => {
-      setCustomQuestionDraftsByAngleId((previous) => {
-        if (previous[selectedAngleId] === draft) {
-          return previous;
-        }
-
-        return {
-          ...previous,
-          [selectedAngleId]: draft,
-        };
-      });
-    },
-    [selectedAngleId],
-  );
-
-  const handleCheckCurrent = (answer: string) => {
-    if (!currentStep) {
-      return;
-    }
-
-    const feedback = evaluateTopicAnswer(currentStep.question, answer);
-    setDraftAnswersByQuestionId((previous) => ({
-      ...previous,
-      [currentStep.question.id]: answer,
-    }));
-    const feedbackCardId = `${currentStep.question.id}-${Date.now()}`;
-    setFloatingFeedbacks((previous) => [
-      ...previous,
-      {
-        id: feedbackCardId,
-        angleId: selectedAngleId,
-        questionId: currentStep.question.id,
-        answer,
-        feedback,
-        revealedAnswerUsed: Boolean(revealedQuestionIds[currentStep.question.id]),
-      },
-    ]);
-    setActiveFeedbackId(feedbackCardId);
-  };
-
-  const dismissFloatingFeedback = (feedbackId: string) => {
-    const feedbackCard = floatingFeedbacks.find(
-      (feedback) => feedback.id === feedbackId,
-    );
-
-    if (!feedbackCard) {
-      return;
-    }
-
-    const passed = feedbackCard.feedback.score >= 60;
-    const feedbackStepIndex = discussionSteps.findIndex(
-      (step) => step.question.id === feedbackCard.questionId,
-    );
-
-    setAngleStateById((previous) => {
-      const angleState = previous[feedbackCard.angleId];
-
-      if (!angleState) {
-        return previous;
-      }
-
-      const nextUnlocked = passed
-        ? Math.min(
-            Math.max(
-              angleState.unlockedStepCount,
-              (feedbackStepIndex >= 0 ? feedbackStepIndex : currentStepIndex) + 2,
-            ),
-            discussionSteps.length,
-          )
-        : angleState.unlockedStepCount;
-      const nextAttempt = {
-        id: `${feedbackCard.questionId}-${Date.now()}`,
-        createdAt: new Date().toISOString(),
-        userAnswer: feedbackCard.answer,
-        aiFeedback: feedbackCard.feedback,
-        score: feedbackCard.feedback.score,
-        status: getAttemptRecordStatus(feedbackCard.feedback.score),
-        revealedAnswerUsed: feedbackCard.revealedAnswerUsed,
-      };
-
-      return {
-        ...previous,
-        [feedbackCard.angleId]: {
-          ...angleState,
-          unlockedStepCount: nextUnlocked,
-          attemptRecordsByQuestionId: {
-            ...angleState.attemptRecordsByQuestionId,
-            [feedbackCard.questionId]: [
-              ...(angleState.attemptRecordsByQuestionId[
-                feedbackCard.questionId
-              ] ?? []),
-              nextAttempt,
-            ],
-          },
-          answerStateByQuestionId: {
-            ...angleState.answerStateByQuestionId,
-            [feedbackCard.questionId]: {
-              questionId: feedbackCard.questionId,
-              answer: feedbackCard.answer,
-              status: passed ? "passed" : "failed",
-              feedback: feedbackCard.feedback,
-              summary: passed ? feedbackCard.feedback.nextSuggestion : null,
-              isCollapsed: passed,
-              revealedAnswerUsed: feedbackCard.revealedAnswerUsed,
-              updatedAt: new Date().toISOString(),
-            },
-          },
-        },
-      };
-    });
-    setBehaviorSignalCounts((previous) => ({
-      ...previous,
-      answerChecks: previous.answerChecks + 1,
-    }));
-
-    setFloatingFeedbacks((previous) => {
-      const nextFeedbacks = previous.filter(
-        (feedback) => feedback.id !== feedbackId,
-      );
-      setActiveFeedbackId((current) => {
-        if (current !== feedbackId) {
-          return current;
-        }
-
-        return nextFeedbacks[nextFeedbacks.length - 1]?.id ?? null;
-      });
-      return nextFeedbacks;
-    });
-
-    if (passed) {
-      setPreviewSource(null);
-      setRevealedQuestionIds((previous) => {
-        const next = { ...previous };
-        delete next[feedbackCard.questionId];
-        return next;
-      });
-    }
-  };
-
-  const handleSelectFeedback = (feedbackId: string) => {
-    setActiveFeedbackId(feedbackId);
-  };
-
-  const handleCycleFeedback = (direction: "previous" | "next") => {
-    if (!floatingFeedbacks.length) {
-      return;
-    }
-
-    const currentIndex = Math.max(
-      floatingFeedbacks.findIndex((feedback) => feedback.id === activeFeedbackId),
-      0,
-    );
-    const nextIndex =
-      direction === "previous"
-        ? (currentIndex - 1 + floatingFeedbacks.length) % floatingFeedbacks.length
-        : (currentIndex + 1) % floatingFeedbacks.length;
-
-    setActiveFeedbackId(floatingFeedbacks[nextIndex]?.id ?? null);
-  };
-
-  const handleReorderPinnedSources = (nextPinnedSources: string[]) => {
-    updatePinnedSourcesForCurrentAngle(() => nextPinnedSources);
-  };
-
-  const handleReorderFeedbacks = (draggedFeedbackId: string, targetFeedbackId: string) => {
-    setFloatingFeedbacks((previous) => {
-      const draggedIndex = previous.findIndex(
-        (feedback) => feedback.id === draggedFeedbackId,
-      );
-      const targetIndex = previous.findIndex(
-        (feedback) => feedback.id === targetFeedbackId,
-      );
-
-      if (draggedIndex < 0 || targetIndex < 0 || draggedIndex === targetIndex) {
-        return previous;
-      }
-
-      const nextFeedbacks = [...previous];
-      const [draggedFeedback] = nextFeedbacks.splice(draggedIndex, 1);
-      nextFeedbacks.splice(targetIndex, 0, draggedFeedback!);
-      return nextFeedbacks;
-    });
-  };
-
-  const handleWorkbenchCardInserted = useCallback(
-    (payload: { kind?: "feedback" | "source"; id?: string }) => {
-      if (payload.kind === "feedback" && payload.id) {
-        dismissFloatingFeedback(payload.id);
-      }
-    },
-    [dismissFloatingFeedback],
-  );
-
-  const handleSkipCurrent = () => {
-    if (!currentStep) {
-      return;
-    }
-
-    setAngleStateById((previous) => {
-      const angleState = previous[selectedAngleId];
-
-      if (!angleState) {
-        return previous;
-      }
-
-      return {
-        ...previous,
-        [selectedAngleId]: {
-          ...angleState,
-          unlockedStepCount: Math.min(
-            Math.max(angleState.unlockedStepCount, currentStepIndex + 2),
-            discussionSteps.length,
-          ),
-          answerStateByQuestionId: {
-            ...angleState.answerStateByQuestionId,
-            [currentStep.question.id]: {
-              questionId: currentStep.question.id,
-              answer: "",
-              status: "skipped",
-              feedback: null,
-              summary: "Skipped for now.",
-              isCollapsed: true,
-              updatedAt: new Date().toISOString(),
-            },
-          },
-        },
-      };
-    });
-    setBehaviorSignalCounts((previous) => ({
-      ...previous,
-      skipCount: previous.skipCount + 1,
-    }));
-  };
-
-  const handleTryAgain = () => {
-    if (!currentStep) {
-      return;
-    }
-
-    setAngleStateById((previous) => {
-      const angleState = previous[selectedAngleId];
-      if (!angleState) {
-        return previous;
-      }
-
-      const nextAnswers = { ...angleState.answerStateByQuestionId };
-      delete nextAnswers[currentStep.question.id];
-
-      return {
-        ...previous,
-        [selectedAngleId]: {
-          ...angleState,
-          answerStateByQuestionId: nextAnswers,
-        },
-      };
-    });
-  };
-
-  const handleRevealAnswer = () => {
-    if (!currentStep?.question.revealAnswer) {
-      return;
-    }
-
-    setDraftAnswersByQuestionId((previous) => ({
-      ...previous,
-      [currentStep.question.id]: currentStep.question.revealAnswer ?? "",
-    }));
-    setRevealedQuestionIds((previous) => ({
-      ...previous,
-      [currentStep.question.id]: true,
-    }));
-  };
-
-  const handleSubmitCustomQuestion = (question: string) => {
-    setAngleStateById((previous) => ({
-      ...previous,
-      [selectedAngleId]: {
-        ...previous[selectedAngleId],
-        customQuestion: question,
-        unlockedStepCount: 1,
-        answerStateByQuestionId: {},
-        attemptRecordsByQuestionId: {},
-      },
-    }));
-    setCustomQuestionDraftsByAngleId((previous) => ({
-      ...previous,
-      [selectedAngleId]: question,
-    }));
-  };
-
-  const handleExploreAnotherAngle = () => {
-    if (!nextAngleId) {
-      return;
-    }
-
-    setSelectedAngleId(nextAngleId);
-    setIsAngleMenuOpen(false);
-  };
-
-  const handleAskFollowUp = () => {
-    setSelectedAngleId("angle-custom-followup");
-    setIsAngleMenuOpen(false);
-  };
-
   const handleFocusReferenceBlock = (blockId: string, questionId?: string) => {
     const element =
       (questionId ? document.getElementById(`question-${questionId}`) : null) ??
@@ -1123,19 +252,6 @@ export function LearningTopicPage() {
       triggerBlockHighlight(blockId);
     }
   };
-
-  const activeReferenceIds = useMemo(
-    () => [
-      ...new Set([...pinnedSources, ...(previewSource ? [previewSource] : [])]),
-    ],
-    [pinnedSources, previewSource],
-  );
-  const activeFloatingFeedback =
-    floatingFeedbacks.find((feedback) => feedback.id === activeFeedbackId) ??
-    floatingFeedbacks[0] ??
-    null;
-
-  const activeAngleLabel = activeAngle?.title ?? "Request flow";
 
   return (
     <section className="relative min-h-[calc(100vh-5rem)] w-full overflow-hidden bg-transparent">
@@ -1215,15 +331,8 @@ export function LearningTopicPage() {
               activeReferenceIds={activeReferenceIds}
               highlightedBlockId={highlightedBlockId}
               prefilledAnswer={currentDraftAnswer}
-              showCustomComposer={
-                selectedAngleId === "angle-custom-followup" &&
-                discussionSteps.length === 0
-              }
-              customQuestionDraft={
-                customQuestionDraftsByAngleId[selectedAngleId] ??
-                activeAngleState?.customQuestion ??
-                ""
-              }
+              showCustomComposer={showCustomComposer}
+              customQuestionDraft={currentCustomQuestionDraft}
               showCompletionCard={showCompletionCard}
               activeAngleTitle={activeAngleLabel}
               canExploreAnotherAngle={canExploreAnotherAngle}

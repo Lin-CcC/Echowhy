@@ -6,20 +6,9 @@ import type {
   TopicFeedbackPreview,
   TopicSourceReference,
 } from "@/features/topic-session";
-
-type FeedbackCardState = {
-  id: string;
-  angleId: string;
-  questionId: string;
-  answer: string;
-  feedback: TopicFeedbackPreview;
-  revealedAnswerUsed: boolean;
-};
-
-type SourceDropTarget = {
-  referenceId: string;
-  position: "before" | "after";
-} | null;
+import { ActiveFeedbackCard } from "./active-feedback-card";
+import { SourceReferenceCard } from "./source-reference-card";
+import type { FeedbackCardState, SourceDropTarget } from "../types";
 
 type SourceReferencePanelProps = {
   references: TopicSourceReference[];
@@ -189,14 +178,6 @@ export function SourceReferencePanel({
       ? "border-indigo-400/18 bg-transparent text-indigo-300"
       : "border-indigo-700/16 bg-transparent text-indigo-700",
   };
-  const sourceCardShellClass = (kind: "pinned" | "preview") =>
-    cn(
-      "relative isolate cursor-grab overflow-hidden rounded-2xl backdrop-blur-md transition-all duration-200 active:cursor-grabbing",
-      sourceTone.shell,
-      sourceTone.border,
-      kind === "preview" && "opacity-90",
-    );
-
   const stopWorkbenchAutoScroll = () => {
     if (workbenchAutoScrollFrameRef.current !== null) {
       window.cancelAnimationFrame(workbenchAutoScrollFrameRef.current);
@@ -549,210 +530,62 @@ export function SourceReferencePanel({
       onDrop={stopWorkbenchAutoScroll}
       className="source-workbench-scrollbar relative hidden h-full w-[min(32rem,36vw)] min-w-[24rem] shrink-0 overflow-y-auto border-l border-slate-200/50 bg-transparent p-8 xl:block dark:border-cyan-800/30"
     >
-      {activeFeedback ? (
-        <div className="relative z-20 mb-8">
-          <div
-            draggable
-            onDragEnd={() => {
-              setDraggingWorkbenchKind(null);
-              setSourceDropTarget(null);
-              stopWorkbenchAutoScroll();
-            }}
-            onWheel={(event) => {
-              if (feedbackCards.length <= 1 || Math.abs(event.deltaX) < 16) {
-                return;
-              }
+      {activeFeedback && activeFeedbackTone ? (
+        <ActiveFeedbackCard
+          activeFeedback={activeFeedback}
+          activeFeedbackIndex={activeFeedbackIndex}
+          feedbackCards={feedbackCards}
+          tone={activeFeedbackTone}
+          onDismissFeedback={onDismissFeedback}
+          onSelectFeedback={onSelectFeedback}
+          onCycleFeedback={onCycleFeedback}
+          onFocusQuestion={onFocusQuestion}
+          onDragStart={(event) =>
+            startWorkbenchDrag(event, {
+              kind: "feedback",
+              id: activeFeedback.id,
+              label: activeFeedback.feedback.label,
+              feedbackLevel: activeFeedback.feedback.level,
+              title: `${activeFeedback.feedback.label} 路${activeFeedback.feedback.score}`,
+              subtitle: "Answer feedback",
+              body: [
+                activeFeedback.feedback.correctPoints.length
+                  ? `What landed well:\n${activeFeedback.feedback.correctPoints
+                      .map((point) => `- ${point}`)
+                      .join("\n")}`
+                  : "",
+                activeFeedback.feedback.vaguePoints.length
+                  ? `What feels unclear:\n${activeFeedback.feedback.vaguePoints
+                      .map((point) => `- ${point}`)
+                      .join("\n")}`
+                  : "",
+                activeFeedback.feedback.missingPoints.length
+                  ? `What's still missing:\n${activeFeedback.feedback.missingPoints
+                      .map((point) => `- ${point}`)
+                      .join("\n")}`
+                  : "",
+                `A good next step:\n${activeFeedback.feedback.nextSuggestion}`,
+              ]
+                .filter(Boolean)
+                .join("\n\n"),
+              meta: `Question answer 路 ${activeFeedback.feedback.score}/100`,
+              insertPrompt: `Review this feedback: ${activeFeedback.feedback.nextSuggestion}`,
+            })
+          }
+          onDragEnd={() => {
+            setDraggingWorkbenchKind(null);
+            setSourceDropTarget(null);
+            stopWorkbenchAutoScroll();
+          }}
+          onDragOver={(event) => {
+            autoScrollWorkbenchPanel(event);
 
+            if (feedbackCards.length > 1) {
               event.preventDefault();
-              onCycleFeedback(event.deltaX > 0 ? "next" : "previous");
-            }}
-            onDragStart={(event) =>
-              startWorkbenchDrag(event, {
-                kind: "feedback",
-                id: activeFeedback.id,
-                label: activeFeedback.feedback.label,
-                feedbackLevel: activeFeedback.feedback.level,
-                title: `${activeFeedback.feedback.label} 璺?${activeFeedback.feedback.score}`,
-                subtitle: "Answer feedback",
-                body: [
-                  activeFeedback.feedback.correctPoints.length
-                    ? `What landed well:\n${activeFeedback.feedback.correctPoints
-                        .map((point) => `- ${point}`)
-                        .join("\n")}`
-                    : "",
-                  activeFeedback.feedback.vaguePoints.length
-                    ? `What feels unclear:\n${activeFeedback.feedback.vaguePoints
-                        .map((point) => `- ${point}`)
-                        .join("\n")}`
-                    : "",
-                  activeFeedback.feedback.missingPoints.length
-                    ? `What's still missing:\n${activeFeedback.feedback.missingPoints
-                        .map((point) => `- ${point}`)
-                        .join("\n")}`
-                    : "",
-                  `A good next step:\n${activeFeedback.feedback.nextSuggestion}`,
-                ]
-                  .filter(Boolean)
-                  .join("\n\n"),
-                meta: `Question answer 路 ${activeFeedback.feedback.score}/100`,
-                insertPrompt: `Review this feedback: ${activeFeedback.feedback.nextSuggestion}`,
-              })
             }
-            onDragOver={(event) => {
-              autoScrollWorkbenchPanel(event);
-
-              if (feedbackCards.length > 1) {
-                event.preventDefault();
-              }
-            }}
-            onDrop={(event) => handleFeedbackDrop(event, activeFeedback.id)}
-            className={cn(
-              "cursor-grab rounded-2xl backdrop-blur-md active:cursor-grabbing",
-              activeFeedbackTone?.shell,
-              activeFeedbackTone?.border,
-              "p-5",
-            )}
-          >
-            <div className="mb-4 flex items-start justify-between gap-4">
-              <div className="space-y-3">
-                <p
-                  className={cn(
-                    "text-[10px] font-mono uppercase tracking-[0.22em]",
-                    activeFeedbackTone?.accent ?? "text-slate-400",
-                  )}
-                >
-                  AI feedback
-                </p>
-                <span
-                  className={cn(
-                    "rounded-full border px-3 py-1 text-[10px] font-mono uppercase tracking-[0.2em]",
-                    activeFeedbackTone?.badge,
-                  )}
-                >
-                  {activeFeedback.feedback.label} 路{" "}
-                  {activeFeedback.feedback.score}
-                </span>
-              </div>
-
-              <button
-                type="button"
-                onClick={() => onDismissFeedback(activeFeedback.id)}
-                className="text-xs text-slate-400 transition-colors hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200"
-              >
-                [ x ]
-              </button>
-            </div>
-
-            <div className="space-y-4 text-sm text-slate-600 dark:text-slate-300">
-              <div>
-                <p
-                  className={cn("mb-2 font-medium", activeFeedbackTone?.accent)}
-                >
-                  What landed well:
-                </p>
-                <ul className="space-y-1">
-                  {activeFeedback.feedback.correctPoints.map((point) => (
-                    <li key={point}>- {point}</li>
-                  ))}
-                </ul>
-              </div>
-
-              {activeFeedback.feedback.vaguePoints.length ? (
-                <div>
-                  <p
-                    className={cn(
-                      "mb-2 font-medium",
-                      activeFeedbackTone?.subtle ??
-                        "text-slate-500 dark:text-slate-400",
-                    )}
-                  >
-                    What feels unclear:
-                  </p>
-                  <ul className="space-y-1">
-                    {activeFeedback.feedback.vaguePoints.map((point) => (
-                      <li key={point}>- {point}</li>
-                    ))}
-                  </ul>
-                </div>
-              ) : null}
-
-              {activeFeedback.feedback.missingPoints.length ? (
-                <div>
-                  <p
-                    className={cn(
-                      "mb-2 font-medium",
-                      activeFeedbackTone?.subtle ??
-                        "text-slate-500 dark:text-slate-400",
-                    )}
-                  >
-                    What's still missing:
-                  </p>
-                  <ul className="space-y-1">
-                    {activeFeedback.feedback.missingPoints.map((point) => (
-                      <li key={point}>- {point}</li>
-                    ))}
-                  </ul>
-                </div>
-              ) : null}
-
-              <div>
-                <p
-                  className={cn("mb-2 font-medium", activeFeedbackTone?.accent)}
-                >
-                  A good next step:
-                </p>
-                <p>{activeFeedback.feedback.nextSuggestion}</p>
-              </div>
-            </div>
-
-            <div className="mt-5 flex items-center justify-between border-t border-slate-200/30 pt-3 text-[10px] font-mono uppercase tracking-[0.18em] text-slate-400 dark:border-slate-700/40">
-              <button
-                type="button"
-                onClick={() => onFocusQuestion(activeFeedback.questionId)}
-                className="transition-colors hover:text-cyan-600 dark:hover:text-cyan-400"
-              >
-                [ locate ]
-              </button>
-              {feedbackCards.length > 1 ? (
-                <div className="flex items-center gap-3">
-                  <button
-                    type="button"
-                    onClick={() => onCycleFeedback("previous")}
-                    className="transition-colors hover:text-cyan-600 dark:hover:text-cyan-400"
-                  >
-                    prev
-                  </button>
-                  <span className="rounded-full bg-slate-500/10 px-2 py-0.5">
-                    {activeFeedbackIndex + 1}/{feedbackCards.length}
-                  </span>
-                  <button
-                    type="button"
-                    onClick={() => onCycleFeedback("next")}
-                    className="transition-colors hover:text-cyan-600 dark:hover:text-cyan-400"
-                  >
-                    next
-                  </button>
-                  <span className="flex items-center gap-1">
-                    {feedbackCards.map((feedback, index) => (
-                      <button
-                        key={feedback.id}
-                        type="button"
-                        onClick={() => onSelectFeedback(feedback.id)}
-                        className={cn(
-                          "h-1.5 w-1.5 rounded-full transition-colors",
-                          index === activeFeedbackIndex
-                            ? "bg-cyan-500"
-                            : "bg-slate-500/35 hover:bg-cyan-500/70",
-                        )}
-                        aria-label={`Show feedback ${index + 1}`}
-                      />
-                    ))}
-                  </span>
-                </div>
-              ) : null}
-            </div>
-          </div>
-        </div>
+          }}
+          onDrop={(event) => handleFeedbackDrop(event, activeFeedback.id)}
+        />
       ) : null}
 
       <div
@@ -786,9 +619,6 @@ export function SourceReferencePanel({
             ).split("\n");
             const snippetLines = reference.snippet.split("\n");
             const visibleLines = isFullFile ? fileLines : snippetLines;
-            const lineNumberOffset = isFullFile
-              ? 1
-              : (reference.startLine ?? 1);
             const sourceSubtitle = `${reference.referencePath}${
               reference.startLine
                 ? ` : ${reference.startLine}-${reference.endLine}`
@@ -801,12 +631,16 @@ export function SourceReferencePanel({
                 : null;
 
             return (
-              <div
+              <SourceReferenceCard
                 key={`${kind}-${reference.id}`}
-                ref={(element) => {
-                  itemRefs.current[reference.id] = element;
-                }}
-                draggable
+                reference={reference}
+                kind={kind}
+                isDark={isDark}
+                tone={sourceTone}
+                isFullFile={isFullFile}
+                isLoading={isLoading}
+                isFlashing={flashReferenceId === reference.id}
+                sourceDropPosition={sourceDropPosition}
                 onDragStart={(event) =>
                   startWorkbenchDrag(event, {
                     kind: "source",
@@ -844,161 +678,19 @@ export function SourceReferencePanel({
                     sourceDropPosition ?? "before",
                   )
                 }
-                className={cn(sourceCardShellClass(kind), "p-4")}
-              >
-                {!isDark ? (
-                  <div
-                    className={cn(
-                      "pointer-events-none absolute inset-0 z-0 rounded-2xl",
-                      kind === "preview"
-                        ? "bg-[radial-gradient(ellipse_at_35%_20%,rgba(224,231,255,0.34)_0%,rgba(224,231,255,0.13)_36%,rgba(224,231,255,0.03)_72%,transparent_100%)]"
-                        : "bg-[radial-gradient(ellipse_at_35%_20%,rgba(238,242,255,0.44)_0%,rgba(238,242,255,0.16)_42%,rgba(238,242,255,0.035)_76%,transparent_100%)]",
-                    )}
-                  />
-                ) : null}
-
-                {sourceDropPosition ? (
-                  <div
-                    className={cn(
-                      "pointer-events-none absolute left-4 right-4 z-30 h-px bg-cyan-300/85 shadow-[0_0_14px_rgba(34,211,238,0.28)] transition-opacity",
-                      sourceDropPosition === "before" ? "top-0" : "bottom-0",
-                    )}
-                  />
-                ) : null}
-
-                <div className="relative z-10 mb-4 flex items-start justify-between gap-3">
-                  <div className="space-y-2 text-sm font-medium text-slate-700 dark:text-slate-300">
-                    <p
-                      className={cn(
-                        "text-[10px] font-mono uppercase tracking-[0.22em]",
-                        sourceTone.label,
-                        !isDark && "text-halo-light",
-                      )}
-                    >
-                      {kind === "preview" ? "Source preview" : "Source ref"}
-                    </p>
-                    <p
-                      className={cn(
-                        sourceTone.title,
-                        !isDark && "text-halo-light",
-                      )}
-                    >
-                      {reference.label}
-                    </p>
-                    <p
-                      className={cn(
-                        "break-all",
-                        sourceTone.meta,
-                        !isDark && "text-halo-light",
-                      )}
-                    >
-                      {reference.referencePath}
-                      {reference.startLine
-                        ? ` : ${reference.startLine}-${reference.endLine}`
-                        : ""}
-                    </p>
-                  </div>
-
-                  {kind === "pinned" ? (
-                    <button
-                      type="button"
-                      onClick={() => onUnpinSource(reference.id)}
-                      className="shrink-0 text-xs text-slate-400 transition-colors hover:text-slate-600 dark:text-slate-400 dark:hover:text-slate-200"
-                    >
-                      [ x ]
-                    </button>
-                  ) : (
-                    <span
-                      className={cn(
-                        "shrink-0 text-[10px] font-mono uppercase tracking-[0.2em]",
-                        sourceTone.label,
-                      )}
-                    >
-                      [ Preview ]
-                    </span>
-                  )}
-                </div>
-
-                <div
-                  ref={(element) => {
-                    scrollerRefs.current[reference.id] = element;
-                  }}
-                  className="source-workbench-scrollbar relative z-10 max-h-96 overflow-y-auto pr-1"
-                >
-                  {isLoading ? (
-                    <div className="py-4 font-mono text-xs text-slate-400 dark:text-slate-400">
-                      Loading file...
-                    </div>
-                  ) : (
-                    <div className="font-mono text-[12px] leading-loose text-slate-600 dark:text-slate-300">
-                      {visibleLines.map((line, index) => {
-                        const lineNumber = lineNumberOffset + index;
-                        const isHighlighted =
-                          reference.defaultHighlightLines?.includes(
-                            lineNumber,
-                          ) ?? false;
-                        const isFlashing =
-                          flashReferenceId === reference.id && isHighlighted;
-
-                        return (
-                          <button
-                            key={`${reference.id}-${lineNumber}`}
-                            ref={(element) => {
-                              lineRefs.current[
-                                `${reference.id}-${lineNumber}`
-                              ] = element;
-                            }}
-                            type="button"
-                            onClick={() =>
-                              onFocusBlock(
-                                reference.linkedBlockId ?? "",
-                                reference.linkedQuestionId,
-                              )
-                            }
-                            className={cn(
-                              "group relative flex w-full items-start gap-3 border-l-[2px] pl-3 text-left transition-all duration-150 focus:outline-none focus-visible:outline-none",
-                              isFullFile
-                                ? "cursor-pointer border-transparent hover:border-cyan-500/35"
-                                : "cursor-pointer",
-                              isHighlighted
-                                ? "border-indigo-600/24 bg-gradient-to-r from-indigo-500/[0.018] via-indigo-500/[0.006] to-transparent text-indigo-700 shadow-[-1px_0_6px_rgba(79,70,229,0.02)] dark:border-indigo-400/26 dark:from-indigo-400/[0.022] dark:via-indigo-400/[0.008] dark:text-indigo-300"
-                                : "border-transparent",
-                              isFlashing &&
-                                "bg-indigo-500/[0.05] dark:bg-indigo-400/[0.07]",
-                            )}
-                          >
-                            {isFullFile ? (
-                              <span className="w-8 shrink-0 text-right text-slate-400 dark:text-slate-400">
-                                {lineNumber}
-                              </span>
-                            ) : null}
-                            <span className="min-w-0 flex-1 whitespace-pre-wrap">
-                              {line || " "}
-                            </span>
-                          </button>
-                        );
-                      })}
-                    </div>
-                  )}
-                </div>
-
-                <div className="relative z-10 mt-4">
-                  <button
-                    type="button"
-                    onClick={() => toggleReferenceMode(reference)}
-                    className={cn(
-                      "text-[9px] uppercase tracking-[0.18em] text-slate-400 transition-colors dark:text-slate-500",
-                      isDark
-                        ? "hover:text-indigo-300"
-                        : "hover:text-indigo-700",
-                    )}
-                    aria-label={isFullFile ? "Show snippet" : "View full file"}
-                    title={isFullFile ? "Show snippet" : "View full file"}
-                  >
-                    [ {isFullFile ? "Snippet" : "Full file"} ]
-                  </button>
-                </div>
-              </div>
+                onUnpinSource={onUnpinSource}
+                onFocusBlock={onFocusBlock}
+                onToggleReferenceMode={toggleReferenceMode}
+                setItemRef={(element) => {
+                  itemRefs.current[reference.id] = element;
+                }}
+                setScrollerRef={(element) => {
+                  scrollerRefs.current[reference.id] = element;
+                }}
+                setLineRef={(lineKey, element) => {
+                  lineRefs.current[lineKey] = element;
+                }}
+              />
             );
           })}
         </div>
