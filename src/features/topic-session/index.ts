@@ -29,6 +29,7 @@ export {
 
 export {
   appendLearningModuleChild,
+  deleteLearningModule,
   getLearningModuleById,
   loadLearningModules,
   saveLearningModules,

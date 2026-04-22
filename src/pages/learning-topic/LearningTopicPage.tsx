@@ -8,6 +8,7 @@ import type {
   TopicAnswerState,
   TopicAngleProgressState,
   TopicFeedbackPreview,
+  TopicNode,
   TopicNodeVisualState,
   TopicSession,
 } from "@/features/topic-session";
@@ -510,7 +511,7 @@ export function LearningTopicPage() {
       };
     }
 
-    const orderedNodes = [
+    const orderedNodes: TopicNode[] = [
       ...(insertedQuestionsByTarget["after-root"] ?? []).map(mapInsertedQuestion),
     ];
 

@@ -165,7 +165,7 @@ function markStartWakePlayed() {
   }
 }
 
-function readPendingStartSource() {
+function readPendingStartSource(): StartSource | null {
   if (typeof window === "undefined") {
     return null;
   }

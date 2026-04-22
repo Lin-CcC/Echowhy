@@ -377,7 +377,7 @@ export function LearningPanel({
     y: number;
   } | null>(null);
   const [isFloatingWindowHovered, setIsFloatingWindowHovered] = useState(false);
-  const [isFloatingWindowFocused, setIsFloatingWindowFocused] = useState(false);
+  const [, setIsFloatingWindowFocused] = useState(false);
   const [insertedWorkbenchBlocksByTargetId, setInsertedWorkbenchBlocksByTargetId] =
     useState<Record<string, InsertedWorkbenchBlock[]>>({});
 

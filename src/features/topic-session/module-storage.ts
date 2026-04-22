@@ -213,3 +213,12 @@ export function appendLearningModuleChild(
     ],
   });
 }
+
+export function deleteLearningModule(moduleId: string) {
+  const existingModules = loadLearningModules();
+  const nextModules = existingModules.filter(
+    (module) => module.id !== moduleId && module.parentModuleId !== moduleId,
+  );
+
+  saveLearningModules(nextModules);
+}
