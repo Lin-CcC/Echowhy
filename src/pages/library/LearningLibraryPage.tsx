@@ -56,15 +56,21 @@ export function LearningLibraryPage() {
   }, []);
 
   useEffect(() => {
+    function handleWindowPointerDown() {
+      setOpenMenuModuleId(null);
+    }
+
     function handleWindowKeyDown(event: KeyboardEvent) {
       if (event.key === "Escape") {
         setOpenMenuModuleId(null);
       }
     }
 
+    window.addEventListener("pointerdown", handleWindowPointerDown);
     window.addEventListener("keydown", handleWindowKeyDown);
 
     return () => {
+      window.removeEventListener("pointerdown", handleWindowPointerDown);
       window.removeEventListener("keydown", handleWindowKeyDown);
     };
   }, []);
@@ -169,19 +175,19 @@ export function LearningLibraryPage() {
     : null;
 
   return (
-    <section className="fixed inset-x-0 bottom-0 top-20 overflow-y-auto px-6 pb-16 pt-10 text-slate-800 dark:text-slate-100 sm:px-10 sm:pt-12">
-      <div className="mx-auto w-full max-w-5xl">
+    <section className="fixed inset-x-0 bottom-0 top-20 overflow-y-auto px-6 pb-24 pt-12 text-slate-800 dark:text-slate-100 sm:px-10 sm:pt-14">
+      <div className="mx-auto w-full max-w-4xl">
         <p className="text-[10px] uppercase tracking-[0.32em] text-slate-500 dark:text-slate-400">
           Learning Library
         </p>
-        <div className="mt-4 max-w-3xl">
-          <h2 className="text-3xl font-light tracking-tight text-slate-900 dark:text-white/90">
+        <div className="mt-5 max-w-2xl">
+          <h2 className="text-[40px] font-light leading-[1.08] tracking-tight text-slate-900 dark:text-white/90">
             Your source-born learning modules
           </h2>
-          <p className="mt-3 max-w-2xl text-sm leading-7 text-slate-500 dark:text-slate-400">
-            Every source-backed path becomes a reusable module here. Reopen a
-            thread, continue from the same source, or ask a sharper why from the
-            same foundation.
+          <p className="mt-4 max-w-xl text-sm leading-8 text-slate-500 dark:text-slate-400">
+            Reopen a thread, continue from the same source, or ask a sharper why
+            from the same foundation. The page should feel closer to an index of
+            living questions than a wall of components.
           </p>
         </div>
 
@@ -193,7 +199,7 @@ export function LearningLibraryPage() {
         />
 
         {visibleCards.length ? (
-          <div className="mt-6 grid gap-4 md:grid-cols-2">
+          <div className="mt-5 grid gap-0">
             {visibleCards.map((card) => {
               const module = visibleModulesById.get(card.id);
 

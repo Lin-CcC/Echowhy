@@ -7,9 +7,9 @@
   --background: #f8fafc;
   --background-deep: #e2e8f0;
   --background-indigo: #f1f5f9;
-  --surface: rgba(255, 255, 255, 0.72);
-  --surface-strong: rgba(255, 255, 255, 0.88);
-  --border: rgba(15, 23, 42, 0.14);
+  --surface: rgba(255, 255, 255, 0.62);
+  --surface-strong: rgba(255, 255, 255, 0.82);
+  --border: rgba(15, 23, 42, 0.1);
   --text-primary: #1e293b;
   --text-secondary: #475569;
   --accent: #0891b2;
@@ -24,11 +24,11 @@
 :root.dark {
   color-scheme: dark;
   --background: #02040f;
-  --background-deep: #040712;
-  --background-indigo: #0b1021;
-  --surface: rgba(9, 12, 28, 0.42);
-  --surface-strong: rgba(8, 11, 24, 0.72);
-  --border: rgba(148, 163, 184, 0.14);
+  --background-deep: #030611;
+  --background-indigo: #08101d;
+  --surface: rgba(9, 12, 28, 0.28);
+  --surface-strong: rgba(8, 11, 24, 0.58);
+  --border: rgba(148, 163, 184, 0.1);
   --text-primary: #e7eefc;
   --text-secondary: #9aa8c7;
   --accent: #8ed8ff;
@@ -75,17 +75,17 @@ body {
   background:
     radial-gradient(
       circle at 20% 18%,
-      rgba(14, 165, 233, 0.1),
+      rgba(14, 165, 233, 0.055),
       transparent 28%
     ),
     radial-gradient(
       circle at 78% 10%,
-      rgba(99, 102, 241, 0.08),
+      rgba(99, 102, 241, 0.05),
       transparent 30%
     ),
     radial-gradient(
       circle at 50% 70%,
-      rgba(16, 185, 129, 0.06),
+      rgba(16, 185, 129, 0.035),
       transparent 42%
     ),
     linear-gradient(
@@ -102,17 +102,17 @@ body {
   background:
     radial-gradient(
       circle at 20% 18%,
-      rgba(99, 102, 241, 0.1),
+      rgba(99, 102, 241, 0.055),
       transparent 24%
     ),
     radial-gradient(
       circle at 78% 10%,
-      rgba(56, 189, 248, 0.07),
+      rgba(56, 189, 248, 0.04),
       transparent 24%
     ),
     radial-gradient(
       circle at 50% 70%,
-      rgba(14, 165, 233, 0.04),
+      rgba(14, 165, 233, 0.022),
       transparent 34%
     ),
     linear-gradient(
