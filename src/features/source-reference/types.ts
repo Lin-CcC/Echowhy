@@ -1,4 +1,7 @@
-import type { TopicFeedbackPreview } from "@/features/topic-session";
+import type {
+  TopicFeedbackLevel,
+  TopicFeedbackPreview,
+} from "@/features/topic-session";
 
 export type FeedbackCardState = {
   id: string;
@@ -13,3 +16,24 @@ export type SourceDropTarget = {
   referenceId: string;
   position: "before" | "after";
 } | null;
+
+export type ActiveFeedbackTone = {
+  badge: string;
+  accent: string;
+  shell: string;
+  border: string;
+  subtle: string;
+};
+
+export type WorkbenchInsertPayload = {
+  kind: "feedback" | "source";
+  id: string;
+  label: string;
+  insertPrompt: string;
+  feedbackLevel?: TopicFeedbackLevel;
+  title?: string;
+  subtitle?: string;
+  body?: string;
+  code?: string;
+  meta?: string;
+};

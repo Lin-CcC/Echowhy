@@ -215,3 +215,67 @@
 - [x] `source-only` 与 `source-bound question` 两条 Start 流现在在同一 Guided Ladder 页面中分层承接
 - [x] 为 question handoff 补失败测试，再接入路由与页面
 - [x] 运行 `pnpm test src/features/guided-ladder/utils.test.ts` 与 `pnpm build`
+
+### PRD 第一批补齐：Question Locator 回到 dormant
+
+- [x] 抽出 `reduceQuestionLocatorFilter`，统一 `toggle / clear / select-locator-item` 三种状态语义
+- [x] 补齐定位轨状态流测试，锁定“点击定位点后收起扫描态”的行为
+- [x] `LearningTopicPage` 改为在点击右侧定位点后显式清空 `activeScanFilter`
+- [x] 运行 `pnpm test src/features/question-locator/utils.test.ts`
+
+### 工程收口：Source Workbench 语义与结构轻拆
+
+- [x] 新增 `getSourceReferenceModeCopy`，把 `Full file` 与 `Back to excerpt` 的双向语义收口，避免右侧引用区被误读成独立阅读器
+- [x] 新增 `buildSourceReferenceDragPayload / buildFeedbackWorkbenchDragPayload`，统一 source ref 与 feedback 卡片拖拽插入正文的 payload
+- [x] 新增 `parseWorkbenchOrderPayload / buildReorderedPinnedSources`，补齐右侧 source ref 拖拽重排的纯逻辑测试
+- [x] 新增 `use-source-workbench-auto-scroll` 与 `use-source-workbench-dnd`，把右侧工作区的自动滚动与拖拽排序状态从 `SourceReferencePanel` 中抽离
+- [x] 新增 `source-workbench-feedback-section / source-workbench-reference-list / source-workbench-header / source-workbench-empty-state`，将右侧工作区拆成更轻的可组合块
+- [x] `SourceReferencePanel.tsx` 从 700+ 行收回到 400 行以内，同时保持现有交互不变
+- [x] 运行 `pnpm test src/features/source-reference/utils.test.ts` 与 `pnpm build`
+
+### 工程收口：LearningTopicPage 视图态拆分
+
+- [x] 新增 `use-learning-topic-view-state`，统一承接 Topic 页的路由定位、问题恢复、定位轨状态、正文高亮与引用块聚焦
+- [x] 将 `LearningTopicPage.tsx` 中的页面级视图状态与副作用抽离，保留主页面只负责 session / interactions / structure 拼装
+- [x] `LearningTopicPage.tsx` 收回到 400 行以内，降低后续继续实现 PRD 时的回归风险
+- [x] 运行 `pnpm build`
+
+### 工程收口：StartPage 自包含块拆层
+
+- [x] 新增 `source-preview-lens.tsx`，将首页本地 source 预览浮层整体拆出，保留现有极简悬浮预览体验
+- [x] 新增 `typewriter-heading.tsx`，把首页标题打字机动效从主文件中抽离
+- [x] 新增 `start-page-utils.ts`，统一承接 Start 页的 source/module helper、recent source 坐标与本地存储读写
+- [x] `StartPage.tsx` 从 1500+ 行继续压回到 1000 行以内，显著降低后续继续做首页主流程重构时的碰撞风险
+- [x] 运行 `pnpm build`
+
+### 本轮整体验证
+
+- [x] 运行 `pnpm test`，15 个测试文件、78 个测试全部通过
+- [x] 运行 `pnpm build`，构建通过
+- [x] 当前仍有既存 Vite chunk size warning，但不影响本轮功能与构建结果
+
+### 工程收口：StartPage 主流程下沉
+
+- [x] 新增 `start-page-flow.ts`，把首页 wake 状态、source 绑定、recent source 星轨、提问提交决策与跳转 handoff 统一下沉到单独 hook
+- [x] 新增 `buildStartQuestionSubmissionPlan`，统一收口 `source-only / source-bound question / question-only` 三条进入链路
+- [x] 为 `buildStartQuestionSubmissionPlan` 补单测，覆盖冷启动梯子承接、source 绑定提问承接与普通 Topic 提问分流
+- [x] `StartPage.tsx` 改为以页面壳子身份消费 `useStartPageFlow`，不再自己承载首页主流程状态机
+- [x] 运行 `pnpm test`
+- [x] 运行 `pnpm build`
+
+### 工程收口：StartPage 视图块继续拆层
+
+- [x] 新增 `recent-source-constellation.tsx`，把 recent source 星图、轨道脉冲、节点 hover/选择与 Library/Back 出口从首页壳子中拆出
+- [x] 新增 `start-ask-panel.tsx`，把提问入口、附件选择、source 预览入口与 source 绑定文案从首页壳子中拆出
+- [x] `StartPage.tsx` 继续减重到 300 行以内，只保留氛围层、模式切换与页面级拼装职责
+- [x] 运行 `pnpm test`，16 个测试文件、81 个测试全部通过
+- [x] 运行 `pnpm build`
+
+### Start 首页层级收口：Ask 主入口 / Recent 次入口
+
+- [x] 保持首页背景与主流程不变，只对提问入口层级做轻量收口
+- [x] 将 `QuestionEntry` 的底部 action rail 改成更克制的 utility row：`Attach source` 保持主入口，`Browse recent` 降为次入口
+- [x] 将 source 绑定提示从偏系统化的 `Source attached` 收成更轻的 `Using source` 语义，减弱工具感
+- [x] 保持深浅主题都沿用现有冷静、轻薄的色阶，不引入更厚重的按钮或卡片感
+- [x] 运行 `pnpm test`，16 个测试文件、81 个测试全部通过
+- [x] 运行 `pnpm build`

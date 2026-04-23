@@ -1,8 +1,9 @@
 import type { DragEvent } from "react";
 import { cn } from "@/lib/utils";
 import type { TopicSourceReference } from "@/features/topic-session";
+import { getSourceReferenceModeCopy } from "../utils";
 
-type SourceTone = {
+export type SourceTone = {
   shell: string;
   border: string;
   label: string;
@@ -70,6 +71,7 @@ export function SourceReferenceCard({
   setScrollerRef,
   setLineRef,
 }: SourceReferenceCardProps) {
+  const modeCopy = getSourceReferenceModeCopy(isFullFile);
   const fileLines = (reference.fullContent ?? reference.snippet).split("\n");
   const snippetLines = reference.snippet.split("\n");
   const visibleLines = isFullFile ? fileLines : snippetLines;
@@ -312,10 +314,10 @@ export function SourceReferenceCard({
             "text-[9px] uppercase tracking-[0.18em] text-slate-400 transition-colors dark:text-slate-500",
             isDark ? "hover:text-indigo-300" : "hover:text-indigo-700",
           )}
-          aria-label={isFullFile ? "Show snippet" : "View full file"}
-          title={isFullFile ? "Show snippet" : "View full file"}
+          aria-label={modeCopy.actionLabel}
+          title={modeCopy.actionLabel}
         >
-          [ {isFullFile ? "Snippet" : "Full file"} ]
+          [ {modeCopy.buttonLabel} ]
         </button>
       </div>
     </div>

@@ -1,18 +1,17 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback } from "react";
 import { useNavigate, useParams, useSearch } from "@tanstack/react-router";
 import { ConstellationView } from "@/features/constellation-view";
 import { LearningPanel } from "@/features/learning-panel";
 import {
   QuestionLocatorGutter,
   TopicScanControls,
-  type QuestionLocatorFilter,
 } from "@/features/question-locator";
 import { SourceReferencePanel } from "@/features/source-reference";
-import { resolveRecoverableQuestionId } from "@/features/topic-session";
 import { cn } from "@/lib/utils";
 import { useLearningTopicInteractions } from "./use-learning-topic-interactions";
 import { useLearningTopicSession } from "./use-learning-topic-session";
 import { useLearningTopicStructure } from "./use-learning-topic-structure";
+import { useLearningTopicViewState } from "./use-learning-topic-view-state";
 
 export function LearningTopicPage() {
   const { id } = useParams({ from: "/topic/$id" });
@@ -74,14 +73,26 @@ export function LearningTopicPage() {
     routeSourceId: search.sourceId,
     routeSourceLabel: search.sourceLabel,
   });
-  const [activeScanFilter, setActiveScanFilter] =
-    useState<QuestionLocatorFilter | null>(null);
-  const [highlightedBlockId, setHighlightedBlockId] = useState<string | null>(
-    null,
-  );
-  const highlightTimeoutRef = useRef<number | null>(null);
-  const consumedRoutedScrollKeyRef = useRef<string | null>(null);
-  const consumedRoutedFocusKeyRef = useRef<string | null>(null);
+  const {
+    activeScanFilter,
+    highlightedBlockId,
+    scrollToQuestion,
+    handleSelectRecoverableQuestion,
+    handleResumeQuestion,
+    handleResumeClosureQuestion,
+    handleToggleScanFilter,
+    handleClearScanFilter,
+    handleSelectLocatorQuestion,
+    handleFocusReferenceBlock,
+  } = useLearningTopicViewState({
+    topicId: id,
+    selectedAngleId,
+    routeQuestionId: search.question,
+    discussionSteps,
+    visibleStepCount,
+    chapterReviewQuestionId: chapterSummaryState?.reviewQuestionId,
+    focusQuestion,
+  });
   const { constellationNodes, constellationEdges, locatorCounts, locatorModel } =
     useLearningTopicStructure({
       topic,
@@ -163,135 +174,6 @@ export function LearningTopicPage() {
     nextAngleId,
   });
 
-  useEffect(() => {
-    if (!search.question) {
-      consumedRoutedScrollKeyRef.current = null;
-      consumedRoutedFocusKeyRef.current = null;
-      return;
-    }
-
-    const routeKey = `${id}:${selectedAngleId}:${search.question}`;
-    const routedFocusQuestionId = resolveRecoverableQuestionId({
-      discussionSteps,
-      visibleStepCount,
-      requestedQuestionId: search.question,
-    });
-
-    if (
-      routedFocusQuestionId &&
-      consumedRoutedFocusKeyRef.current !== routeKey
-    ) {
-      focusQuestion(routedFocusQuestionId);
-      consumedRoutedFocusKeyRef.current = routeKey;
-    }
-
-    if (consumedRoutedScrollKeyRef.current === routeKey) {
-      return;
-    }
-
-    const timeoutId = window.setTimeout(() => {
-      const questionElement = document.getElementById(
-        `question-${search.question}`,
-      );
-
-      if (!questionElement) {
-        return;
-      }
-
-      questionElement.scrollIntoView({
-        behavior: "smooth",
-        block: "center",
-      });
-      consumedRoutedScrollKeyRef.current = routeKey;
-    }, 120);
-
-    return () => {
-      window.clearTimeout(timeoutId);
-    };
-  }, [
-    discussionSteps,
-    focusQuestion,
-    id,
-    insertedQuestionsByAngleId,
-    search.question,
-    selectedAngleId,
-    visibleStepCount,
-  ]);
-
-  useEffect(
-    () => () => {
-      if (highlightTimeoutRef.current) {
-        window.clearTimeout(highlightTimeoutRef.current);
-      }
-    },
-    [],
-  );
-
-  const triggerBlockHighlight = (blockId: string) => {
-    setHighlightedBlockId(blockId);
-
-    if (highlightTimeoutRef.current) {
-      window.clearTimeout(highlightTimeoutRef.current);
-    }
-
-    highlightTimeoutRef.current = window.setTimeout(() => {
-      setHighlightedBlockId(null);
-    }, 1120);
-  };
-
-  const scrollToQuestion = (questionId: string) => {
-    const element = document.getElementById(`question-${questionId}`);
-    if (!element) {
-      return;
-    }
-
-    element.scrollIntoView({ behavior: "smooth", block: "center" });
-  };
-
-  const handleSelectRecoverableQuestion = useCallback(
-    (questionId: string) => {
-      const recoverableQuestionId = resolveRecoverableQuestionId({
-        discussionSteps,
-        visibleStepCount,
-        requestedQuestionId: questionId,
-      });
-
-      if (recoverableQuestionId) {
-        focusQuestion(recoverableQuestionId);
-      }
-
-      scrollToQuestion(questionId);
-    },
-    [discussionSteps, focusQuestion, visibleStepCount],
-  );
-
-  const handleResumeQuestion = useCallback(
-    (questionId: string) => {
-      focusQuestion(questionId);
-      scrollToQuestion(questionId);
-    },
-    [focusQuestion],
-  );
-
-  const handleResumeClosureQuestion = useCallback(() => {
-    if (!chapterSummaryState?.reviewQuestionId) {
-      return;
-    }
-
-    handleResumeQuestion(chapterSummaryState.reviewQuestionId);
-  }, [chapterSummaryState?.reviewQuestionId, handleResumeQuestion]);
-
-  const handleToggleScanFilter = useCallback(
-    (filter: QuestionLocatorFilter) => {
-      setActiveScanFilter((current) => (current === filter ? null : filter));
-    },
-    [],
-  );
-
-  const handleClearScanFilter = useCallback(() => {
-    setActiveScanFilter(null);
-  }, []);
-
   const handleOpenLocatorReview = useCallback(() => {
     if (!activeScanFilter) {
       return;
@@ -307,19 +189,6 @@ export function LearningTopicPage() {
       },
     });
   }, [activeScanFilter, navigate, selectedAngleId, topic.id]);
-
-  const handleFocusReferenceBlock = (blockId: string, questionId?: string) => {
-    const element =
-      (questionId ? document.getElementById(`question-${questionId}`) : null) ??
-      (blockId ? document.getElementById(`block-${blockId}`) : null);
-    if (element) {
-      element.scrollIntoView({ behavior: "smooth", block: "center" });
-    }
-
-    if (blockId) {
-      triggerBlockHighlight(blockId);
-    }
-  };
 
   return (
     <section className="relative min-h-[calc(100vh-5rem)] w-full overflow-hidden bg-transparent">
@@ -437,7 +306,7 @@ export function LearningTopicPage() {
 
         <QuestionLocatorGutter
           model={locatorModel}
-          onSelectQuestion={handleSelectRecoverableQuestion}
+          onSelectQuestion={handleSelectLocatorQuestion}
         />
 
         <SourceReferencePanel

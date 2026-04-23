@@ -5,6 +5,15 @@ import type {
   QuestionLocatorModel,
 } from "./types";
 
+type QuestionLocatorFilterAction =
+  | {
+      type: "toggle-filter";
+      filter: QuestionLocatorFilter;
+    }
+  | {
+      type: "clear" | "select-locator-item";
+    };
+
 type BuildQuestionLocatorModelOptions = {
   items: ReviewQueueItem[];
   filter: QuestionLocatorFilter;
@@ -32,6 +41,21 @@ function getRelativeTop(
   }
 
   return clampRelativePosition(orderIndex / (orderedQuestionIds.length - 1));
+}
+
+export function reduceQuestionLocatorFilter(
+  currentFilter: QuestionLocatorFilter | null,
+  action: QuestionLocatorFilterAction,
+): QuestionLocatorFilter | null {
+  switch (action.type) {
+    case "toggle-filter":
+      return currentFilter === action.filter ? null : action.filter;
+    case "clear":
+    case "select-locator-item":
+      return null;
+    default:
+      return currentFilter;
+  }
 }
 
 export function buildQuestionLocatorModel({

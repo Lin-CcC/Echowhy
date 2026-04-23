@@ -163,16 +163,18 @@ export function QuestionEntry({
       {selectedSourceLabel ? (
         <div
           className={cn(
-            "mt-5 flex flex-wrap items-center justify-center gap-x-3 gap-y-2 text-xs tracking-wide",
+            "mt-5 flex flex-wrap items-center justify-center gap-x-3 gap-y-2 text-[11px] tracking-[0.08em]",
             theme === "dark" ? "text-slate-400" : "text-slate-500",
           )}
         >
           <span className="max-w-80 truncate">
-            {"Source attached - "}
-            {selectedSourceLabel}
+            {"Using source "}
+            <span className={theme === "dark" ? "text-slate-300" : "text-slate-600"}>
+              {selectedSourceLabel}
+            </span>
             {selectedSourceCaption ? (
               <span className={theme === "dark" ? "text-slate-500" : "text-slate-400"}>
-                {" - "}
+                {" / "}
                 {selectedSourceCaption}
               </span>
             ) : null}
@@ -215,20 +217,29 @@ export function QuestionEntry({
       ) : null}
 
       {onAttachSource || onShowRecentSources ? (
-        <div className="mt-6 flex justify-center gap-8">
+        <div className="mt-6 flex items-center justify-center gap-3 text-sm tracking-wide">
           {onAttachSource ? (
             <button
               type="button"
               onClick={onAttachSource}
               className={cn(
-                "text-sm tracking-wide transition-colors",
+                "transition-colors",
                 theme === "dark"
-                  ? "text-slate-400 hover:text-slate-300"
-                  : "text-slate-500 hover:text-slate-700",
+                  ? "text-slate-300 hover:text-slate-100"
+                  : "text-slate-600 hover:text-slate-800",
               )}
             >
-              Attach a source
+              Attach source
             </button>
+          ) : null}
+
+          {onAttachSource && onShowRecentSources ? (
+            <span
+              aria-hidden="true"
+              className={theme === "dark" ? "text-slate-600" : "text-slate-300"}
+            >
+              /
+            </span>
           ) : null}
 
           {onShowRecentSources ? (
@@ -236,13 +247,13 @@ export function QuestionEntry({
               type="button"
               onClick={onShowRecentSources}
               className={cn(
-                "text-sm tracking-wide transition-colors",
+                "transition-colors",
                 theme === "dark"
-                  ? "text-slate-400 hover:text-slate-300"
-                  : "text-slate-500 hover:text-slate-700",
+                  ? "text-slate-500 hover:text-slate-300"
+                  : "text-slate-400 hover:text-slate-600",
               )}
             >
-              Recent sources
+              Browse recent
             </button>
           ) : null}
         </div>

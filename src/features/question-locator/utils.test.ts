@@ -3,6 +3,7 @@ import type { ReviewQueueItem } from "@/features/review";
 import {
   buildQuestionLocatorCounts,
   buildQuestionLocatorModel,
+  reduceQuestionLocatorFilter,
 } from "./utils";
 
 function createReviewQueueItem(
@@ -167,5 +168,46 @@ describe("buildQuestionLocatorCounts", () => {
       pending: 1,
       bookmarked: 1,
     });
+  });
+});
+
+describe("reduceQuestionLocatorFilter", () => {
+  it("toggles the selected filter on and off", () => {
+    expect(
+      reduceQuestionLocatorFilter(null, {
+        type: "toggle-filter",
+        filter: "weak",
+      }),
+    ).toBe("weak");
+
+    expect(
+      reduceQuestionLocatorFilter("weak", {
+        type: "toggle-filter",
+        filter: "weak",
+      }),
+    ).toBeNull();
+  });
+
+  it("switches to the next filter when another scan is selected", () => {
+    expect(
+      reduceQuestionLocatorFilter("weak", {
+        type: "toggle-filter",
+        filter: "pending",
+      }),
+    ).toBe("pending");
+  });
+
+  it("returns to dormant after clearing or selecting a locator point", () => {
+    expect(
+      reduceQuestionLocatorFilter("bookmarked", {
+        type: "clear",
+      }),
+    ).toBeNull();
+
+    expect(
+      reduceQuestionLocatorFilter("unanswered", {
+        type: "select-locator-item",
+      }),
+    ).toBeNull();
   });
 });
