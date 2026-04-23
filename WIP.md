@@ -186,3 +186,32 @@
 - [x] 使用克制的 ASCII `|` 分隔，避免破坏页面的干净感
 - [x] 为 formatter 补失败测试，再替换调用点
 - [x] 运行 `pnpm test src/features/topic-session/feedback-labels.test.ts`
+
+### PRD 第一批补齐：Start Source-only 冷启动承接
+
+- [x] 新增 `guided-ladder` source resolver，将静态 mock source 与本地 `LearningModuleRecord` 统一映射为冷启动梯子模型
+- [x] 新增 `createGuidedLadderSourceHandoff`，让 Start 的空问题 source 提交可以明确复用已有模块或创建新的 source-backed 模块
+- [x] `/ladder/$sourceId` 增加 `moduleId / sourceLabel` search 参数，支持本地导入 source 与 Library module 的承接
+- [x] `GuidedLadderPage` 不再只依赖 mock source，找不到静态 source 时会回退到本地学习库模块
+- [x] `StartPage` 在用户已绑定 source 且未输入问题时进入 Guided Ladder，而不是直接裸跳 Topic
+- [x] 修正 Guided Ladder 自定义问题输入的乱码 placeholder，并补上 source 不可用时的轻量返回状态
+- [x] 运行 `pnpm test src/features/guided-ladder/utils.test.ts` 与 `pnpm build`
+
+### PRD 第一批补齐：Source Workbench 卡片密度收口
+
+- [x] 新增 `buildSourceWorkbenchCardLayouts`，统一决定右侧 source ref 的展开 / 压缩状态
+- [x] 默认保留当前 preview、full file、手动展开卡与最近引用展开，旧 pinned source 自动压缩为轻量条目
+- [x] 压缩卡支持整卡点击展开，同时保留拖拽排序与单卡关闭能力
+- [x] 避免 preview 与 pinned source 重复显示，保持右侧是 source-first workbench 而不是卡片墙
+- [x] 为卡片密度策略补失败测试，再接入 UI
+- [x] 运行 `pnpm test src/features/source-reference/utils.test.ts` 与 `pnpm build`
+
+### PRD 第一批补齐：Start 绑定 source 后提问的轻量承接
+
+- [x] 新增 `createGuidedLadderQuestionHandoff`，把 source-bound question 标准化为轻量承接 payload
+- [x] `/ladder/$sourceId` 增加 `customQuestion / targetTopicId` search 参数，用于承接“已有 source + 用户问题”的进入方式
+- [x] `GuidedLadderPage` 增加 `Source-aligned question` 卡片，先提醒 source 绑定与问题意图，再进入正式 Topic 学习链
+- [x] `StartPage` 在用户已绑定 source 且输入问题时，不再裸跳 Topic，而是创建/复用模块后进入轻量冷启动承接
+- [x] `source-only` 与 `source-bound question` 两条 Start 流现在在同一 Guided Ladder 页面中分层承接
+- [x] 为 question handoff 补失败测试，再接入路由与页面
+- [x] 运行 `pnpm test src/features/guided-ladder/utils.test.ts` 与 `pnpm build`

@@ -20,12 +20,14 @@ type SourceReferenceCardProps = {
   isLoading: boolean;
   isFlashing: boolean;
   sourceDropPosition: "before" | "after" | null;
+  isCompressed: boolean;
   onDragStart: (event: DragEvent<HTMLDivElement>) => void;
   onDragEnd: () => void;
   onDragOver: (event: DragEvent<HTMLDivElement>) => void;
   onDragLeave: (event: DragEvent<HTMLDivElement>) => void;
   onDrop: (event: DragEvent<HTMLDivElement>) => void;
   onUnpinSource: (referenceId: string) => void;
+  onExpandCompressed: () => void;
   onFocusBlock: (blockId: string, questionId?: string) => void;
   onToggleReferenceMode: (reference: TopicSourceReference) => void;
   setItemRef: (element: HTMLDivElement | null) => void;
@@ -54,12 +56,14 @@ export function SourceReferenceCard({
   isLoading,
   isFlashing,
   sourceDropPosition,
+  isCompressed,
   onDragStart,
   onDragEnd,
   onDragOver,
   onDragLeave,
   onDrop,
   onUnpinSource,
+  onExpandCompressed,
   onFocusBlock,
   onToggleReferenceMode,
   setItemRef,
@@ -70,6 +74,100 @@ export function SourceReferenceCard({
   const snippetLines = reference.snippet.split("\n");
   const visibleLines = isFullFile ? fileLines : snippetLines;
   const lineNumberOffset = isFullFile ? 1 : (reference.startLine ?? 1);
+  const compactSnippet =
+    snippetLines.find((line) => line.trim())?.trim() ?? "Source snippet";
+
+  if (isCompressed) {
+    return (
+      <div
+        ref={setItemRef}
+        draggable
+        role="button"
+        tabIndex={0}
+        onClick={onExpandCompressed}
+        onKeyDown={(event) => {
+          if (event.key === "Enter" || event.key === " ") {
+            event.preventDefault();
+            onExpandCompressed();
+          }
+        }}
+        onDragStart={onDragStart}
+        onDragEnd={onDragEnd}
+        onDragOver={onDragOver}
+        onDragLeave={onDragLeave}
+        onDrop={onDrop}
+        className={cn(
+          getSourceCardShellClass(tone, kind),
+          "p-3 outline-none focus-visible:ring-1 focus-visible:ring-cyan-400/45",
+        )}
+      >
+        {sourceDropPosition ? (
+          <div
+            className={cn(
+              "pointer-events-none absolute left-3 right-3 z-30 h-px bg-cyan-300/85 shadow-[0_0_14px_rgba(34,211,238,0.28)] transition-opacity",
+              sourceDropPosition === "before" ? "top-0" : "bottom-0",
+            )}
+          />
+        ) : null}
+
+        <div className="relative z-10 flex items-start justify-between gap-3">
+          <div className="min-w-0 space-y-1">
+            <p
+              className={cn(
+                "text-[9px] font-mono uppercase tracking-[0.2em]",
+                tone.label,
+                !isDark && "text-halo-light",
+              )}
+            >
+              Source ref
+            </p>
+            <p
+              className={cn(
+                "truncate text-sm font-medium",
+                tone.title,
+                !isDark && "text-halo-light",
+              )}
+            >
+              {reference.label}
+            </p>
+            <p
+              className={cn(
+                "truncate text-[11px]",
+                tone.meta,
+                !isDark && "text-halo-light",
+              )}
+            >
+              {reference.referencePath}
+              {reference.startLine
+                ? ` : ${reference.startLine}-${reference.endLine}`
+                : ""}
+            </p>
+            <p
+              className={cn(
+                "truncate font-mono text-[11px]",
+                isDark ? "text-slate-400" : "text-slate-500",
+              )}
+            >
+              {compactSnippet}
+            </p>
+          </div>
+
+          <div className="flex shrink-0 items-center">
+            <button
+              type="button"
+              onClick={(event) => {
+                event.stopPropagation();
+                onUnpinSource(reference.id);
+              }}
+              className="text-xs text-slate-400 transition-colors hover:text-slate-600 dark:text-slate-400 dark:hover:text-slate-200"
+            >
+              [ x ]
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div

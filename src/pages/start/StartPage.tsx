@@ -2,6 +2,10 @@ import { useEffect, useMemo, useRef, useState, type PointerEvent } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { useNavigate } from "@tanstack/react-router";
 import { QuestionEntry } from "@/features/start-entry/components/question-entry";
+import {
+  createGuidedLadderQuestionHandoff,
+  createGuidedLadderSourceHandoff,
+} from "@/features/guided-ladder";
 import { guidedQuestions } from "@/mock/data/guided-questions";
 import { constellationTopic } from "@/mock/data/constellation-topic";
 import { cn } from "@/lib/utils";
@@ -780,16 +784,101 @@ export function StartPage() {
     });
   };
 
+  const goToGuidedLadder = ({
+    sourceId,
+    moduleId,
+    sourceLabel,
+    customQuestion,
+    targetTopicId,
+  }: {
+    sourceId: string;
+    moduleId: string;
+    sourceLabel?: string;
+    customQuestion?: string;
+    targetTopicId?: string;
+  }) => {
+    const search: {
+      moduleId?: string;
+      sourceLabel?: string;
+      customQuestion?: string;
+      targetTopicId?: string;
+    } = {
+      moduleId,
+    };
+
+    if (sourceLabel?.trim()) {
+      search.sourceLabel = sourceLabel.trim();
+    }
+
+    if (customQuestion?.trim()) {
+      search.customQuestion = customQuestion.trim();
+    }
+
+    if (targetTopicId?.trim()) {
+      search.targetTopicId = targetTopicId.trim();
+    }
+
+    void navigate({
+      to: "/ladder/$sourceId",
+      params: { sourceId },
+      search,
+    });
+  };
+
   const createWhyFromQuestion = (question: string) => {
     const trimmedQuestion = question.trim();
     const parentModuleId = selectedSource?.moduleTopicId;
     const topicId = createGeneratedWhyId(parentModuleId ?? selectedSource?.id);
     const sourceId = selectedSource?.sourceId ?? selectedSource?.id;
-    const sourceLabel = parentModuleId
-      ? selectedSource?.label
-      : selectedSource?.sourceLabel ?? selectedSource?.label;
+    const sourceLabel = selectedSource?.sourceLabel ?? selectedSource?.label;
     const sourceFiles = selectedSource?.sourceFiles;
     const moduleTitle = trimmedQuestion || sourceLabel || "New learning module";
+
+    if (selectedSource && !trimmedQuestion) {
+      const handoff = createGuidedLadderSourceHandoff({
+        selectedSource,
+        fallbackModuleId: topicId,
+      });
+
+      if (!handoff) {
+        return;
+      }
+
+      const existingModule =
+        learningModules.find((module) => module.id === handoff.moduleId) ??
+        loadLearningModules().find((module) => module.id === handoff.moduleId);
+
+      const savedModule = handoff.shouldCreateModule
+        ? upsertLearningModule({
+            id: handoff.moduleId,
+            title: handoff.moduleTitle,
+            sourceId: handoff.sourceId,
+            sourceLabel: handoff.sourceLabel,
+            sourceFiles: handoff.sourceFiles,
+            kind: "source-backed",
+            children: createDefaultModuleChildren(handoff.moduleId),
+          })
+        : existingModule && !existingModule.children.length
+          ? upsertLearningModule({
+              ...existingModule,
+              children: createDefaultModuleChildren(
+                existingModule.id,
+                existingModule.seedQuestion,
+              ),
+            })
+          : existingModule;
+
+      if (savedModule) {
+        setLearningModules(loadLearningModules());
+      }
+
+      goToGuidedLadder({
+        sourceId: handoff.sourceId,
+        moduleId: handoff.moduleId,
+        sourceLabel: handoff.sourceLabel,
+      });
+      return;
+    }
 
     if (parentModuleId && trimmedQuestion) {
       const existingParentModule =
@@ -830,6 +919,19 @@ export function StartPage() {
         setLearningModules(loadLearningModules());
       }
 
+      const questionHandoff = createGuidedLadderQuestionHandoff({
+        sourceId,
+        sourceLabel,
+        moduleId: parentModuleId,
+        targetTopicId: topicId,
+        customQuestion: trimmedQuestion,
+      });
+
+      if (questionHandoff) {
+        goToGuidedLadder(questionHandoff);
+        return;
+      }
+
       goToTopic(topicId, undefined, trimmedQuestion, sourceId, sourceLabel);
       return;
     }
@@ -847,6 +949,21 @@ export function StartPage() {
 
     if (savedModule) {
       setLearningModules(loadLearningModules());
+    }
+
+    const questionHandoff = selectedSource
+      ? createGuidedLadderQuestionHandoff({
+          sourceId,
+          sourceLabel,
+          moduleId: savedModule?.id ?? topicId,
+          targetTopicId: topicId,
+          customQuestion: trimmedQuestion,
+        })
+      : null;
+
+    if (questionHandoff) {
+      goToGuidedLadder(questionHandoff);
+      return;
     }
 
     goToTopic(

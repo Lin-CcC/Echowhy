@@ -10,6 +10,7 @@ import {
 import { ActiveFeedbackCard } from "./active-feedback-card";
 import { SourceReferenceCard } from "./source-reference-card";
 import type { FeedbackCardState, SourceDropTarget } from "../types";
+import { buildSourceWorkbenchCardLayouts } from "../utils";
 
 type SourceReferencePanelProps = {
   references: TopicSourceReference[];
@@ -114,6 +115,7 @@ export function SourceReferencePanel({
   const [fileModeById, setFileModeById] = useState<
     Record<string, "snippet" | "full">
   >({});
+  const [expandedReferenceIds, setExpandedReferenceIds] = useState<string[]>([]);
   const [loadingById, setLoadingById] = useState<Record<string, boolean>>({});
   const [flashReferenceId, setFlashReferenceId] = useState<string | null>(null);
   const [focusReferenceId, setFocusReferenceId] = useState<string | null>(null);
@@ -137,32 +139,53 @@ export function SourceReferencePanel({
   const activeFeedbackTone = activeFeedback
     ? feedbackToneClasses[activeFeedback.feedback.level]
     : null;
+  const fullFileReferenceIds = useMemo(
+    () =>
+      Object.entries(fileModeById)
+        .filter(([, mode]) => mode === "full")
+        .map(([referenceId]) => referenceId),
+    [fileModeById],
+  );
 
-  const pinnedReferences = pinnedReferenceIds
-    .map((referenceId) =>
-      references.find((reference) => reference.id === referenceId),
-    )
-    .filter((reference): reference is TopicSourceReference =>
-      Boolean(reference),
-    );
-
-  const previewReference =
-    previewReferenceId && !pinnedReferenceIds.includes(previewReferenceId)
-      ? (references.find((reference) => reference.id === previewReferenceId) ??
-        null)
-      : null;
+  const sourceCardLayouts = useMemo(
+    () =>
+      buildSourceWorkbenchCardLayouts({
+        pinnedReferenceIds,
+        previewReferenceId,
+        expandedReferenceIds,
+        fullFileReferenceIds,
+      }),
+    [
+      expandedReferenceIds,
+      fullFileReferenceIds,
+      pinnedReferenceIds,
+      previewReferenceId,
+    ],
+  );
 
   const displayedReferences = useMemo(
-    () => [
-      ...pinnedReferences.map((reference) => ({
-        reference,
-        kind: "pinned" as const,
-      })),
-      ...(previewReference
-        ? [{ reference: previewReference, kind: "preview" as const }]
-        : []),
-    ],
-    [pinnedReferences, previewReference],
+    () =>
+      sourceCardLayouts
+        .map((layout) => {
+          const reference = references.find(
+            (candidate) => candidate.id === layout.referenceId,
+          );
+
+          return reference
+            ? {
+                ...layout,
+                reference,
+              }
+            : null;
+        })
+        .filter(
+          (
+            item,
+          ): item is (typeof sourceCardLayouts)[number] & {
+            reference: TopicSourceReference;
+          } => Boolean(item),
+        ),
+    [references, sourceCardLayouts],
   );
 
   const sourceTone = {
@@ -273,6 +296,21 @@ export function SourceReferencePanel({
   };
 
   useEffect(() => stopWorkbenchAutoScroll, []);
+
+  useEffect(() => {
+    const visibleReferenceIds = new Set([
+      ...pinnedReferenceIds,
+      ...(previewReferenceId ? [previewReferenceId] : []),
+    ]);
+
+    setExpandedReferenceIds((previous) => {
+      const next = previous.filter((referenceId) =>
+        visibleReferenceIds.has(referenceId),
+      );
+
+      return next.length === previous.length ? previous : next;
+    });
+  }, [pinnedReferenceIds, previewReferenceId]);
 
   useEffect(() => {
     if (!draggingWorkbenchKind) {
@@ -506,6 +544,12 @@ export function SourceReferencePanel({
     );
   };
 
+  const expandSourceCard = (referenceId: string) => {
+    setExpandedReferenceIds((previous) =>
+      previous.includes(referenceId) ? previous : [...previous, referenceId],
+    );
+  };
+
   const handleFeedbackDrop = (
     event: DragEvent<HTMLDivElement>,
     targetFeedbackId: string,
@@ -612,7 +656,7 @@ export function SourceReferencePanel({
 
       {displayedReferences.length ? (
         <div className="space-y-6">
-          {displayedReferences.map(({ reference, kind }) => {
+          {displayedReferences.map(({ reference, kind, isCompressed }) => {
             const isFullFile = fileModeById[reference.id] === "full";
             const isLoading = loadingById[reference.id];
             const fileLines = (
@@ -642,6 +686,7 @@ export function SourceReferencePanel({
                 isLoading={isLoading}
                 isFlashing={flashReferenceId === reference.id}
                 sourceDropPosition={sourceDropPosition}
+                isCompressed={isCompressed}
                 onDragStart={(event) =>
                   startWorkbenchDrag(event, {
                     kind: "source",
@@ -680,6 +725,7 @@ export function SourceReferencePanel({
                   )
                 }
                 onUnpinSource={onUnpinSource}
+                onExpandCompressed={() => expandSourceCard(reference.id)}
                 onFocusBlock={onFocusBlock}
                 onToggleReferenceMode={toggleReferenceMode}
                 setItemRef={(element) => {

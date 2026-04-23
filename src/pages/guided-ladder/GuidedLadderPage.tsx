@@ -1,16 +1,52 @@
-import { useState } from "react";
-import { useNavigate, useParams } from "@tanstack/react-router";
+import { useMemo, useState } from "react";
+import { useNavigate, useParams, useSearch } from "@tanstack/react-router";
+import { resolveGuidedLadderSource } from "@/features/guided-ladder";
+import { loadLearningModules } from "@/features/topic-session";
 import { getSourceImportById } from "@/mock/data/constellation-topic";
 import { cn } from "@/lib/utils";
 
 export function GuidedLadderPage() {
   const { sourceId } = useParams({ from: "/ladder/$sourceId" });
+  const search = useSearch({ from: "/ladder/$sourceId" });
   const navigate = useNavigate();
-  const sourceImport = getSourceImportById(sourceId);
+  const sourceImport = useMemo(
+    () =>
+      resolveGuidedLadderSource({
+        sourceId,
+        moduleId: search.moduleId,
+        modules: loadLearningModules(),
+        getStaticSourceImport: getSourceImportById,
+      }),
+    [sourceId, search.moduleId],
+  );
   const [customQuestion, setCustomQuestion] = useState("");
+  const sourceBoundQuestion = search.customQuestion?.trim();
+  const sourceBoundTargetTopicId = search.targetTopicId?.trim();
 
   if (!sourceImport) {
-    return null;
+    return (
+      <section className="flex min-h-[calc(100vh-5rem)] items-center justify-center bg-transparent px-8">
+        <div className="max-w-xl border-l border-cyan-400/40 pl-6">
+          <p className="mb-4 text-[10px] font-mono uppercase tracking-[0.22em] text-slate-400 dark:text-slate-400">
+            Source unavailable
+          </p>
+          <h1 className="text-3xl font-light tracking-tight text-slate-900 dark:text-slate-100">
+            This source is not ready for a ladder yet.
+          </h1>
+          <p className="mt-5 text-sm leading-7 text-slate-600 dark:text-slate-300">
+            The page could not find a matching imported source or saved learning
+            module. Return to Start and attach the source again.
+          </p>
+          <button
+            type="button"
+            onClick={() => void navigate({ to: "/" })}
+            className="mt-8 border border-cyan-500/50 px-5 py-2 text-xs uppercase tracking-widest text-cyan-700 transition-colors hover:bg-cyan-500 hover:text-white dark:text-cyan-300 dark:hover:bg-cyan-400/10 dark:hover:text-cyan-200"
+          >
+            [ Back to Start ]
+          </button>
+        </div>
+      </section>
+    );
   }
 
   const goToTopic = (topicId: string, angleId?: string, nextQuestion?: string) => {
@@ -20,6 +56,8 @@ export function GuidedLadderPage() {
       search: {
         angle: angleId,
         customQuestion: nextQuestion,
+        sourceId,
+        sourceLabel: search.sourceLabel ?? sourceImport.projectName,
       },
     });
   };
@@ -49,6 +87,35 @@ export function GuidedLadderPage() {
               ))}
             </div>
 
+            {sourceBoundQuestion && sourceBoundTargetTopicId ? (
+              <div className="mt-10 border-l border-cyan-400/55 py-1 pl-6">
+                <p className="mb-3 text-[10px] font-mono uppercase tracking-[0.22em] text-cyan-600 dark:text-cyan-300">
+                  Source-aligned question
+                </p>
+                <p className="max-w-2xl text-2xl font-light leading-snug tracking-tight text-slate-900 dark:text-slate-100">
+                  {sourceBoundQuestion}
+                </p>
+                <p className="mt-4 max-w-2xl text-sm leading-7 text-slate-600 dark:text-slate-300">
+                  This question is now attached to the source context. Enter the
+                  learning chain when you are ready, or choose another guided
+                  path below if the source suggests a better first step.
+                </p>
+                <button
+                  type="button"
+                  onClick={() =>
+                    goToTopic(
+                      sourceBoundTargetTopicId,
+                      "angle-custom-followup",
+                      sourceBoundQuestion,
+                    )
+                  }
+                  className="mt-6 border border-cyan-500/45 px-5 py-2 text-xs uppercase tracking-widest text-cyan-700 transition-colors hover:bg-cyan-500 hover:text-white dark:text-cyan-300 dark:hover:bg-cyan-400/10 dark:hover:text-cyan-200"
+                >
+                  [ Enter learning chain ]
+                </button>
+              </div>
+            ) : null}
+
             <div className="mt-10 grid gap-4 md:grid-cols-3">
               {sourceImport.guidedQuestions.map((question) => (
                 <button
@@ -77,7 +144,7 @@ export function GuidedLadderPage() {
                 rows={2}
                 value={customQuestion}
                 onChange={(event) => setCustomQuestion(event.target.value)}
-                placeholder="或者，你也可以问任何你想了解的问题..."
+                placeholder="Or ask the source your own why..."
                 className="w-full resize-none border-b border-slate-300 bg-transparent pb-2 text-slate-800 placeholder:text-slate-400 focus:border-cyan-500 focus:outline-none dark:border-cyan-700/45 dark:text-slate-200 dark:placeholder:text-slate-500 dark:focus:border-cyan-400"
               />
 
