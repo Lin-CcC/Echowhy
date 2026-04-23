@@ -6,6 +6,7 @@ export {
   buildLibraryCardModel,
   filterAndSortLibraryCardModels,
   formatRelativeModuleTime,
+  getBookmarkedQuestionCount,
   getCompletedChildIds,
   isAngleProgressCompleted,
 } from "./utils";

@@ -27,6 +27,7 @@ function createReviewQueueItem(
     latestActivityAt: overrides.latestActivityAt ?? "2026-04-22T10:00:00.000Z",
     latestAnswer: overrides.latestAnswer ?? null,
     latestFeedback: overrides.latestFeedback ?? null,
+    analysisDimensions: overrides.analysisDimensions ?? [],
     summary: overrides.summary ?? null,
     attempts: overrides.attempts ?? [],
     routeSearch: overrides.routeSearch ?? {

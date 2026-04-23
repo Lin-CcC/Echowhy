@@ -1,9 +1,10 @@
 ﻿import { useEffect, useMemo, useRef, useState, type DragEvent } from "react";
 import { useThemeMode } from "@/app/theme/theme-provider";
 import { cn } from "@/lib/utils";
-import type {
-  TopicFeedbackLevel,
-  TopicFeedbackPreview,
+import {
+  formatTopicFeedbackScoreLabel,
+  type TopicFeedbackLevel,
+  type TopicFeedbackPreview,
   TopicSourceReference,
 } from "@/features/topic-session";
 import { ActiveFeedbackCard } from "./active-feedback-card";
@@ -546,7 +547,7 @@ export function SourceReferencePanel({
               id: activeFeedback.id,
               label: activeFeedback.feedback.label,
               feedbackLevel: activeFeedback.feedback.level,
-              title: `${activeFeedback.feedback.label} 路${activeFeedback.feedback.score}`,
+              title: formatTopicFeedbackScoreLabel(activeFeedback.feedback),
               subtitle: "Answer feedback",
               body: [
                 activeFeedback.feedback.correctPoints.length
@@ -568,7 +569,7 @@ export function SourceReferencePanel({
               ]
                 .filter(Boolean)
                 .join("\n\n"),
-              meta: `Question answer 路 ${activeFeedback.feedback.score}/100`,
+              meta: `Question answer | ${activeFeedback.feedback.score}/100`,
               insertPrompt: `Review this feedback: ${activeFeedback.feedback.nextSuggestion}`,
             })
           }

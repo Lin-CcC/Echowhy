@@ -29,6 +29,7 @@ type UseLearningTopicWorkbenchActionsParams = {
   setDraftAnswersByQuestionId: Dispatch<SetStateAction<Record<string, string>>>;
   revealedQuestionIds: Record<string, boolean>;
   setRevealedQuestionIds: Dispatch<SetStateAction<Record<string, boolean>>>;
+  clearFocusedQuestion: () => void;
   setBehaviorSignalCounts: Dispatch<SetStateAction<TopicBehaviorSignalCounts>>;
   discussionSteps: TopicDiscussionStep[];
   currentStepIndex: number;
@@ -49,6 +50,7 @@ export function useLearningTopicWorkbenchActions({
   setDraftAnswersByQuestionId,
   revealedQuestionIds,
   setRevealedQuestionIds,
+  clearFocusedQuestion,
   setBehaviorSignalCounts,
   discussionSteps,
   currentStepIndex,
@@ -242,6 +244,7 @@ export function useLearningTopicWorkbenchActions({
       });
 
       if (passed) {
+        clearFocusedQuestion();
         setPreviewSource(null);
         setRevealedQuestionIds((previous) => {
           const next = { ...previous };
@@ -251,6 +254,7 @@ export function useLearningTopicWorkbenchActions({
       }
     },
     [
+      clearFocusedQuestion,
       currentStepIndex,
       discussionSteps,
       floatingFeedbacks,

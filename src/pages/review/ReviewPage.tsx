@@ -2,13 +2,16 @@ import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useSearch } from "@tanstack/react-router";
 import {
   applyReviewScope,
+  getScopedReviewChapterSummary,
   ReviewDetailPanel,
+  ReviewChapterStrip,
   ReviewFilterBar,
   ReviewQueueList,
   ReviewScopeBanner,
   buildReviewQueue,
   filterReviewQueueItems,
   type ReviewQueueFilter,
+  type ReviewChapterSummary,
   type ReviewQueueItem,
   type ReviewScope,
 } from "@/features/review";
@@ -51,23 +54,44 @@ export function ReviewPage() {
     [],
   );
   const activeScope = useMemo<ReviewScope | null>(() => {
-    if (!search.filter && !search.topicId && !search.angleId && !search.source) {
+    if (
+      !search.filter &&
+      !search.analysisDimension &&
+      !search.topicId &&
+      !search.angleId &&
+      !search.source
+    ) {
       return null;
     }
 
     return {
       filter: search.filter,
+      analysisDimension: search.analysisDimension,
       topicId: search.topicId,
       angleId: search.angleId,
       source: search.source,
+      sourceLabel: search.sourceLabel,
+      sourceDetail: search.sourceDetail,
     };
-  }, [search.angleId, search.filter, search.source, search.topicId]);
+  }, [
+    search.analysisDimension,
+    search.angleId,
+    search.filter,
+    search.source,
+    search.sourceDetail,
+    search.sourceLabel,
+    search.topicId,
+  ]);
   const visibleItems = useMemo(
     () =>
       activeScope
         ? applyReviewScope(queue.items, activeScope)
         : filterReviewQueueItems(queue.items, activeFilter),
     [activeFilter, activeScope, queue.items],
+  );
+  const activeChapterSummary = useMemo(
+    () => getScopedReviewChapterSummary(queue.chapters, activeScope),
+    [activeScope, queue.chapters],
   );
   const activeItem = useMemo(
     () =>
@@ -111,6 +135,43 @@ export function ReviewPage() {
     });
   }
 
+  function handleSelectChapter(chapter: ReviewChapterSummary) {
+    void navigate({
+      to: "/review",
+      search: {
+        topicId: chapter.topicId,
+        angleId: chapter.angleId,
+      },
+    });
+  }
+
+  function handleOpenFlaggedQuestion() {
+    const reviewQuestionId = activeChapterSummary?.summaryState?.reviewQuestionId;
+
+    if (!reviewQuestionId) {
+      return;
+    }
+
+    const questionItem = visibleItems.find(
+      (item) => item.questionId === reviewQuestionId,
+    );
+
+    if (questionItem) {
+      setActiveItemId(questionItem.id);
+    }
+  }
+
+  function handleOpenSeriesAnalyze(item: ReviewQueueItem) {
+    void navigate({
+      to: "/analyze",
+      search: {
+        tab: "chapters",
+        topicId: item.topicId,
+        angleId: item.angleId,
+      },
+    });
+  }
+
   return (
     <section className="mx-auto flex w-full max-w-[1500px] flex-col px-10 pb-20 pt-14 sm:px-12">
       <div className="max-w-4xl">
@@ -132,6 +193,12 @@ export function ReviewPage() {
           <ReviewScopeBanner
             scope={activeScope}
             itemCount={visibleItems.length}
+            chapterSummary={activeChapterSummary}
+            onOpenFlaggedQuestion={
+              activeChapterSummary?.summaryState?.reviewQuestionId
+                ? handleOpenFlaggedQuestion
+                : null
+            }
             onClearScope={handleClearScope}
           />
         ) : (
@@ -141,6 +208,12 @@ export function ReviewPage() {
             onFilterChange={setActiveFilter}
           />
         )}
+
+        <ReviewChapterStrip
+          chapters={queue.chapters}
+          activeChapterId={activeChapterSummary?.id ?? null}
+          onSelectChapter={handleSelectChapter}
+        />
       </div>
 
       <div className="mt-10 grid gap-10 xl:grid-cols-[minmax(22rem,34rem)_minmax(0,1fr)]">
@@ -152,7 +225,11 @@ export function ReviewPage() {
           />
         </div>
 
-        <ReviewDetailPanel item={activeItem} onOpenTopic={handleOpenTopic} />
+        <ReviewDetailPanel
+          item={activeItem}
+          onOpenTopic={handleOpenTopic}
+          onOpenSeriesAnalyze={handleOpenSeriesAnalyze}
+        />
       </div>
     </section>
   );

@@ -1,4 +1,5 @@
 import type { DragEvent } from "react";
+import { formatTopicFeedbackScoreLabel } from "@/features/topic-session";
 import { cn } from "@/lib/utils";
 import type { FeedbackCardState } from "../types";
 
@@ -78,7 +79,7 @@ export function ActiveFeedbackCard({
                 tone.badge,
               )}
             >
-              {activeFeedback.feedback.label} 路 {activeFeedback.feedback.score}
+              {formatTopicFeedbackScoreLabel(activeFeedback.feedback)}
             </span>
           </div>
 

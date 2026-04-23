@@ -24,6 +24,7 @@ function createReviewQueueItem(
     latestActivityAt: overrides.latestActivityAt ?? "2026-04-22T10:00:00.000Z",
     latestAnswer: overrides.latestAnswer ?? null,
     latestFeedback: overrides.latestFeedback ?? null,
+    analysisDimensions: overrides.analysisDimensions ?? [],
     summary: overrides.summary ?? null,
     attempts: overrides.attempts ?? [],
     routeSearch: overrides.routeSearch ?? {
@@ -104,5 +105,28 @@ describe("applyReviewScope", () => {
     );
 
     expect(result.map((item) => item.questionId)).toEqual(["q-1", "q-2"]);
+  });
+
+  it("filters questions by analysis dimension inside the requested scope", () => {
+    const result = applyReviewScope(
+      [
+        createReviewQueueItem({
+          questionId: "q-1",
+          analysisDimensions: ["causal-link"],
+        }),
+        createReviewQueueItem({
+          id: "topic-1:angle-main:q-2",
+          questionId: "q-2",
+          analysisDimensions: ["grounding"],
+        }),
+      ],
+      {
+        topicId: "topic-1",
+        angleId: "angle-main",
+        analysisDimension: "causal-link",
+      },
+    );
+
+    expect(result.map((item) => item.questionId)).toEqual(["q-1"]);
   });
 });

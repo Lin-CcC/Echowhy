@@ -5,10 +5,12 @@ import { z } from "zod";
 import { useThemeMode } from "@/app/theme/theme-provider";
 import type {
   InsertedQuestionRecord,
+  TopicChapterSummaryState,
   TopicAnswerState,
   TopicDiscussionStep,
   TopicQuestionReviewState,
 } from "@/features/topic-session";
+import { buildLearningFloatingAssistantState } from "./learning-floating-assistant";
 import { LearningFloatingInsertLauncher } from "./learning-floating-insert-launcher";
 import { LearningPanelBody } from "./learning-panel-body";
 import { LearningPanelHeader } from "./learning-panel-header";
@@ -39,6 +41,7 @@ type LearningPanelProps = {
   prefilledAnswer?: string;
   showCustomComposer: boolean;
   customQuestionDraft: string;
+  chapterSummaryState?: TopicChapterSummaryState;
   showCompletionCard: boolean;
   activeAngleTitle: string;
   canExploreAnotherAngle: boolean;
@@ -55,17 +58,20 @@ type LearningPanelProps = {
     id?: string;
   }) => void;
   onCheckCurrent: (answer: string) => void;
+  onContinueLadder: () => void;
   onSkipCurrent: () => void;
   onToggleQuestionPending: (questionId: string) => void;
   onToggleQuestionBookmark: (questionId: string) => void;
   onToggleQuestionWeak: (questionId: string) => void;
   onTryAgain: () => void;
   onRevealAnswer: () => void;
+  onResumeQuestion: (questionId: string) => void;
   onPreviewReference: (referenceId: string) => void;
   onClearPreviewReference: () => void;
   onPinSource: (referenceId: string) => void;
   onSubmitCustomQuestion: (question: string) => void;
   onExploreAnotherAngle: () => void;
+  onResumeRecommendedQuestion: () => void;
   onReturnToLibrary: () => void;
   onAskFollowUp: () => void;
 };
@@ -83,6 +89,7 @@ export function LearningPanel({
   prefilledAnswer,
   showCustomComposer,
   customQuestionDraft,
+  chapterSummaryState,
   showCompletionCard,
   activeAngleTitle,
   canExploreAnotherAngle,
@@ -96,17 +103,20 @@ export function LearningPanel({
   onCheckInsertedQuestion,
   onWorkbenchCardInserted,
   onCheckCurrent,
+  onContinueLadder,
   onSkipCurrent,
   onToggleQuestionPending,
   onToggleQuestionBookmark,
   onToggleQuestionWeak,
   onTryAgain,
   onRevealAnswer,
+  onResumeQuestion,
   onPreviewReference,
   onClearPreviewReference,
   onPinSource,
   onSubmitCustomQuestion,
   onExploreAnotherAngle,
+  onResumeRecommendedQuestion,
   onReturnToLibrary,
   onAskFollowUp,
 }: LearningPanelProps) {
@@ -200,6 +210,12 @@ export function LearningPanel({
   const customQuestionField = customQuestionForm.register("question");
   const visibleSteps = steps.slice(0, visibleStepCount);
   const failedCurrentAttempt = currentAnswerState?.status === "failed";
+  const assistantState = buildLearningFloatingAssistantState({
+    hasDraft: Boolean(insertQuestionDraft.trim()),
+    showCompletionCard,
+    chapterSummaryState,
+    currentAnswerState,
+  });
   const insertedQuestionsByTargetId = insertedQuestions.reduce<
     Record<string, InsertedQuestionRecord[]>
   >((accumulator, question) => {
@@ -266,9 +282,13 @@ export function LearningPanel({
           hasDraft={Boolean(insertQuestionDraft.trim())}
           isDark={isDark}
           useLightShield={useLightShield}
+          assistantState={assistantState}
           onMouseEnter={() => setIsFloatingWindowHovered(true)}
           onMouseLeave={() => setIsFloatingWindowHovered(false)}
           onPointerDown={handleInsertDragStart}
+          onContinueLadder={onContinueLadder}
+          onReviewQuestion={onResumeRecommendedQuestion}
+          onExploreNext={onExploreAnotherAngle}
         />
       ) : null}
 
@@ -285,6 +305,7 @@ export function LearningPanel({
         currentStepIndex={currentStepIndex}
         showCompletionCard={showCompletionCard}
         showCustomComposer={showCustomComposer}
+        chapterSummaryState={chapterSummaryState}
         currentAnswerState={currentAnswerState}
         failedCurrentAttempt={failedCurrentAttempt}
         answerStateByQuestionId={answerStateByQuestionId}
@@ -314,10 +335,13 @@ export function LearningPanel({
         onAnswerSubmit={handleAnswerFormSubmit}
         onTryAgain={onTryAgain}
         onRevealAnswer={onRevealAnswer}
+        onContinueLadder={onContinueLadder}
         onSkipCurrent={onSkipCurrent}
+        onResumeQuestion={onResumeQuestion}
         onCustomQuestionSubmit={handleCustomComposerFormSubmit}
         onCustomQuestionDraftChange={onCustomQuestionDraftChange}
         onExploreAnotherAngle={onExploreAnotherAngle}
+        onResumeRecommendedQuestion={onResumeRecommendedQuestion}
         onReturnToLibrary={onReturnToLibrary}
         onAskFollowUp={onAskFollowUp}
       />

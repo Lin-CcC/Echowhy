@@ -8,11 +8,22 @@ export const reviewRoute = createRoute({
   path: '/review',
   validateSearch: z.object({
     filter: z
-      .enum(['weak', 'unanswered', 'pending', 'bookmarked'])
+      .enum(['weak', 'unanswered', 'pending', 'bookmarked', 'skipped'])
+      .optional(),
+    analysisDimension: z
+      .enum([
+        'target-fit',
+        'conceptual-accuracy',
+        'causal-link',
+        'grounding',
+        'calibration',
+      ])
       .optional(),
     topicId: z.string().optional(),
     angleId: z.string().optional(),
-    source: z.enum(['locator']).optional(),
+    source: z.enum(['locator', 'analyze']).optional(),
+    sourceLabel: z.string().optional(),
+    sourceDetail: z.string().optional(),
   }),
   component: ReviewPage,
 })

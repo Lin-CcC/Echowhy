@@ -9,6 +9,7 @@ import {
   buildReviewQueue,
   filterReviewQueueItems,
   getReviewFilterLabel,
+  getScopedReviewChapterSummary,
 } from "./utils";
 
 function createFeedback(
@@ -167,6 +168,15 @@ function createTopicState(
           ],
         },
         customQuestion: "",
+        generatedDiscussionSteps: [],
+        chapterSummaryState: {
+          status: "provisional",
+          reason: "pending",
+          recommendedAction: "review-question",
+          firstReachedAt: "2026-04-22T09:03:00.000Z",
+          lastUpdatedAt: "2026-04-22T09:03:00.000Z",
+          reviewQuestionId: "q-2",
+        },
       },
     },
     draftAnswersByQuestionId: {},
@@ -243,23 +253,53 @@ describe("buildReviewQueue", () => {
     expect(queue.counts.pending).toBe(1);
     expect(queue.counts.skipped).toBe(0);
     expect(queue.counts.bookmarked).toBe(1);
+    expect(queue.chapters).toHaveLength(1);
+    expect(queue.chapters[0]).toMatchObject({
+      id: "topic-1:angle-main",
+      topicId: "topic-1",
+      angleId: "angle-main",
+      moduleTitle: "JWT timing",
+      angleTitle: "Request flow",
+      counts: {
+        all: 3,
+        weak: 1,
+        unanswered: 1,
+        pending: 1,
+        skipped: 0,
+        bookmarked: 1,
+      },
+      latestActivityAt: "2026-04-22T09:07:00.000Z",
+      summaryState: {
+        status: "provisional",
+        reason: "pending",
+        recommendedAction: "review-question",
+        reviewQuestionId: "q-2",
+      },
+    });
 
     expect(queue.items[0]).toMatchObject({
       questionId: "branch-1",
       source: "inserted",
       isWeak: true,
       isSelfMarkedWeak: true,
+      analysisDimensions: [
+        "grounding",
+        "causal-link",
+        "calibration",
+      ],
     });
     expect(queue.items[1]).toMatchObject({
       questionId: "q-2",
       source: "main",
       isPending: true,
       status: "unanswered",
+      analysisDimensions: [],
     });
     expect(queue.items[2]).toMatchObject({
       questionId: "q-1",
       isBookmarked: true,
       status: "answered-good",
+      analysisDimensions: [],
     });
   });
 
@@ -274,6 +314,7 @@ describe("buildReviewQueue", () => {
               answerStateByQuestionId: {},
               attemptRecordsByQuestionId: {},
               customQuestion: "",
+              generatedDiscussionSteps: [],
             },
           },
           insertedQuestionsByAngleId: {},
@@ -284,6 +325,115 @@ describe("buildReviewQueue", () => {
 
     expect(queue.items.map((item) => item.questionId)).toEqual(["q-1"]);
     expect(queue.counts.unanswered).toBe(1);
+  });
+
+  it("treats continue-ladder progress as unanswered instead of skipped", () => {
+    const queue = buildReviewQueue({
+      modules: [createModuleRecord()],
+      loadTopicState: () =>
+        createTopicState({
+          angleStateById: {
+            "angle-main": {
+              unlockedStepCount: 2,
+              answerStateByQuestionId: {
+                "q-1": {
+                  questionId: "q-1",
+                  answer: "",
+                  status: "continued" as never,
+                  feedback: null,
+                  summary: "Continued via ladder.",
+                  isCollapsed: true,
+                  updatedAt: "2026-04-22T09:01:00.000Z",
+                },
+              },
+              attemptRecordsByQuestionId: {},
+              customQuestion: "",
+              generatedDiscussionSteps: [],
+            },
+          },
+          insertedQuestionsByAngleId: {},
+          questionReviewStateById: {},
+        }),
+      resolveTopicSession: () => createTopicSession(),
+    });
+
+    expect(queue.items.map((item) => [item.questionId, item.status])).toEqual([
+      ["q-2", "unanswered"],
+      ["q-1", "unanswered"],
+    ]);
+    expect(queue.counts.unanswered).toBe(2);
+    expect(queue.counts.skipped).toBe(0);
+  });
+
+  it("ignores undefined angle progress entries when collecting chapter summaries", () => {
+    const queue = buildReviewQueue({
+      modules: [createModuleRecord()],
+      loadTopicState: () =>
+        createTopicState({
+          angleStateById: {
+            "angle-main": {
+              unlockedStepCount: 1,
+              answerStateByQuestionId: {},
+              attemptRecordsByQuestionId: {},
+              customQuestion: "",
+              generatedDiscussionSteps: [],
+              chapterSummaryState: {
+                status: "grounded",
+                reason: "all-passed",
+                recommendedAction: "explore-next-angle",
+                firstReachedAt: "2026-04-22T09:10:00.000Z",
+                lastUpdatedAt: "2026-04-22T09:10:00.000Z",
+                reviewQuestionId: null,
+              },
+            },
+            "angle-stale": undefined,
+          },
+          insertedQuestionsByAngleId: {},
+          questionReviewStateById: {},
+        }),
+      resolveTopicSession: () => createTopicSession(),
+    });
+
+    expect(queue.chapters).toHaveLength(1);
+    expect(queue.chapters[0].summaryState?.status).toBe("grounded");
+  });
+});
+
+describe("getScopedReviewChapterSummary", () => {
+  it("returns the current chapter summary when the scope targets a topic angle", () => {
+    const queue = buildReviewQueue({
+      modules: [createModuleRecord()],
+      loadTopicState: () => createTopicState(),
+      resolveTopicSession: () => createTopicSession(),
+    });
+
+    expect(
+      getScopedReviewChapterSummary(queue.chapters, {
+        topicId: "topic-1",
+        angleId: "angle-main",
+      }),
+    ).toMatchObject({
+      id: "topic-1:angle-main",
+      summaryState: {
+        status: "provisional",
+        reviewQuestionId: "q-2",
+      },
+    });
+  });
+
+  it("returns null when the scope does not point at a known chapter", () => {
+    const queue = buildReviewQueue({
+      modules: [createModuleRecord()],
+      loadTopicState: () => createTopicState(),
+      resolveTopicSession: () => createTopicSession(),
+    });
+
+    expect(
+      getScopedReviewChapterSummary(queue.chapters, {
+        topicId: "topic-1",
+        angleId: "angle-missing",
+      }),
+    ).toBeNull();
   });
 });
 

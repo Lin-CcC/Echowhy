@@ -5,6 +5,7 @@ import type { ReviewQueueItem } from "../types";
 type ReviewDetailPanelProps = {
   item: ReviewQueueItem | null;
   onOpenTopic: (item: ReviewQueueItem) => void;
+  onOpenSeriesAnalyze: (item: ReviewQueueItem) => void;
 };
 
 function buildSignals(item: ReviewQueueItem) {
@@ -51,6 +52,7 @@ function buildSignals(item: ReviewQueueItem) {
 export function ReviewDetailPanel({
   item,
   onOpenTopic,
+  onOpenSeriesAnalyze,
 }: ReviewDetailPanelProps) {
   if (!item) {
     return (
@@ -80,13 +82,22 @@ export function ReviewDetailPanel({
           </h2>
         </div>
 
-        <button
-          type="button"
-          onClick={() => onOpenTopic(item)}
-          className="shrink-0 border-b border-cyan-500/45 pb-1 text-[11px] uppercase tracking-[0.24em] text-cyan-700 transition-colors hover:text-cyan-900 dark:border-cyan-400/45 dark:text-cyan-400 dark:hover:text-cyan-300"
-        >
-          Back to Topic
-        </button>
+        <div className="flex shrink-0 flex-wrap items-center gap-x-6 gap-y-3">
+          <button
+            type="button"
+            onClick={() => onOpenSeriesAnalyze(item)}
+            className="border-b border-slate-300/70 pb-1 text-[11px] uppercase tracking-[0.24em] text-slate-500 transition-colors hover:text-slate-900 dark:border-white/10 dark:text-slate-400 dark:hover:text-slate-100"
+          >
+            Series Analyze
+          </button>
+          <button
+            type="button"
+            onClick={() => onOpenTopic(item)}
+            className="border-b border-cyan-500/45 pb-1 text-[11px] uppercase tracking-[0.24em] text-cyan-700 transition-colors hover:text-cyan-900 dark:border-cyan-400/45 dark:text-cyan-400 dark:hover:text-cyan-300"
+          >
+            Back to Topic
+          </button>
+        </div>
       </div>
 
       <div className="mt-6 flex flex-wrap gap-x-6 gap-y-3 text-sm text-slate-500 dark:text-slate-400">
@@ -157,6 +168,9 @@ export function ReviewDetailPanel({
         <div>
           <p className="text-[10px] uppercase tracking-[0.24em] text-slate-400 dark:text-slate-500">
             Attempt History
+          </p>
+          <p className="mt-3 text-sm leading-7 text-slate-500 dark:text-slate-400">
+            Latest of {item.attempts.length} attempt{item.attempts.length === 1 ? "" : "s"}.
           </p>
 
           {item.attempts.length > 0 ? (

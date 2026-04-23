@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import type { FeedbackCardState } from "@/features/source-reference";
 import type {
   InsertedQuestionRecord,
@@ -7,13 +7,17 @@ import type {
   TopicQuestionReviewState,
 } from "@/features/topic-session";
 import {
+  areTopicChapterSummaryStatesEqual,
   buildDiscussionSteps,
   createEmptyBehaviorSignalCounts,
+  createTopicChapterSummaryState,
   createInitialAngleProgress,
   getFirstIncompleteAngleId,
+  getTopicChapterClosureState,
   loadPersistedTopicSessionState,
   mergePersistedAngleProgress,
   normalizePinnedSourcesByAngle,
+  resolveCurrentDiscussionStepIndex,
   resolveTopicSession,
   savePersistedTopicSessionState,
 } from "@/features/topic-session";
@@ -90,6 +94,9 @@ export function useLearningTopicSession({
   const [questionReviewStateById, setQuestionReviewStateById] = useState<
     Record<string, TopicQuestionReviewState | undefined>
   >({});
+  const [focusedQuestionIdByAngleId, setFocusedQuestionIdByAngleId] = useState<
+    Record<string, string | null | undefined>
+  >({});
   const [behaviorSignalCounts, setBehaviorSignalCounts] = useState<
     TopicBehaviorSignalCounts
   >(createEmptyBehaviorSignalCounts());
@@ -143,6 +150,7 @@ export function useLearningTopicSession({
         answerStateByQuestionId: {},
         attemptRecordsByQuestionId: {},
         customQuestion: routeCustomQuestion.trim(),
+        generatedDiscussionSteps: [],
         unlockedStepCount: 1,
       };
     }
@@ -171,6 +179,7 @@ export function useLearningTopicSession({
     setRevealedQuestionIds(persistedState?.revealedQuestionIds ?? {});
     setInsertedQuestionsByAngleId(persistedState?.insertedQuestionsByAngleId ?? {});
     setQuestionReviewStateById(persistedState?.questionReviewStateById ?? {});
+    setFocusedQuestionIdByAngleId({});
     setBehaviorSignalCounts(
       persistedState?.behaviorSignalCounts ?? createEmptyBehaviorSignalCounts(),
     );
@@ -222,6 +231,7 @@ export function useLearningTopicSession({
     createInitialAngleProgress(topic)[selectedAngleId];
   const pinnedSources = pinnedSourcesByAngleId[selectedAngleId] ?? [];
   const insertedQuestions = insertedQuestionsByAngleId[selectedAngleId] ?? [];
+  const focusedQuestionId = focusedQuestionIdByAngleId[selectedAngleId] ?? null;
 
   const discussionSteps = useMemo(
     () =>
@@ -229,8 +239,14 @@ export function useLearningTopicSession({
         topic,
         selectedAngleId,
         activeAngleState?.customQuestion,
+        activeAngleState?.generatedDiscussionSteps,
       ),
-    [activeAngleState?.customQuestion, selectedAngleId, topic],
+    [
+      activeAngleState?.customQuestion,
+      activeAngleState?.generatedDiscussionSteps,
+      selectedAngleId,
+      topic,
+    ],
   );
 
   const visibleStepCount =
@@ -242,15 +258,39 @@ export function useLearningTopicSession({
           discussionSteps.length,
         );
 
-  const currentStepIndex =
-    visibleStepCount > 0
-      ? Math.min(visibleStepCount - 1, discussionSteps.length - 1)
-      : -1;
+  const currentStepIndex = resolveCurrentDiscussionStepIndex({
+    discussionSteps,
+    visibleStepCount,
+    focusedQuestionId,
+  });
   const currentStep =
     currentStepIndex >= 0 ? discussionSteps[currentStepIndex] : null;
   const currentDraftAnswer = currentStep
     ? draftAnswersByQuestionId[currentStep.question.id]
     : "";
+
+  const focusQuestion = useCallback(
+    (questionId: string) => {
+      setFocusedQuestionIdByAngleId((previous) => ({
+        ...previous,
+        [selectedAngleId]: questionId,
+      }));
+    },
+    [selectedAngleId],
+  );
+
+  const clearFocusedQuestion = useCallback(() => {
+    setFocusedQuestionIdByAngleId((previous) => {
+      if (!previous[selectedAngleId]) {
+        return previous;
+      }
+
+      return {
+        ...previous,
+        [selectedAngleId]: null,
+      };
+    });
+  }, [selectedAngleId]);
 
   const completedAngleIds = useMemo(
     () =>
@@ -261,28 +301,100 @@ export function useLearningTopicSession({
             topic,
             angle.id,
             angleStateById[angle.id]?.customQuestion,
+            angleStateById[angle.id]?.generatedDiscussionSteps,
           );
 
           return (
             steps.length > 0 &&
-            steps.every(
-              (step) =>
-                angleStateById[angle.id]?.answerStateByQuestionId[step.question.id]
-                  ?.status === "passed",
-            )
+            getTopicChapterClosureState({
+              discussionSteps: steps,
+              angleState: angleStateById[angle.id],
+              questionReviewStateById,
+            }).canMoveOn
           );
         })
         .map((angle) => angle.id),
-    [angleStateById, topic],
+    [angleStateById, questionReviewStateById, topic],
   );
 
+  const chapterSummaryStateByAngleId = useMemo(
+    () =>
+      topic.learningAngles.reduce<Record<string, TopicAngleProgressState["chapterSummaryState"]>>(
+        (accumulator, angle) => {
+          const angleState = angleStateById[angle.id];
+          if (!angleState) {
+            accumulator[angle.id] = undefined;
+            return accumulator;
+          }
+
+          const steps = buildDiscussionSteps(
+            topic,
+            angle.id,
+            angleState.customQuestion,
+            angleState.generatedDiscussionSteps,
+          );
+
+          if (steps.length <= 0) {
+            accumulator[angle.id] = undefined;
+            return accumulator;
+          }
+
+          accumulator[angle.id] = createTopicChapterSummaryState({
+            closureState: getTopicChapterClosureState({
+              discussionSteps: steps,
+              angleState,
+              questionReviewStateById,
+            }),
+            previousState: angleState.chapterSummaryState,
+          });
+
+          return accumulator;
+        },
+        {},
+      ),
+    [angleStateById, questionReviewStateById, topic],
+  );
+
+  useEffect(() => {
+    setAngleStateById((previous) => {
+      let changed = false;
+      const nextStateById = { ...previous };
+
+      for (const angle of topic.learningAngles) {
+        const angleState = previous[angle.id];
+
+        if (!angleState) {
+          continue;
+        }
+
+        const nextSummaryState = chapterSummaryStateByAngleId[angle.id];
+
+        if (
+          areTopicChapterSummaryStatesEqual(
+            angleState.chapterSummaryState,
+            nextSummaryState,
+          )
+        ) {
+          continue;
+        }
+
+        changed = true;
+        nextStateById[angle.id] = {
+          ...angleState,
+          chapterSummaryState: nextSummaryState,
+        };
+      }
+
+      return changed ? nextStateById : previous;
+    });
+  }, [chapterSummaryStateByAngleId, topic.learningAngles]);
+
+  const chapterSummaryState =
+    activeAngleState?.chapterSummaryState ??
+    chapterSummaryStateByAngleId[selectedAngleId];
+
   const showCompletionCard =
-    discussionSteps.length > 0 &&
-    discussionSteps.every(
-      (step) =>
-        activeAngleState?.answerStateByQuestionId[step.question.id]?.status ===
-        "passed",
-    );
+    discussionSteps.length > 0 && chapterSummaryState?.status !== "unsettled";
 
   const nextAngleId = getFirstIncompleteAngleId(topic, completedAngleIds);
   const canExploreAnotherAngle = Boolean(
@@ -330,6 +442,9 @@ export function useLearningTopicSession({
     setInsertedQuestionsByAngleId,
     questionReviewStateById,
     setQuestionReviewStateById,
+    focusedQuestionId,
+    focusQuestion,
+    clearFocusedQuestion,
     behaviorSignalCounts,
     setBehaviorSignalCounts,
     activeAngle,
@@ -341,6 +456,7 @@ export function useLearningTopicSession({
     currentStepIndex,
     currentStep,
     currentDraftAnswer,
+    chapterSummaryState,
     showCompletionCard,
     nextAngleId,
     canExploreAnotherAngle,

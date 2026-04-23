@@ -4,6 +4,7 @@ import { indexRoute } from '@/app/routes'
 import { topicRoute } from '@/app/routes/topic.$id'
 import { libraryRoute } from '@/app/routes/library'
 import { reviewRoute } from '@/app/routes/review'
+import { analyzeRoute } from '@/app/routes/analyze'
 import { ladderRoute } from '@/app/routes/ladder.$sourceId'
 
 const routeTree = rootRoute.addChildren([
@@ -12,6 +13,7 @@ const routeTree = rootRoute.addChildren([
   topicRoute,
   libraryRoute,
   reviewRoute,
+  analyzeRoute,
 ])
 
 export const router = createRouter({

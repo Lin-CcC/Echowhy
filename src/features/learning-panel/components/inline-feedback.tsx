@@ -1,4 +1,7 @@
-import type { TopicAnswerState } from "@/features/topic-session";
+import {
+  formatTopicFeedbackScoreLabel,
+  type TopicAnswerState,
+} from "@/features/topic-session";
 import { ReadingLine } from "./reading-line";
 
 type InlineFeedbackProps = {
@@ -24,7 +27,7 @@ export function InlineFeedback({
       </p>
       <p className="text-xs uppercase tracking-[0.16em] text-slate-400 dark:text-slate-400">
         <ReadingLine shield={useLightShield}>
-          {answerState.feedback.label} 路 {answerState.feedback.score}/100
+          {formatTopicFeedbackScoreLabel(answerState.feedback, { includeMax: true })}
         </ReadingLine>
       </p>
     </div>

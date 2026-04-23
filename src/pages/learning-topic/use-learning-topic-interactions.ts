@@ -40,6 +40,9 @@ type UseLearningTopicInteractionsParams = {
   setQuestionReviewStateById: Dispatch<
     SetStateAction<Record<string, TopicQuestionReviewState | undefined>>
   >;
+  activeAngleState: TopicAngleProgressState | undefined;
+  focusQuestion: (questionId: string) => void;
+  clearFocusedQuestion: () => void;
   setBehaviorSignalCounts: Dispatch<SetStateAction<TopicBehaviorSignalCounts>>;
   discussionSteps: TopicDiscussionStep[];
   currentStepIndex: number;
@@ -65,6 +68,9 @@ export function useLearningTopicInteractions(
     setInsertedQuestionsByAngleId: params.setInsertedQuestionsByAngleId,
     questionReviewStateById: params.questionReviewStateById,
     setQuestionReviewStateById: params.setQuestionReviewStateById,
+    activeAngleState: params.activeAngleState,
+    focusQuestion: params.focusQuestion,
+    clearFocusedQuestion: params.clearFocusedQuestion,
     revealedQuestionIds: params.revealedQuestionIds,
     setRevealedQuestionIds: params.setRevealedQuestionIds,
     setBehaviorSignalCounts: params.setBehaviorSignalCounts,
@@ -83,6 +89,7 @@ export function useLearningTopicInteractions(
     setDraftAnswersByQuestionId: params.setDraftAnswersByQuestionId,
     revealedQuestionIds: params.revealedQuestionIds,
     setRevealedQuestionIds: params.setRevealedQuestionIds,
+    clearFocusedQuestion: params.clearFocusedQuestion,
     setBehaviorSignalCounts: params.setBehaviorSignalCounts,
     discussionSteps: params.discussionSteps,
     currentStepIndex: params.currentStepIndex,

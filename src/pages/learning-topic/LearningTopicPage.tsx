@@ -8,6 +8,7 @@ import {
   type QuestionLocatorFilter,
 } from "@/features/question-locator";
 import { SourceReferencePanel } from "@/features/source-reference";
+import { resolveRecoverableQuestionId } from "@/features/topic-session";
 import { cn } from "@/lib/utils";
 import { useLearningTopicInteractions } from "./use-learning-topic-interactions";
 import { useLearningTopicSession } from "./use-learning-topic-session";
@@ -44,6 +45,8 @@ export function LearningTopicPage() {
     setInsertedQuestionsByAngleId,
     questionReviewStateById,
     setQuestionReviewStateById,
+    focusQuestion,
+    clearFocusedQuestion,
     behaviorSignalCounts,
     setBehaviorSignalCounts,
     activeAngle,
@@ -55,6 +58,7 @@ export function LearningTopicPage() {
     currentStepIndex,
     currentStep,
     currentDraftAnswer,
+    chapterSummaryState,
     showCompletionCard,
     nextAngleId,
     canExploreAnotherAngle,
@@ -76,6 +80,8 @@ export function LearningTopicPage() {
     null,
   );
   const highlightTimeoutRef = useRef<number | null>(null);
+  const consumedRoutedScrollKeyRef = useRef<string | null>(null);
+  const consumedRoutedFocusKeyRef = useRef<string | null>(null);
   const { constellationNodes, constellationEdges, locatorCounts, locatorModel } =
     useLearningTopicStructure({
       topic,
@@ -119,6 +125,7 @@ export function LearningTopicPage() {
     handleReorderPinnedSources,
     handleReorderFeedbacks,
     handleWorkbenchCardInserted,
+    handleContinueLadder,
     handleSkipCurrent,
     handleTryAgain,
     handleRevealAnswer,
@@ -146,6 +153,9 @@ export function LearningTopicPage() {
     setInsertedQuestionsByAngleId,
     questionReviewStateById,
     setQuestionReviewStateById,
+    activeAngleState,
+    focusQuestion,
+    clearFocusedQuestion,
     setBehaviorSignalCounts,
     discussionSteps,
     currentStepIndex,
@@ -155,6 +165,27 @@ export function LearningTopicPage() {
 
   useEffect(() => {
     if (!search.question) {
+      consumedRoutedScrollKeyRef.current = null;
+      consumedRoutedFocusKeyRef.current = null;
+      return;
+    }
+
+    const routeKey = `${id}:${selectedAngleId}:${search.question}`;
+    const routedFocusQuestionId = resolveRecoverableQuestionId({
+      discussionSteps,
+      visibleStepCount,
+      requestedQuestionId: search.question,
+    });
+
+    if (
+      routedFocusQuestionId &&
+      consumedRoutedFocusKeyRef.current !== routeKey
+    ) {
+      focusQuestion(routedFocusQuestionId);
+      consumedRoutedFocusKeyRef.current = routeKey;
+    }
+
+    if (consumedRoutedScrollKeyRef.current === routeKey) {
       return;
     }
 
@@ -163,16 +194,24 @@ export function LearningTopicPage() {
         `question-${search.question}`,
       );
 
-      questionElement?.scrollIntoView({
+      if (!questionElement) {
+        return;
+      }
+
+      questionElement.scrollIntoView({
         behavior: "smooth",
         block: "center",
       });
+      consumedRoutedScrollKeyRef.current = routeKey;
     }, 120);
 
     return () => {
       window.clearTimeout(timeoutId);
     };
   }, [
+    discussionSteps,
+    focusQuestion,
+    id,
     insertedQuestionsByAngleId,
     search.question,
     selectedAngleId,
@@ -209,9 +248,38 @@ export function LearningTopicPage() {
     element.scrollIntoView({ behavior: "smooth", block: "center" });
   };
 
-  const handleSelectNode = (nodeId: string) => {
-    scrollToQuestion(nodeId);
-  };
+  const handleSelectRecoverableQuestion = useCallback(
+    (questionId: string) => {
+      const recoverableQuestionId = resolveRecoverableQuestionId({
+        discussionSteps,
+        visibleStepCount,
+        requestedQuestionId: questionId,
+      });
+
+      if (recoverableQuestionId) {
+        focusQuestion(recoverableQuestionId);
+      }
+
+      scrollToQuestion(questionId);
+    },
+    [discussionSteps, focusQuestion, visibleStepCount],
+  );
+
+  const handleResumeQuestion = useCallback(
+    (questionId: string) => {
+      focusQuestion(questionId);
+      scrollToQuestion(questionId);
+    },
+    [focusQuestion],
+  );
+
+  const handleResumeClosureQuestion = useCallback(() => {
+    if (!chapterSummaryState?.reviewQuestionId) {
+      return;
+    }
+
+    handleResumeQuestion(chapterSummaryState.reviewQuestionId);
+  }, [chapterSummaryState?.reviewQuestionId, handleResumeQuestion]);
 
   const handleToggleScanFilter = useCallback(
     (filter: QuestionLocatorFilter) => {
@@ -307,7 +375,7 @@ export function LearningTopicPage() {
                 nodes={constellationNodes}
                 edges={constellationEdges}
                 activeNodeId={currentStep?.question.id ?? ""}
-                onSelectNode={handleSelectNode}
+                onSelectNode={handleSelectRecoverableQuestion}
               />
             </div>
           </div>
@@ -333,6 +401,7 @@ export function LearningTopicPage() {
               prefilledAnswer={currentDraftAnswer}
               showCustomComposer={showCustomComposer}
               customQuestionDraft={currentCustomQuestionDraft}
+              chapterSummaryState={chapterSummaryState}
               showCompletionCard={showCompletionCard}
               activeAngleTitle={activeAngleLabel}
               canExploreAnotherAngle={canExploreAnotherAngle}
@@ -346,27 +415,29 @@ export function LearningTopicPage() {
               onCheckInsertedQuestion={handleCheckInsertedQuestion}
               onWorkbenchCardInserted={handleWorkbenchCardInserted}
               onCheckCurrent={handleCheckCurrent}
+              onContinueLadder={handleContinueLadder}
               onSkipCurrent={handleSkipCurrent}
               onToggleQuestionPending={handleToggleQuestionPending}
               onToggleQuestionBookmark={handleToggleQuestionBookmark}
               onToggleQuestionWeak={handleToggleQuestionWeak}
               onTryAgain={handleTryAgain}
               onRevealAnswer={handleRevealAnswer}
+              onResumeQuestion={handleResumeQuestion}
               onPreviewReference={handlePreviewReference}
               onClearPreviewReference={handleClearPreviewReference}
               onPinSource={handlePinSource}
               onSubmitCustomQuestion={handleSubmitCustomQuestion}
               onExploreAnotherAngle={handleExploreAnotherAngle}
+              onResumeRecommendedQuestion={handleResumeClosureQuestion}
               onReturnToLibrary={() => void navigate({ to: "/library" })}
               onAskFollowUp={handleAskFollowUp}
             />
           </div>
-
         </main>
 
         <QuestionLocatorGutter
           model={locatorModel}
-          onSelectQuestion={scrollToQuestion}
+          onSelectQuestion={handleSelectRecoverableQuestion}
         />
 
         <SourceReferencePanel

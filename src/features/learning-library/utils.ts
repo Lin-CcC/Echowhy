@@ -1,4 +1,5 @@
 import {
+  canAngleProgressMoveOn,
   loadPersistedTopicSessionState,
   type LearningModuleRecord,
   type PersistedTopicSessionState,
@@ -123,20 +124,7 @@ export function formatRelativeModuleTime(
 export function isAngleProgressCompleted(
   angleProgress: TopicAngleProgressState | undefined,
 ) {
-  if (!angleProgress || angleProgress.unlockedStepCount <= 0) {
-    return false;
-  }
-
-  const answerStates = Object.values(angleProgress.answerStateByQuestionId).filter(
-    (answerState): answerState is NonNullable<typeof answerState> =>
-      Boolean(answerState),
-  );
-
-  if (answerStates.length < angleProgress.unlockedStepCount) {
-    return false;
-  }
-
-  return answerStates.every((answerState) => answerState.status === "passed");
+  return canAngleProgressMoveOn(angleProgress);
 }
 
 export function getCompletedChildIds(
@@ -153,6 +141,33 @@ export function getCompletedChildIds(
 
     return isAngleProgressCompleted(angleProgress) ? [child.id] : [];
   });
+}
+
+export function getBookmarkedQuestionCount(
+  module: LearningModuleRecord,
+  loadTopicState: LoadTopicState = loadPersistedTopicSessionState,
+) {
+  const seenTopicIds = new Set<string>();
+  const bookmarkedQuestionIds = new Set<string>();
+
+  module.children.forEach((child) => {
+    if (seenTopicIds.has(child.topicId)) {
+      return;
+    }
+
+    seenTopicIds.add(child.topicId);
+    const persistedState = loadTopicState(child.topicId);
+
+    Object.entries(persistedState?.questionReviewStateById ?? {}).forEach(
+      ([questionId, reviewState]) => {
+        if (reviewState?.bookmarked) {
+          bookmarkedQuestionIds.add(`${child.topicId}:${questionId}`);
+        }
+      },
+    );
+  });
+
+  return bookmarkedQuestionIds.size;
 }
 
 export function buildLibraryCardModel(
@@ -176,6 +191,7 @@ export function buildLibraryCardModel(
     status: getLibraryCardStatus(completedCount, totalCount),
     createdAt: module.createdAt,
     updatedAt: module.updatedAt,
+    bookmarkedQuestionCount: Math.max(0, options?.bookmarkedQuestionCount ?? 0),
     relativeUpdatedAt: formatRelativeModuleTime(module.updatedAt, {
       now: options?.now,
     }),

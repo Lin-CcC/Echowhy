@@ -9,6 +9,7 @@ const navItems = [
   { to: "/", label: "Start" },
   { to: "/library", label: "Library" },
   { to: "/review", label: "Review" },
+  { to: "/analyze", label: "Analyze" },
 ] as const;
 
 const startWakeSessionKey = "echowhy:start-wake-played";

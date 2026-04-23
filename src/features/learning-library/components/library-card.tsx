@@ -170,6 +170,12 @@ export function LibraryCard({
                   Done
                 </span>
               ) : null}
+              {card.bookmarkedQuestionCount > 0 ? (
+                <span className="shrink-0 text-[10px] tracking-[0.04em] text-slate-400/90 dark:text-slate-500">
+                  {card.bookmarkedQuestionCount} saved question
+                  {card.bookmarkedQuestionCount === 1 ? "" : "s"}
+                </span>
+              ) : null}
             </div>
           )}
 

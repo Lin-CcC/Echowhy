@@ -3,6 +3,7 @@ import type { UseFormRegisterReturn } from "react-hook-form";
 import { cn } from "@/lib/utils";
 import type {
   TopicAnswerState,
+  TopicChapterSummaryState,
   TopicDiscussionStep,
   TopicQuestionReviewState,
 } from "@/features/topic-session";
@@ -18,6 +19,7 @@ type LearningPanelBodyProps = {
   currentStepIndex: number;
   showCompletionCard: boolean;
   showCustomComposer: boolean;
+  chapterSummaryState?: TopicChapterSummaryState;
   currentAnswerState: TopicAnswerState | undefined;
   failedCurrentAttempt: boolean;
   answerStateByQuestionId: Record<string, TopicAnswerState | undefined>;
@@ -45,10 +47,13 @@ type LearningPanelBodyProps = {
   onAnswerSubmit: FormEventHandler<HTMLFormElement>;
   onTryAgain: () => void;
   onRevealAnswer: () => void;
+  onContinueLadder: () => void;
   onSkipCurrent: () => void;
+  onResumeQuestion: (questionId: string) => void;
   onCustomQuestionSubmit: FormEventHandler<HTMLFormElement>;
   onCustomQuestionDraftChange: (draft: string) => void;
   onExploreAnotherAngle: () => void;
+  onResumeRecommendedQuestion: () => void;
   onReturnToLibrary: () => void;
   onAskFollowUp: () => void;
 };
@@ -58,6 +63,7 @@ export function LearningPanelBody({
   currentStepIndex,
   showCompletionCard,
   showCustomComposer,
+  chapterSummaryState,
   currentAnswerState,
   failedCurrentAttempt,
   answerStateByQuestionId,
@@ -85,10 +91,13 @@ export function LearningPanelBody({
   onAnswerSubmit,
   onTryAgain,
   onRevealAnswer,
+  onContinueLadder,
   onSkipCurrent,
+  onResumeQuestion,
   onCustomQuestionSubmit,
   onCustomQuestionDraftChange,
   onExploreAnotherAngle,
+  onResumeRecommendedQuestion,
   onReturnToLibrary,
   onAskFollowUp,
 }: LearningPanelBodyProps) {
@@ -99,7 +108,9 @@ export function LearningPanelBody({
         const reviewState = questionReviewStateById[step.question.id];
         const isHistoryExpanded = !answerState?.isCollapsed;
         const isCurrent = index === currentStepIndex && !showCompletionCard;
-        const showHistoryCard = Boolean(answerState && answerState.status !== "failed");
+        const showHistoryCard = Boolean(
+          answerState && answerState.status !== "failed" && !isCurrent,
+        );
 
         return (
           <div key={step.id} className="flex flex-col gap-[18px]">
@@ -117,6 +128,7 @@ export function LearningPanelBody({
                     onToggleQuestionPending={onToggleQuestionPending}
                     onToggleQuestionBookmark={onToggleQuestionBookmark}
                     onToggleQuestionWeak={onToggleQuestionWeak}
+                    onResumeQuestion={onResumeQuestion}
                   />
                 ) : null}
                 {renderInsertSlot(`after-history:${step.question.id}`)}
@@ -167,6 +179,7 @@ export function LearningPanelBody({
                   }}
                   onTryAgain={onTryAgain}
                   onRevealAnswer={onRevealAnswer}
+                  onContinueLadder={onContinueLadder}
                   onSkipCurrent={onSkipCurrent}
                   onToggleQuestionPending={onToggleQuestionPending}
                   onToggleQuestionBookmark={onToggleQuestionBookmark}
@@ -196,9 +209,11 @@ export function LearningPanelBody({
       {showCompletionCard ? (
         <>
           <LearningPanelCompletionCard
+            chapterSummaryState={chapterSummaryState}
             activeAngleTitle={activeAngleTitle}
             canExploreAnotherAngle={canExploreAnotherAngle}
             onExploreAnotherAngle={onExploreAnotherAngle}
+            onResumeRecommendedQuestion={onResumeRecommendedQuestion}
             onReturnToLibrary={onReturnToLibrary}
             onAskFollowUp={onAskFollowUp}
           />

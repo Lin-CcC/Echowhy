@@ -19,6 +19,18 @@ function buildMetaLine(item: ReviewQueueItem) {
   return markers.length > 0 ? markers.join(" / ") : item.angleTitle;
 }
 
+function getQueueSummary(item: ReviewQueueItem) {
+  if (item.summary?.trim()) {
+    return item.summary;
+  }
+
+  if (item.latestFeedback?.nextSuggestion?.trim()) {
+    return item.latestFeedback.nextSuggestion;
+  }
+
+  return "No submitted answer yet.";
+}
+
 export function ReviewQueueList({
   items,
   activeItemId,
@@ -64,7 +76,11 @@ export function ReviewQueueList({
                   {item.questionPrompt}
                 </h3>
                 <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">
-                  {item.moduleTitle}
+                  {item.moduleTitle} / {item.attempts.length} attempt
+                  {item.attempts.length === 1 ? "" : "s"}
+                </p>
+                <p className="mt-2 line-clamp-2 text-sm leading-7 text-slate-500 dark:text-slate-400">
+                  {getQueueSummary(item)}
                 </p>
               </div>
 

@@ -12,6 +12,7 @@ export type LibraryCardModel = {
   updatedAt: string;
   createdAt: string;
   relativeUpdatedAt: string;
+  bookmarkedQuestionCount: number;
   progress: {
     totalCount: number;
     completedCount: number;
@@ -22,6 +23,7 @@ export type LibraryCardModel = {
 
 export type BuildLibraryCardModelOptions = {
   completedChildIds?: string[];
+  bookmarkedQuestionCount?: number;
   now?: Date;
 };
 

@@ -1,4 +1,5 @@
 import type { ReviewQueueStatus } from "./types";
+import type { TopicChapterSummaryStatus } from "@/features/topic-session";
 
 const reviewStatusLabels: Record<ReviewQueueStatus, string> = {
   "answered-good": "Grounded",
@@ -9,6 +10,18 @@ const reviewStatusLabels: Record<ReviewQueueStatus, string> = {
 
 export function getReviewStatusLabel(status: ReviewQueueStatus) {
   return reviewStatusLabels[status];
+}
+
+const reviewChapterStatusLabels: Record<TopicChapterSummaryStatus, string> = {
+  grounded: "Grounded",
+  provisional: "Provisional",
+  unsettled: "Unsettled",
+};
+
+export function getReviewChapterStatusLabel(
+  status: TopicChapterSummaryStatus,
+) {
+  return reviewChapterStatusLabels[status];
 }
 
 export function formatReviewRelativeTime(

@@ -1,15 +1,18 @@
 import {
   buildDiscussionSteps,
+  inferTopicAnswerAnalysisDimensions,
   loadPersistedTopicSessionState,
   resolveTopicSession,
   type LearningModuleRecord,
   type PersistedTopicSessionState,
   type TopicAnswerState,
+  type TopicNode,
   type TopicQuestionReviewState,
   type TopicSession,
 } from "@/features/topic-session";
 import type {
   ReviewQueue,
+  ReviewChapterSummary,
   ReviewQueueAttempt,
   ReviewQueueCounts,
   ReviewScope,
@@ -89,6 +92,10 @@ function getQuestionStatus(
     return "unanswered";
   }
 
+  if (answerState.status === "continued") {
+    return "unanswered";
+  }
+
   if (answerState.status === "skipped") {
     return "skipped";
   }
@@ -145,6 +152,28 @@ function getLatestFeedback(
   return answerState?.feedback ?? getLatestAttempt(attempts)?.aiFeedback ?? null;
 }
 
+function getAnalysisDimensions(
+  question: TopicNode,
+  answerState: TopicAnswerState | undefined,
+  attempts: ReviewQueueAttempt[],
+) {
+  const latestFeedback = getLatestFeedback(answerState, attempts);
+  const latestAnswer = getLatestAnswer(answerState, attempts);
+
+  if (!latestFeedback || !latestAnswer?.trim()) {
+    return [];
+  }
+
+  return (
+    latestFeedback.analysisDimensions ??
+    inferTopicAnswerAnalysisDimensions({
+      question,
+      answer: latestAnswer,
+      score: latestFeedback.score,
+    })
+  );
+}
+
 function matchesFilter(item: ReviewQueueItem, filter: ReviewQueueFilter) {
   if (filter === "all") {
     return true;
@@ -182,6 +211,13 @@ function matchesScope(item: ReviewQueueItem, scope: ReviewScope) {
     return false;
   }
 
+  if (
+    scope.analysisDimension &&
+    !item.analysisDimensions.includes(scope.analysisDimension)
+  ) {
+    return false;
+  }
+
   return true;
 }
 
@@ -194,6 +230,13 @@ function createEmptyCounts(): ReviewQueueCounts {
     skipped: 0,
     bookmarked: 0,
   };
+}
+
+function createReviewChapterSummaryId(item: {
+  topicId: string;
+  angleId: string;
+}) {
+  return `${item.topicId}:${item.angleId}`;
 }
 
 function createDefaultResolveTopicSession({
@@ -234,6 +277,7 @@ function buildMainQuestionItems(
       topic,
       angleId,
       angleState.customQuestion || child.customQuestion,
+      angleState.generatedDiscussionSteps,
     ).slice(0, Math.max(0, angleState.unlockedStepCount));
 
     return steps.map((step) => {
@@ -275,6 +319,11 @@ function buildMainQuestionItems(
         ),
         latestAnswer: getLatestAnswer(answerState, reviewAttempts),
         latestFeedback: getLatestFeedback(answerState, reviewAttempts),
+        analysisDimensions: getAnalysisDimensions(
+          step.question,
+          answerState,
+          reviewAttempts,
+        ),
         summary: answerState?.summary ?? null,
         attempts: reviewAttempts,
         routeSearch: {
@@ -315,6 +364,15 @@ function buildInsertedQuestionItems(
       const isWeak =
         reviewState?.selfMarkedWeak === true ||
         answerState?.feedback?.level === "weak";
+      const reviewQuestionNode: TopicNode = {
+        id: question.id,
+        angleId,
+        label: question.prompt,
+        prompt: question.prompt,
+        x: 0,
+        y: 0,
+        visualState: question.visualState,
+      };
 
       return {
         id: `${topic.id}:${angleId}:${question.id}`,
@@ -340,6 +398,11 @@ function buildInsertedQuestionItems(
         ),
         latestAnswer: getLatestAnswer(answerState, reviewAttempts),
         latestFeedback: getLatestFeedback(answerState, reviewAttempts),
+        analysisDimensions: getAnalysisDimensions(
+          reviewQuestionNode,
+          answerState,
+          reviewAttempts,
+        ),
         summary: answerState?.summary ?? null,
         attempts: reviewAttempts,
         routeSearch: {
@@ -380,11 +443,72 @@ function buildCounts(items: ReviewQueueItem[]) {
   }, createEmptyCounts());
 }
 
+function buildReviewChapterSummaries({
+  items,
+  summaryStateById,
+}: {
+  items: ReviewQueueItem[];
+  summaryStateById: Record<string, ReviewChapterSummary["summaryState"] | undefined>;
+}) {
+  const itemsByChapterId = items.reduce<Record<string, ReviewQueueItem[]>>(
+    (result, item) => {
+      const chapterId = createReviewChapterSummaryId(item);
+      const currentItems = result[chapterId] ?? [];
+      currentItems.push(item);
+      result[chapterId] = currentItems;
+      return result;
+    },
+    {},
+  );
+
+  return Object.entries(itemsByChapterId)
+    .map(([chapterId, chapterItems]) => {
+      const firstItem = chapterItems[0];
+      const latestActivityAt = chapterItems.reduce((latest, item) => {
+        return getTimestampValue(item.latestActivityAt) >
+          getTimestampValue(latest)
+          ? item.latestActivityAt
+          : latest;
+      }, firstItem.latestActivityAt);
+
+      return {
+        id: chapterId,
+        topicId: firstItem.topicId,
+        moduleId: firstItem.moduleId,
+        moduleTitle: firstItem.moduleTitle,
+        angleId: firstItem.angleId,
+        angleTitle: firstItem.angleTitle,
+        sourceLabel: firstItem.sourceLabel,
+        latestActivityAt,
+        counts: buildCounts(chapterItems),
+        summaryState: summaryStateById[chapterId] ?? null,
+        routeSearch: {
+          angle: firstItem.angleId,
+        },
+      } satisfies ReviewChapterSummary;
+    })
+    .sort((left, right) => {
+      const timeDiff =
+        getTimestampValue(right.latestActivityAt) -
+        getTimestampValue(left.latestActivityAt);
+
+      if (timeDiff !== 0) {
+        return timeDiff;
+      }
+
+      return left.angleTitle.localeCompare(right.angleTitle);
+    });
+}
+
 export function buildReviewQueue({
   modules,
   loadTopicState = loadPersistedTopicSessionState,
   resolveTopicSession = createDefaultResolveTopicSession,
 }: BuildReviewQueueOptions): ReviewQueue {
+  const summaryStateById: Record<
+    string,
+    ReviewChapterSummary["summaryState"] | undefined
+  > = {};
   const items = modules
     .flatMap((module) => {
       const topicId = module.children[0]?.topicId ?? module.id;
@@ -402,6 +526,14 @@ export function buildReviewQueue({
       if (!persistedState) {
         return [];
       }
+
+      Object.entries(persistedState.angleStateById).forEach(([angleId, angleState]) => {
+        if (!angleState) {
+          return;
+        }
+
+        summaryStateById[`${topic.id}:${angleId}`] = angleState.chapterSummaryState;
+      });
 
       return [
         ...buildMainQuestionItems(module, topic, persistedState),
@@ -422,6 +554,10 @@ export function buildReviewQueue({
 
   return {
     items,
+    chapters: buildReviewChapterSummaries({
+      items,
+      summaryStateById,
+    }),
     counts: buildCounts(items),
   };
 }
@@ -438,6 +574,22 @@ export function applyReviewScope(
   scope: ReviewScope,
 ) {
   return items.filter((item) => matchesScope(item, scope));
+}
+
+export function getScopedReviewChapterSummary(
+  chapters: ReviewChapterSummary[],
+  scope: ReviewScope | null,
+) {
+  if (!scope?.topicId || !scope.angleId) {
+    return null;
+  }
+
+  return (
+    chapters.find(
+      (chapter) =>
+        chapter.topicId === scope.topicId && chapter.angleId === scope.angleId,
+    ) ?? null
+  );
 }
 
 export function getReviewFilterLabel(filter: ReviewQueueFilter) {

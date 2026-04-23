@@ -7,6 +7,7 @@ import {
   LibraryToolbar,
   buildLibraryCardModel,
   filterAndSortLibraryCardModels,
+  getBookmarkedQuestionCount,
   getCompletedChildIds,
   type LibrarySortBy,
 } from "@/features/learning-library";
@@ -151,6 +152,7 @@ export function LearningLibraryPage() {
     return modules.map((module) =>
       buildLibraryCardModel(module, {
         completedChildIds: getCompletedChildIds(module),
+        bookmarkedQuestionCount: getBookmarkedQuestionCount(module),
       }),
     );
   }, [modules]);

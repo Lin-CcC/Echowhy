@@ -76,3 +76,113 @@
 - [x] `LearningTopicPage.tsx` 进一步压到 365 行
 - [x] 保持新增 hook 文件长度回到可控范围
 - [x] 重新运行 `pnpm test` 与 `pnpm build`
+### PRD 第一批补齐：Continue Ladder 正式推进路径
+
+- [x] 为 Topic 主线补上 `Continue Ladder` 动作，和 `Check` / `Skip for now` 分离
+- [x] 新增 `continued` 轻状态，让继续搭梯子的节点在正文里折叠保留，而不是直接消失
+- [x] 让 Review 将 `continued` 归入 `Unanswered`，不误算成 `Skipped`
+- [x] 为 `applyContinueLadderProgress` 与 Review 语义补失败测试，再落实现
+- [x] 重新运行 `pnpm test` 与 `pnpm build`
+
+### PRD 第一批补齐：旧题回流作答
+
+- [x] 新增“当前聚焦题”语义，允许把已 `continued / skipped` 的旧题重新设为当前作答对象
+- [x] 保持 `unlockedStepCount` 不回退，避免主线学习链倒退
+- [x] 在 Topic 历史题卡中补上 `Resume here` 入口，仅对 `continued / skipped` 开放
+- [x] 作答通过后自动回到最新主线；未通过则继续停留在该旧题重试
+- [x] 接住 `Review -> Topic` 的 `question` 深链，进入页面后消费一次并切换为可继续处理状态
+- [x] 让左侧星图点击与中间定位轨点击复用同一套恢复语义：主线可恢复题切成当前题，否则仅定位
+- [x] 为聚焦步索引解析补失败测试，再落实现
+- [x] 重新运行 `pnpm test` 与 `pnpm build`
+
+### PRD 第一批补齐：Continue Ladder 生成主链节点
+
+- [x] 为 `buildDiscussionSteps` 增加生成步骤插槽，让 `Continue Ladder` 新节点按“挂在当前问题后面”的顺序插回主链
+- [x] 新增 `TopicGeneratedDiscussionStep` 持久化结构，保存生成节点的父问题、正文块、问题节点与引用落点
+- [x] 为生成节点插入顺序补失败测试，覆盖“主问题后生成一步，再从生成步继续生成下一步”的链式场景
+- [x] 让 Topic 页在 `Continue Ladder` 后自动聚焦到新生成的问题，而不是仅清空当前聚焦
+- [x] 让 Review 队列基于同一份生成后主链构建，确保新生成节点进入 `Unanswered / Pending / Favorites` 等后续流程
+- [x] 提交自定义 follow-up 时清空旧的生成链，避免历史生成节点污染新的 learner-led 分支
+- [x] 重新运行 `pnpm test` 与 `pnpm build`
+
+### PRD 第一批补齐：章节收束判断与下一步引导
+
+- [x] 新增 `chapter-closure` 状态 helper，正式区分 `grounded / provisional / unsettled`
+- [x] 将“可继续下一章”的判定从“必须全部 passed”放宽为“当前可见主链均已处理”
+- [x] 让 `Continue Ladder / Skip / Pending / Weak` 这些状态参与章节收束判断，而不是只看答对与否
+- [x] 让 Topic 页尾部 completion card 改为“章节收束建议”，不再使用绝对化的 `Topic Mastered`
+- [x] 为 `provisional` 状态补上“回到 flagged question”入口，允许从章节尾部直接跳回较弱节点
+- [x] 让 `Explore next angle` 基于章节可收束而不是严格满分通过来解锁
+- [x] 让 Library 进度判断与 Topic 章节推进语义对齐，支持 `continued / skipped` 作为可推进状态
+- [x] 为章节收束状态与 Library 可推进语义补失败测试，再落实现
+- [x] 重新运行 `pnpm test` 与 `pnpm build`
+
+### PRD 第一批补齐：Chapter Summary State 持久化
+
+- [x] 新增 `chapter-summary` helper，把 `chapter-closure` 转成可持久化的 `Chapter Summary State`
+- [x] 为每个 `angle` 增加 `chapterSummaryState` 结构，记录 `status / reason / recommendedAction / firstReachedAt / lastUpdatedAt / reviewQuestionId`
+- [x] 约束 summary 更新时间：仅在语义变化时刷新 `lastUpdatedAt`，并在状态变化时重置 `firstReachedAt`
+- [x] 在 `mergePersistedAngleProgress` 中恢复并校验持久化 summary，避免脏 localStorage 破坏会话
+- [x] 在 Topic session 中自动同步每个 angle 的最新 summary 到 `angleState`
+- [x] 让 Topic 页尾 completion card 改为读取持久化后的 summary state，再映射成展示文案
+- [x] 为 summary state 的时间戳演进、presentation 映射、merge 恢复补失败测试，再落实现
+- [x] 重新运行 `pnpm test` 与 `pnpm build`
+
+### PRD 第一批补齐：Review 章节聚合入口
+
+- [x] 为 `ReviewQueue` 增加 `chapters` 聚合模型，按 `topicId + angleId` 汇总章节级上下文
+- [x] 每个 chapter 聚合 `all / weak / unanswered / pending / skipped / bookmarked` 计数，并记录最新活动时间
+- [x] 直接复用持久化后的 `chapterSummaryState`，让 Review 与 Topic 共用同一套章节收束语义
+- [x] 新增 `getScopedReviewChapterSummary`，让 `Review` 的 `topicId + angleId` 作用域可以拿到章节摘要
+- [x] 新增轻量 `ReviewChapterStrip`，保持页面 question-first，同时提供章节级入口
+- [x] 让 `ReviewScopeBanner` 在章节作用域下展示 `grounded / provisional / unsettled` 摘要，并支持直达 flagged question
+- [x] 为脏持久化数据中的 `undefined angleState` 补失败测试并收掉运行时/类型风险
+- [x] 重新运行 `pnpm test` 与 `pnpm build`
+
+### PRD 第一批补齐：Review 尾差与 Analyze Preview
+
+- [x] 新增回答分析维度基础结构 `TopicAnswerAnalysisDimension`，覆盖 `Target Fit / Conceptual Accuracy / Causal Link / Grounding / Calibration`
+- [x] 在 `evaluateTopicAnswer` 中写入轻量 `analysisDimensions`，并为旧数据在 `ReviewQueue` 构建时做 fallback 推断
+- [x] 让 `ReviewScope` 支持 `analysisDimension`，打通 `Analyze -> Review(filtered)` 的维度过滤链路
+- [x] 补齐 `Review Queue` 卡片的 `attempts` 次数与一句极短摘要，避免列表层信息不足
+- [x] 在 `Question Detail` 中新增 `Series Analyze` 次级入口，默认跳到该问题所在 chapter 的 Analyze 视图
+- [x] 新增 `Analyze Preview` 聚合模型，覆盖 `Global Patterns / Chapter Patterns / Learning Behavior`
+- [x] 新增 `/analyze` 页面与顶部导航入口，首页默认落在 `Global Patterns`
+- [x] 在 `Analyze` 中支持点击弱维度、积压状态、需要回补的知识块，进入 `Review(filtered)` 独立结果视图
+- [x] 为 `Analyze Preview` 聚合、分析维度推断、Review 维度过滤补失败测试，再落实现
+- [x] 重新运行 `pnpm test` 与 `pnpm build`
+
+### PRD 第一批补齐：Library 收藏轻提示
+
+- [x] 新增 `getBookmarkedQuestionCount`，按 topic 去重统计模块内收藏问题数量
+- [x] `LibraryCardModel` 增加 `bookmarkedQuestionCount`
+- [x] Library 卡片只显示轻量 `saved questions` 提示，不把 Library 改造成问题收藏列表
+- [x] 为收藏数量统计与卡片模型补失败测试，再落实现
+- [x] 重新运行 `pnpm test` 与 `pnpm build`
+
+### PRD 第一批补齐：悬浮辅助窗轻面板
+
+- [x] 新增 `buildLearningFloatingAssistantState`，统一决策悬浮窗当前应呈现 `My Question / Draft / Feedback / Chapter Note`
+- [x] 让章节收束提示优先于当前反馈，避免章节完成时悬浮窗仍只像普通插入按钮
+- [x] 在反馈状态中展示轻量 `Response analysis` 维度，连接本轮新增的回答分析基础结构
+- [x] 在 hover 轻面板里暴露当前最自然的主动作：`Continue Ladder` / `Review flagged` / `Explore next`
+- [x] 保留原本拖拽插入正文疑问的能力，不把悬浮窗改造成厚重常驻面板
+- [x] 为悬浮窗状态优先级补失败测试，再落实现
+- [x] 运行 `pnpm test src/features/learning-panel/components/learning-floating-assistant.test.ts` 与 `pnpm build`
+
+### PRD 第一批补齐：Analyze Preview 空状态
+
+- [x] 新增 `hasAnalyzePreviewData`，统一判断 Analyze 是否已经有足够学习信号
+- [x] 当还没有回答、搭梯子、待处理、收藏等学习痕迹时，Analyze 不再渲染空 section
+- [x] 新增轻量空状态，提示页面正在等待真实学习轨迹，并提供 `Start learning` / `Open Review` 两个自然出口
+- [x] 修正 `Keep digging vs Defer` 的行为信号方向，避免把 `Pending / Skip` 错计到继续深挖一侧
+- [x] 为 Analyze 空数据判断补失败测试，再落实现
+- [x] 运行 `pnpm test src/features/analyze/utils.test.ts` 与 `pnpm build`
+
+### UI 文案收口：反馈分数分隔符
+
+- [x] 新增 `formatTopicFeedbackScoreLabel`，统一反馈分数标签的展示格式
+- [x] 清理反馈卡片、正文 inline feedback、拖拽 payload 中残留的乱码分隔符
+- [x] 使用克制的 ASCII `|` 分隔，避免破坏页面的干净感
+- [x] 为 formatter 补失败测试，再替换调用点
+- [x] 运行 `pnpm test src/features/topic-session/feedback-labels.test.ts`

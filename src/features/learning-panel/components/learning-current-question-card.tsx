@@ -22,6 +22,7 @@ type LearningCurrentQuestionCardProps = {
   onAnswerChange: (nextValue: string) => void;
   onTryAgain: () => void;
   onRevealAnswer: () => void;
+  onContinueLadder: () => void;
   onSkipCurrent: () => void;
   onToggleQuestionPending: (questionId: string) => void;
   onToggleQuestionBookmark: (questionId: string) => void;
@@ -41,6 +42,7 @@ export function LearningCurrentQuestionCard({
   onAnswerChange,
   onTryAgain,
   onRevealAnswer,
+  onContinueLadder,
   onSkipCurrent,
   onToggleQuestionPending,
   onToggleQuestionBookmark,
@@ -114,13 +116,22 @@ export function LearningCurrentQuestionCard({
         ) : null}
 
         <div className="mt-1 flex items-center justify-end gap-6">
-          <button
-            type="button"
-            onClick={onSkipCurrent}
-            className="text-[11px] font-mono uppercase tracking-widest text-slate-400 transition-colors hover:text-slate-600 dark:text-slate-400 dark:hover:text-slate-200"
-          >
-            [ Skip for now ]
-          </button>
+          <div className="flex items-center gap-4">
+            <button
+              type="button"
+              onClick={onContinueLadder}
+              className="text-[11px] font-mono uppercase tracking-widest text-cyan-600 transition-colors hover:text-cyan-700 dark:text-cyan-400 dark:hover:text-cyan-300"
+            >
+              [ Continue Ladder ]
+            </button>
+            <button
+              type="button"
+              onClick={onSkipCurrent}
+              className="text-[11px] font-mono uppercase tracking-widest text-slate-400 transition-colors hover:text-slate-600 dark:text-slate-400 dark:hover:text-slate-200"
+            >
+              [ Skip for now ]
+            </button>
+          </div>
           <button
             type="submit"
             className="border border-cyan-600/50 px-5 py-2 text-xs uppercase tracking-widest text-cyan-700 transition-colors hover:bg-cyan-500 hover:text-white dark:border-cyan-400/45 dark:text-cyan-400 dark:hover:bg-cyan-400/12"

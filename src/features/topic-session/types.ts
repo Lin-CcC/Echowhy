@@ -2,6 +2,13 @@ export type TopicNodeVisualState = "dim" | "pulsing" | "lit";
 
 export type TopicFeedbackLevel = "weak" | "partial" | "good" | "strong";
 
+export type TopicAnswerAnalysisDimension =
+  | "target-fit"
+  | "conceptual-accuracy"
+  | "causal-link"
+  | "grounding"
+  | "calibration";
+
 export type TopicFeedbackTemplate = {
   correctPoints: string[];
   vaguePoints: string[];
@@ -63,6 +70,7 @@ export type TopicFeedbackPreview = TopicFeedbackTemplate & {
   score: number;
   level: TopicFeedbackLevel;
   label: string;
+  analysisDimensions?: TopicAnswerAnalysisDimension[];
 };
 
 export type AttemptRecordStatus = "Weak" | "Partial" | "Strong";
@@ -96,6 +104,11 @@ export type TopicDiscussionStep = {
   defaultReferenceId?: string;
 };
 
+export type TopicGeneratedDiscussionStep = TopicDiscussionStep & {
+  afterQuestionId: string;
+  createdAt: string;
+};
+
 export type TopicDiscussionPlan = {
   id: string;
   angleId: string;
@@ -107,7 +120,7 @@ export type TopicDiscussionPlan = {
 export type TopicAnswerState = {
   questionId: string;
   answer: string;
-  status: "passed" | "failed" | "skipped";
+  status: "passed" | "failed" | "skipped" | "continued";
   feedback: TopicFeedbackPreview | null;
   summary: string | null;
   isCollapsed: boolean;
@@ -130,11 +143,37 @@ export type TopicBehaviorSignalCounts = {
   pendingMarkCount: number;
 };
 
+export type TopicChapterSummaryStatus = "grounded" | "provisional" | "unsettled";
+
+export type TopicChapterSummaryReason =
+  | "all-passed"
+  | "weak"
+  | "pending"
+  | "continued"
+  | "skipped"
+  | "unanswered";
+
+export type TopicChapterRecommendedAction =
+  | "explore-next-angle"
+  | "review-question"
+  | "stay-on-chapter";
+
+export type TopicChapterSummaryState = {
+  status: TopicChapterSummaryStatus;
+  reason: TopicChapterSummaryReason;
+  recommendedAction: TopicChapterRecommendedAction;
+  firstReachedAt: string;
+  lastUpdatedAt: string;
+  reviewQuestionId: string | null;
+};
+
 export type TopicAngleProgressState = {
   unlockedStepCount: number;
   answerStateByQuestionId: Record<string, TopicAnswerState | undefined>;
   attemptRecordsByQuestionId: Record<string, AttemptRecord[] | undefined>;
   customQuestion: string;
+  generatedDiscussionSteps: TopicGeneratedDiscussionStep[];
+  chapterSummaryState?: TopicChapterSummaryState;
 };
 
 export type TopicGuidedEntry = {

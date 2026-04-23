@@ -1,10 +1,19 @@
 import { useCallback } from "react";
 import type { Dispatch, SetStateAction } from "react";
 import type {
-  InsertedQuestionRecord, TopicAnswerState, TopicAngleProgressState, TopicBehaviorSignalCounts,
-  TopicDiscussionStep, TopicQuestionReviewState,
+  InsertedQuestionRecord,
+  TopicAnswerState,
+  TopicAngleProgressState,
+  TopicBehaviorSignalCounts,
+  TopicDiscussionStep,
+  TopicQuestionReviewState,
 } from "@/features/topic-session";
-import { evaluateTopicAnswer } from "@/features/topic-session";
+import {
+  applyContinueLadderProgress,
+  applySkipCurrentQuestionProgress,
+  createContinueLadderDiscussionStep,
+  evaluateTopicAnswer,
+} from "@/features/topic-session";
 
 type UseLearningTopicQuestionActionsParams = {
   selectedAngleId: string;
@@ -21,6 +30,9 @@ type UseLearningTopicQuestionActionsParams = {
   setInsertedQuestionsByAngleId: Dispatch<SetStateAction<Record<string, InsertedQuestionRecord[]>>>;
   questionReviewStateById: Record<string, TopicQuestionReviewState | undefined>;
   setQuestionReviewStateById: Dispatch<SetStateAction<Record<string, TopicQuestionReviewState | undefined>>>;
+  activeAngleState: TopicAngleProgressState | undefined;
+  focusQuestion: (questionId: string) => void;
+  clearFocusedQuestion: () => void;
   revealedQuestionIds: Record<string, boolean>;
   setRevealedQuestionIds: Dispatch<SetStateAction<Record<string, boolean>>>;
   setBehaviorSignalCounts: Dispatch<SetStateAction<TopicBehaviorSignalCounts>>;
@@ -41,6 +53,9 @@ export function useLearningTopicQuestionActions({
   setInsertedQuestionsByAngleId,
   questionReviewStateById,
   setQuestionReviewStateById,
+  activeAngleState,
+  focusQuestion,
+  clearFocusedQuestion,
   setRevealedQuestionIds,
   setBehaviorSignalCounts,
 }: UseLearningTopicQuestionActionsParams) {
@@ -293,35 +308,67 @@ export function useLearningTopicQuestionActions({
       }
       return {
         ...previous,
-        [selectedAngleId]: {
-          ...angleState,
-          unlockedStepCount: Math.min(
-            Math.max(angleState.unlockedStepCount, currentStepIndex + 2),
-            discussionSteps.length,
-          ),
-          answerStateByQuestionId: {
-            ...angleState.answerStateByQuestionId,
-            [currentStep.question.id]: {
-              questionId: currentStep.question.id,
-              answer: "",
-              status: "skipped",
-              feedback: null,
-              summary: "Skipped for now.",
-              isCollapsed: true,
-              updatedAt: new Date().toISOString(),
-            },
-          },
-        },
+        [selectedAngleId]: applySkipCurrentQuestionProgress({
+          angleState,
+          currentStepIndex,
+          discussionStepCount: discussionSteps.length,
+          questionId: currentStep.question.id,
+        }),
       };
     });
     setBehaviorSignalCounts((previous) => ({
       ...previous,
       skipCount: previous.skipCount + 1,
     }));
+    clearFocusedQuestion();
   }, [
+    clearFocusedQuestion,
     currentStep,
     currentStepIndex,
     discussionSteps.length,
+    selectedAngleId,
+    setAngleStateById,
+    setBehaviorSignalCounts,
+  ]);
+
+  const handleContinueLadder = useCallback(() => {
+    if (!currentStep) {
+      return;
+    }
+
+    const nextGeneratedStep = createContinueLadderDiscussionStep({
+      currentStep,
+      ladderIndex: (activeAngleState?.generatedDiscussionSteps.length ?? 0) + 1,
+    });
+
+    setAngleStateById((previous) => {
+      const angleState = previous[selectedAngleId];
+      if (!angleState) {
+        return previous;
+      }
+
+      return {
+        ...previous,
+        [selectedAngleId]: applyContinueLadderProgress({
+          angleState,
+          currentStepIndex,
+          discussionStepCount: discussionSteps.length,
+          questionId: currentStep.question.id,
+          currentStep,
+        }),
+      };
+    });
+    setBehaviorSignalCounts((previous) => ({
+      ...previous,
+      continueLadderCount: previous.continueLadderCount + 1,
+    }));
+    focusQuestion(nextGeneratedStep.question.id);
+  }, [
+    activeAngleState?.generatedDiscussionSteps.length,
+    currentStep,
+    currentStepIndex,
+    discussionSteps.length,
+    focusQuestion,
     selectedAngleId,
     setAngleStateById,
     setBehaviorSignalCounts,
@@ -373,6 +420,7 @@ export function useLearningTopicQuestionActions({
           unlockedStepCount: 1,
           answerStateByQuestionId: {},
           attemptRecordsByQuestionId: {},
+          generatedDiscussionSteps: [],
         },
       }));
       setCustomQuestionDraftsByAngleId((previous) => ({
@@ -408,6 +456,7 @@ export function useLearningTopicQuestionActions({
     handleCheckInsertedQuestion,
     handleDraftAnswerChange,
     handleCustomQuestionDraftChange,
+    handleContinueLadder,
     handleSkipCurrent,
     handleTryAgain,
     handleRevealAnswer,

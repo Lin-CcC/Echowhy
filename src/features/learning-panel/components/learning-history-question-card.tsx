@@ -18,6 +18,7 @@ type LearningHistoryQuestionCardProps = {
   onToggleQuestionPending: (questionId: string) => void;
   onToggleQuestionBookmark: (questionId: string) => void;
   onToggleQuestionWeak: (questionId: string) => void;
+  onResumeQuestion: (questionId: string) => void;
 };
 
 export function LearningHistoryQuestionCard({
@@ -31,7 +32,11 @@ export function LearningHistoryQuestionCard({
   onToggleQuestionPending,
   onToggleQuestionBookmark,
   onToggleQuestionWeak,
+  onResumeQuestion,
 }: LearningHistoryQuestionCardProps) {
+  const canResumeQuestion =
+    answerState.status === "continued" || answerState.status === "skipped";
+
   return (
     <div
       id={`question-${step.question.id}`}
@@ -77,13 +82,26 @@ export function LearningHistoryQuestionCard({
             </span>{" "}
             {answerState.status === "skipped"
               ? "Skipped for now."
-              : answerState.answer}
+              : answerState.status === "continued"
+                ? "Continued via ladder without answering yet."
+                : answerState.answer}
           </ReadingLine>
         </p>
         <InlineFeedback
           answerState={answerState}
           useLightShield={useLightShield}
         />
+        {canResumeQuestion ? (
+          <div className="mt-2 flex justify-end">
+            <button
+              type="button"
+              onClick={() => onResumeQuestion(step.question.id)}
+              className="text-[11px] font-mono uppercase tracking-widest text-cyan-600 transition-colors hover:text-cyan-700 dark:text-cyan-400 dark:hover:text-cyan-300"
+            >
+              [ Resume here ]
+            </button>
+          </div>
+        ) : null}
         <QuestionReviewActions
           questionId={step.question.id}
           reviewState={reviewState}

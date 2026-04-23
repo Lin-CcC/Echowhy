@@ -3,9 +3,14 @@ import type {
   TopicDiscussionStep,
   TopicFeedbackLevel,
   TopicFeedbackPreview,
+  TopicGeneratedDiscussionStep,
   TopicNode,
   TopicSession,
 } from "./types";
+import {
+  countQuestionKeywordMatches,
+  inferTopicAnswerAnalysisDimensions,
+} from "./answer-analysis";
 
 const feedbackLabels: Record<TopicFeedbackLevel, string> = {
   weak: "Weak",
@@ -66,7 +71,7 @@ const genericCustomQuestion: TopicNode = {
   },
 };
 
-export function buildDiscussionSteps(
+function buildBaseDiscussionSteps(
   topic: TopicSession,
   angleId: string,
   customQuestion?: string,
@@ -115,26 +120,136 @@ export function buildDiscussionSteps(
   });
 }
 
-function containsKeyword(normalizedAnswer: string, keyword: string) {
-  return normalizedAnswer.includes(keyword.toLowerCase());
+function appendGeneratedChildren(
+  parentQuestionId: string,
+  childrenByQuestionId: Map<string, TopicGeneratedDiscussionStep[]>,
+  appendedStepIds: Set<string>,
+): TopicDiscussionStep[] {
+  const childSteps = childrenByQuestionId.get(parentQuestionId) ?? [];
+
+  return childSteps.flatMap((step) => {
+    if (appendedStepIds.has(step.id)) {
+      return [];
+    }
+
+    appendedStepIds.add(step.id);
+
+    return [
+      step,
+      ...appendGeneratedChildren(
+        step.question.id,
+        childrenByQuestionId,
+        appendedStepIds,
+      ),
+    ];
+  });
+}
+
+function createContinueLadderBlockContent(currentStep: TopicDiscussionStep) {
+  const promptStem = currentStep.question.prompt.trim().replace(/[?？]+\s*$/, "");
+  const blockLead = currentStep.block.title?.trim() || currentStep.question.label.trim();
+
+  return [
+    `This ladder step stays inside "${blockLead}" and pushes one layer deeper than "${promptStem}".`,
+    "Instead of switching topics, it asks what hidden boundary, dependency, or timing detail makes the current understanding hold together.",
+  ].join(" ");
+}
+
+function createContinueLadderPrompt(currentStep: TopicDiscussionStep) {
+  const promptStem = currentStep.question.prompt.trim().replace(/[?？]+\s*$/, "");
+
+  return `If "${promptStem}" is true, what deeper distinction or dependency explains it?`;
+}
+
+export function createContinueLadderDiscussionStep({
+  currentStep,
+  ladderIndex,
+}: {
+  currentStep: TopicDiscussionStep;
+  ladderIndex: number;
+}): TopicGeneratedDiscussionStep {
+  const generatedStepId = `generated-step-${currentStep.angleId}-${ladderIndex}`;
+  const generatedBlockId = `generated-exp-${currentStep.angleId}-${ladderIndex}`;
+  const generatedQuestionId = `generated-q-${currentStep.angleId}-${ladderIndex}`;
+  const nextReferenceIds = currentStep.question.referenceIds ?? [];
+  const nextPrompt = createContinueLadderPrompt(currentStep);
+
+  return {
+    id: generatedStepId,
+    angleId: currentStep.angleId,
+    afterQuestionId: currentStep.question.id,
+    createdAt: new Date().toISOString(),
+    block: {
+      id: generatedBlockId,
+      title: `Next distinction ${ladderIndex}`,
+      content: createContinueLadderBlockContent(currentStep),
+      order: currentStep.block.order + ladderIndex / 10,
+    },
+    question: {
+      id: generatedQuestionId,
+      angleId: currentStep.angleId,
+      label: `Next why ${ladderIndex}`,
+      prompt: nextPrompt,
+      x: currentStep.question.x + 170,
+      y: Math.max(48, currentStep.question.y - 110),
+      visualState: "dim",
+      referenceIds: nextReferenceIds,
+      revealAnswer:
+        "A strong answer should name one deeper boundary, dependency, or timing detail that explains the current step without leaving the same source context.",
+      keywordGroups: currentStep.question.keywordGroups,
+      bonusKeywords: currentStep.question.bonusKeywords,
+    },
+    defaultReferenceId:
+      currentStep.defaultReferenceId ?? currentStep.question.referenceIds?.[0],
+  };
+}
+
+export function buildDiscussionSteps(
+  topic: TopicSession,
+  angleId: string,
+  customQuestion?: string,
+  generatedDiscussionSteps: TopicGeneratedDiscussionStep[] = [],
+): TopicDiscussionStep[] {
+  const baseSteps = buildBaseDiscussionSteps(topic, angleId, customQuestion);
+
+  if (generatedDiscussionSteps.length === 0) {
+    return baseSteps;
+  }
+
+  const childrenByQuestionId = generatedDiscussionSteps
+    .filter((step) => step.angleId === angleId)
+    .reduce<Map<string, TopicGeneratedDiscussionStep[]>>((accumulator, step) => {
+      accumulator.set(step.afterQuestionId, [
+        ...(accumulator.get(step.afterQuestionId) ?? []),
+        step,
+      ]);
+      return accumulator;
+    }, new Map());
+
+  const appendedStepIds = new Set<string>();
+
+  return baseSteps.flatMap((step) => [
+    step,
+    ...appendGeneratedChildren(
+      step.question.id,
+      childrenByQuestionId,
+      appendedStepIds,
+    ),
+  ]);
 }
 
 export function evaluateTopicAnswer(question: TopicNode, answer: string): TopicFeedbackPreview {
   const normalizedAnswer = answer.trim().toLowerCase();
-  const keywordGroups = question.keywordGroups ?? [];
-  const matchedGroups = keywordGroups.filter((group) =>
-    group.some((keyword) => containsKeyword(normalizedAnswer, keyword)),
-  ).length;
-
-  const bonusKeywords = question.bonusKeywords ?? [];
-  const matchedBonus = bonusKeywords.filter((keyword) =>
-    containsKeyword(normalizedAnswer, keyword),
-  ).length;
+  const keywordMatches = countQuestionKeywordMatches(question, normalizedAnswer);
 
   const baseScore =
-    keywordGroups.length > 0 ? (matchedGroups / keywordGroups.length) * 82 : 40;
+    keywordMatches.totalGroups > 0
+      ? (keywordMatches.matchedGroups / keywordMatches.totalGroups) * 82
+      : 40;
   const bonusScore =
-    bonusKeywords.length > 0 ? (matchedBonus / bonusKeywords.length) * 18 : 0;
+    keywordMatches.totalBonus > 0
+      ? (keywordMatches.matchedBonus / keywordMatches.totalBonus) * 18
+      : 0;
   const lengthBonus =
     normalizedAnswer.length > 160 ? 8 : normalizedAnswer.length > 90 ? 4 : 0;
   const score = Math.max(18, Math.min(100, Math.round(baseScore + bonusScore + lengthBonus)));
@@ -152,6 +267,11 @@ export function evaluateTopicAnswer(question: TopicNode, answer: string): TopicF
     vaguePoints: template.vaguePoints,
     missingPoints: template.missingPoints,
     nextSuggestion: template.nextSuggestion,
+    analysisDimensions: inferTopicAnswerAnalysisDimensions({
+      question,
+      answer,
+      score,
+    }),
   };
 }
 
